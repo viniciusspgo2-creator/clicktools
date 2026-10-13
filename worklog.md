@@ -229,3 +229,19 @@ Stage Summary:
 - Projeto pronto para Vercel+Neon: schema PostgreSQL + build script exato + fallbacks de banco validados E2E
 - SEO Enterprise aplicado sem mudar layout/estrutura (apenas HTML invisível, meta tags, JSON-LD, OG image)
 - GEO/LLMO completo: bots de IA liberados, llms.txt + llms-full.txt gerados dos dados reais
+
+---
+Task ID: 9
+Agent: Super Z (main)
+Task: Rodada final do Mockup Studio 3D (8 tarefas + 2 adendos) — auditoria, correção de lint e verificação ponta a ponta
+
+Work Log:
+- Ambiente restaurado do zip do usuário; código já continha as 8 tarefas implementadas (chão 4 modos, anti-sobreposição com resolveOverlaps/ARRANGEMENTS, UV 360° com vão da alça preenchido, rótulos leigos, fundo imagem + cenários, Novidades no docs, DEPLOY.md)
+- Corrigidos 2 warnings de lint em camera-rig.tsx (diretivas eslint-disable não usadas) e 1 error do react-hooks/immutability: mutação da FOV extraída para função pura applyLens() fora do componente
+- Verificação: bunx tsc --noEmit = 0 erros em src/ (só erros pré-existentes em examples/skills do sandbox); bun run lint = 0 erros 0 warnings; bunx next build = passou (32 rotas)
+- Teste E2E com Agent Browser (gate PREMIUM contornado via mock de /api/access/validate): studio abre, arte de exemplo aplicada, vista COSTAS confirma vão da alça limpo sem listras (T3), Quarteto sem sobreposição + Enquadrar tudo (T2), chão Pedestal e Espelhado (T1), fundo Imagem com 8 cenários prontos e chão Contínuo = foto contínua só com sombras (T5), Play "Ver revelação" anima a mágica preta revelando até 100% (adendo 1), slider Inclinação presente (adendo 2), exportação PNG 1080 1× com foto+4 canecas+mágica concluída e cena restaurada, undo/redo (Ctrl+Z / Ctrl+Shift+Z) funcionando, mobile 390px com abas OK
+- Console sem erros; dev.log sem erros; nenhum arquivo proibido editado (só camera-rig.tsx dentro de src/components/tools/mockup/scene/)
+
+Stage Summary:
+- Mockup Studio 3D 100% verificado e lint-limpo: todas as 8 tarefas + 2 adendos funcionando em produção de código
+- Único ajuste de código nesta rodada: camera-rig.tsx (lint)

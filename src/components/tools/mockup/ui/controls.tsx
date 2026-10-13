@@ -214,15 +214,27 @@ export function MiniButton({
   onClick,
   active,
   className,
+  onPointerDown,
+  onPointerUp,
+  onPointerLeave,
+  title,
 }: {
   children: React.ReactNode;
-  onClick: () => void;
+  onClick?: () => void;
   active?: boolean;
   className?: string;
+  onPointerDown?: (e: React.PointerEvent) => void;
+  onPointerUp?: (e: React.PointerEvent) => void;
+  onPointerLeave?: (e: React.PointerEvent) => void;
+  title?: string;
 }) {
   return (
     <button
       onClick={onClick}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerLeave}
+      title={title}
       className={cn(
         'rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-all active:scale-95',
         active

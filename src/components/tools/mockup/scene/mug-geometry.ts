@@ -71,29 +71,57 @@ export function buildMugBodyGeometry(): THREE.BufferGeometry {
 }
 
 /**
- * Alça em "C" clássica: varredura de elipse ao longo de curva Catmull-Rom
+ * Alça em "C" clássica: varredura de seção ELÍPTICA ao longo de curva suave
  * no plano YZ (atrás da caneca, em -Z), com extremidades embutidas na parede.
  */
+
+/** curva da alça compartilhada (lazy) — usada pela geometria e pela caixa */
+let handleCurve: THREE.CatmullRomCurve3 | null = null;
+function getHandleCurve(): THREE.CatmullRomCurve3 {
+  if (!handleCurve) {
+    handleCurve = new THREE.CatmullRomCurve3(
+      [
+        new THREE.Vector3(0, 7.5, -3.7),
+        new THREE.Vector3(0, 7.75, -5.15),
+        new THREE.Vector3(0, 7.1, -6.25),
+        new THREE.Vector3(0, 5.4, -6.62),
+        new THREE.Vector3(0, 3.6, -6.35),
+        new THREE.Vector3(0, 2.45, -5.3),
+        new THREE.Vector3(0, 2.2, -3.75),
+      ],
+      false,
+      'catmullrom',
+      0.5,
+    );
+  }
+  return handleCurve;
+}
+
+/** semi-eixos da seção elíptica da alça */
+export const HANDLE_A_X = 0.5; // largura (X)
+export const HANDLE_B_N = 0.37; // espessura no plano da curva
+
+/** Caixa real da alça: alcance máximo a partir do centro da caneca (cm) */
+let handleExtentCache: number | null = null;
+export function handleExtentR(): number {
+  if (handleExtentCache === null) {
+    const curve = getHandleCurve();
+    let maxZ = 0;
+    for (let i = 0; i <= 64; i++) {
+      maxZ = Math.max(maxZ, Math.abs(curve.getPointAt(i / 64).z));
+    }
+    handleExtentCache = maxZ + HANDLE_B_N + 0.16; // espessura + folga de verniz
+  }
+  return handleExtentCache;
+}
+
 export function buildHandleGeometry(): THREE.BufferGeometry {
-  const curve = new THREE.CatmullRomCurve3(
-    [
-      new THREE.Vector3(0, 7.5, -3.7),
-      new THREE.Vector3(0, 7.75, -5.15),
-      new THREE.Vector3(0, 7.1, -6.25),
-      new THREE.Vector3(0, 5.4, -6.62),
-      new THREE.Vector3(0, 3.6, -6.35),
-      new THREE.Vector3(0, 2.45, -5.3),
-      new THREE.Vector3(0, 2.2, -3.75),
-    ],
-    false,
-    'catmullrom',
-    0.5,
-  );
+  const curve = getHandleCurve();
 
   const tubular = 72;
   const radial = 22;
-  const aX = 0.5; // semi-eixo ao longo de X (largura da alça)
-  const bN = 0.37; // semi-eixo no plano da curva (espessura)
+  const aX = HANDLE_A_X;
+  const bN = HANDLE_B_N;
 
   const frames = curve.computeFrenetFrames(tubular, false);
   const positions: number[] = [];
@@ -140,5 +168,26 @@ export function buildHandleGeometry(): THREE.BufferGeometry {
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geo.setIndex(indices);
+  return geo;
+}
+
+/**
+ * Pedestal redondo premium com bordas arredondadas (bevel) — usado no
+ * modo de chão "Pedestal". O raio acompanha o tamanho do grupo de canecas.
+ */
+export function buildPedestalGeometry(radius: number, height: number): THREE.BufferGeometry {
+  const bev = Math.min(0.24, height * 0.3, radius * 0.12);
+  const r = Math.max(3, radius);
+  const pts: THREE.Vector2[] = [
+    new THREE.Vector2(0.0001, 0),
+    new THREE.Vector2(r * 0.86, 0),
+    new THREE.Vector2(r - bev * 0.4, 0.02),
+    new THREE.Vector2(r, bev),
+    new THREE.Vector2(r, height - bev),
+    new THREE.Vector2(r - bev, height),
+    new THREE.Vector2(0.0001, height),
+  ];
+  const geo = new THREE.LatheGeometry(pts, 96);
+  geo.computeVertexNormals();
   return geo;
 }

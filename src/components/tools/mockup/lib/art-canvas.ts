@@ -10,7 +10,7 @@
 
 import * as THREE from 'three';
 import {
-  CANVAS_W_PREVIEW, STRIP_PX, MUG, PRINT_ARC_CM, PRINT_HEIGHT_CM, CIRC_CM, GAP_ANGLE,
+  CANVAS_W_PREVIEW, STRIP_PX, MUG, PRINT_ARC_CM, PRINT_HEIGHT_CM, CIRC_CM, GAP_ANGLE, ARC_FRACTION,
 } from './config';
 import type { ArtState, MugState } from '../state/store';
 import { getArtImage } from './art-registry';
@@ -97,7 +97,8 @@ function applyMagicReveal(canvas: HTMLCanvasElement, printH: number, mug: MugSta
 }
 
 export function canvasHeightFor(width: number): number {
-  const printH = Math.round((width * PRINT_HEIGHT_CM) / PRINT_ARC_CM);
+  // o canvas cobre a volta COMPLETA (360°): px/cm = width / CIRC_CM
+  const printH = Math.round((width * PRINT_HEIGHT_CM) / CIRC_CM);
   return printH + STRIP_PX * 2;
 }
 
@@ -110,16 +111,16 @@ const UV_EPS = 0.004;
 
 /**
  * Sobrescreve as UVs do corpo (LatheGeometry) para:
- *  - parede externa → projeção cilíndrica exata da folha de impressão
- *    (u percorre o arco sem o gap da alça; v linear em y)
- *  - borda/pé/fundo externo → faixa de cor exterior
- *  - interior → faixa de cor interior
+ *  - parede externa → u percorre a VOLTA INTEIRA de 360° (o vão da alça
+ *    amostra uma região própria do canvas preenchida com a cor-base —
+ *    nunca “vaza” a última coluna da arte);
+ *  - borda/pé/fundo externo → faixa de cor exterior;
+ *  - interior → faixa de cor interior.
  */
 export function remapBodyUVs(geo: THREE.BufferGeometry) {
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const uv = new Float32Array(pos.count * 2);
   const total = Math.PI * 2;
-  const arc = total - GAP_ANGLE;
   const start = Math.PI + GAP_ANGLE / 2; // gap centrado atrás (alça em -Z)
   const H = canvasHeightFor(CANVAS_W_PREVIEW);
   const printH = H - STRIP_PX * 2;
@@ -143,11 +144,12 @@ export function remapBodyUVs(geo: THREE.BufferGeometry) {
       u = 0.985;
       v = vIntMid;
     } else {
-      // parede externa → folha de impressão
+      // parede externa → folha de impressão (u cobre os 360°)
       const a = Math.atan2(x, z); // 0 = +Z (frente da arte)
       let rel = (a - start) % total;
       if (rel < 0) rel += total;
-      u = Math.min(1 - UV_EPS, Math.max(UV_EPS, rel / arc));
+      // 0..1 na volta inteira: o vão da alça cai no fim do canvas (cor-base)
+      u = Math.min(1 - UV_EPS, Math.max(UV_EPS, rel / total));
       const vf = (y - MUG.printBottom) / (MUG.printTop - MUG.printBottom);
       v = vBase + Math.min(1, Math.max(0, vf)) * (1 - vBase) - UV_EPS * 0.5;
     }
@@ -158,57 +160,83 @@ export function remapBodyUVs(geo: THREE.BufferGeometry) {
 }
 
 /**
+ * Desenha a camada de texto do usuário (legenda/slogan) sobre a área.
+ * W = largura do arco de impressão em px; printH = altura da área em px.
+ */
+function drawArtText(ctx: CanvasRenderingContext2D, W: number, printH: number, art: ArtState) {
+  const text = (art.text ?? '').trim();
+  if (!text) return;
+  const px = Math.max(8, printH * Math.min(0.24, Math.max(0.04, art.textSize ?? 0.09)));
+  ctx.save();
+  ctx.font = `800 ${px}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = art.textColor || '#1d130d';
+  const x = W / 2;
+  const y = printH * (0.55 + Math.max(-1, Math.min(1, art.textY ?? 0)) * 0.42);
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+/**
  * Desenha a arte na área de impressão (printH linhas) do ctx, com os
- * ajustes do usuário (fit, escala, posição, rotação, espelho, repetir).
- * Usada pela folha de textura 3D e pela folha planificada para sublimação.
+ * ajustes do usuário (fit, escala, posição, rotação, espelho, repetir)
+ * e a camada de texto. Usada pela folha de textura 3D e pela folha
+ * planificada para sublimação. W aqui = largura do ARCO de impressão.
  */
 export function drawArtIntoArea(ctx: CanvasRenderingContext2D, W: number, printH: number, art: ArtState) {
   const entry = getArtImage(art.imageId);
-  if (!entry) return;
 
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  if (entry) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
-  const img = entry.source;
-  const iw = entry.width;
-  const ih = entry.height;
-  const repeat = Math.max(1, Math.round(art.repeat));
-  const slotW = W / repeat;
+    const img = entry.source;
+    const iw = entry.width;
+    const ih = entry.height;
+    const repeat = Math.max(1, Math.round(art.repeat));
+    const slotW = W / repeat;
 
-  let dw: number, dh: number;
-  if (art.fit === 'stretch') {
-    dw = slotW;
-    dh = printH;
-  } else if (art.fit === 'cover') {
-    const s = Math.max(slotW / iw, printH / ih);
-    dw = iw * s;
-    dh = ih * s;
-  } else {
-    const s = Math.min(slotW / iw, printH / ih);
-    dw = iw * s;
-    dh = ih * s;
-  }
-  dw *= art.scale;
-  dh *= art.scale;
+    let dw: number, dh: number;
+    if (art.fit === 'stretch') {
+      dw = slotW;
+      dh = printH;
+    } else if (art.fit === 'cover') {
+      const s = Math.max(slotW / iw, printH / ih);
+      dw = iw * s;
+      dh = ih * s;
+    } else {
+      const s = Math.min(slotW / iw, printH / ih);
+      dw = iw * s;
+      dh = ih * s;
+    }
+    dw *= art.scale;
+    dh *= art.scale;
 
-  const phase = art.offsetX * W; // desloca em volta da caneca (com wrap)
-  const cy = printH / 2 + art.offsetY * printH * 0.5;
+    const phase = art.offsetX * W; // desloca em volta da caneca (com wrap)
+    const cy = printH / 2 + art.offsetY * printH * 0.5;
 
-  for (let i = 0; i < repeat; i++) {
-    const cx = i * slotW + slotW / 2 + phase;
-    for (const xo of [0, -W, W]) {
-      ctx.save();
-      ctx.translate(cx + xo, cy);
-      ctx.rotate((art.rotation * Math.PI) / 180);
-      ctx.scale(art.mirror ? -1 : 1, 1);
-      ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
-      ctx.restore();
+    for (let i = 0; i < repeat; i++) {
+      const cx = i * slotW + slotW / 2 + phase;
+      for (const xo of [0, -W, W]) {
+        ctx.save();
+        ctx.translate(cx + xo, cy);
+        ctx.rotate((art.rotation * Math.PI) / 180);
+        ctx.scale(art.mirror ? -1 : 1, 1);
+        ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+        ctx.restore();
+      }
     }
   }
+
+  drawArtText(ctx, W, printH, art);
 }
 
 /**
  * Desenha a arte na folha (canvas) conforme os ajustes do usuário.
+ * O canvas cobre a volta completa: a arte fica confinada ao arco de
+ * impressão e o vão da alça é preenchido com a cor-base (branco / preto
+ * na mágica) — sem listras nem vazamento da última coluna.
  * Na caneca mágica aplica a revelação térmica sobre a área de impressão.
  */
 export function renderArtCanvas(
@@ -220,19 +248,26 @@ export function renderArtCanvas(
   const H = canvas.height;
   const S = STRIP_PX * (W / CANVAS_W_PREVIEW);
   const printH = H - S * 2;
+  const arcW = Math.round(W * ARC_FRACTION);
   const ctx = canvas.getContext('2d')!;
 
   const isMagic = mug.variant === 'magic';
   const ext = isMagic ? '#141110' : '#ffffff';
   const interior = mug.variant === 'white' ? '#ffffff' : mug.accentColor;
 
-  // faixas de cor-base
+  // faixas de cor-base (o vão da alça fica sempre com a cor exterior)
   ctx.fillStyle = ext;
   ctx.fillRect(0, 0, W, printH + S);
   ctx.fillStyle = interior;
   ctx.fillRect(0, printH + S, W, H - printH - S);
 
-  drawArtIntoArea(ctx, W, printH, art);
+  // arte confinada ao arco de impressão (x: 0..arcW)
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, arcW, printH);
+  ctx.clip();
+  drawArtIntoArea(ctx, arcW, printH, art);
+  ctx.restore();
 
   if (isMagic) applyMagicReveal(canvas, printH, mug);
 }
@@ -251,23 +286,24 @@ export function makeArtTexture(canvas: HTMLCanvasElement, maxAniso: number): THR
   return tex;
 }
 
-/** DPI efetivo da arte na área de impressão (≈ 21 cm de largura) */
+/** DPI efetivo da arte na área de impressão (≈ 20,7 cm de arco) */
 export function computeDpi(art: ArtState): number | null {
   const entry = getArtImage(art.imageId);
   if (!entry) return null;
   const printH = printHFor();
-  const slotW = CANVAS_W_PREVIEW / Math.max(1, Math.round(art.repeat));
+  const arcPx = Math.round(CANVAS_W_PREVIEW * ARC_FRACTION);
+  const slotW = arcPx / Math.max(1, Math.round(art.repeat));
   const iw = entry.naturalWidth;
   const ih = entry.naturalHeight;
   let printedPx: number;
   if (art.fit === 'stretch') printedPx = slotW;
   else if (art.fit === 'cover') printedPx = Math.max(slotW, (iw * printH) / ih);
   else printedPx = Math.min(slotW, (iw * printH) / ih);
-  const printedCm = Math.min(PRINT_ARC_CM, printedPx * (PRINT_ARC_CM / CANVAS_W_PREVIEW)) * art.scale;
+  const printedCm = Math.min(PRINT_ARC_CM, printedPx * (PRINT_ARC_CM / arcPx)) * art.scale;
   if (printedCm <= 0.01) return null;
   return iw / (printedCm / 2.54);
 }
 
 function printHFor(): number {
-  return Math.round((CANVAS_W_PREVIEW * PRINT_HEIGHT_CM) / PRINT_ARC_CM);
+  return Math.round((CANVAS_W_PREVIEW * PRINT_HEIGHT_CM) / CIRC_CM);
 }

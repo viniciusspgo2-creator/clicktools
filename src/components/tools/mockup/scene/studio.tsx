@@ -1,16 +1,24 @@
 /* ============================================================
    Estúdio: iluminação (Environment + Lightformers + luzes reais),
-   fundos (gradiente/estúdios/transparente), chão e sombras.
+   fundos (branco puro, escuro, gradiente, cor, imagem, sem fundo),
+   chão (contínuo / flutuante / pedestal / espelhado) e sombras que
+   crescem junto com o grupo de canecas.
    ============================================================ */
 
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { ContactShadows, Environment, Lightformer } from '@react-three/drei';
+import { ContactShadows, Environment, Lightformer, MeshReflectorMaterial } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { useMockupStore } from '../state/store';
-import { LIGHT_PRESETS, kelvinToRgb, detectMobile } from '../lib/config';
+import {
+  FLOAT_LIFT, LIGHT_PRESETS, PEDESTAL_H, detectMobile, groupFootprint, kelvinToRgb,
+} from '../lib/config';
+import { getBackgroundAvg } from '../lib/background-registry';
+import { buildPedestalGeometry } from './mug-geometry';
+import { studioRefs } from './studio-refs';
 
 let rectAreaReady = false;
 function ensureRectArea() {
@@ -28,9 +36,15 @@ const rgbCss = ([r, g, b]: [number, number, number]) =>
 export function StudioLights() {
   const light = useMockupStore((s) => s.light);
   const castShadow = useMockupStore((s) => s.bg.castShadow);
+  const bg = useMockupStore((s) => s.bg);
+  const companions = useMockupStore((s) => s.companions);
+  const mugScale = useMockupStore((s) => s.mug.scale);
   const mobile = useMemo(() => detectMobile(), []);
   const preset = LIGHT_PRESETS.find((p) => p.id === light.preset) ?? LIGHT_PRESETS[0];
   ensureRectArea();
+
+  // a câmera de sombra cresce junto com o grupo (nunca corta a sombra)
+  const extent = groupFootprint(companions, mugScale);
 
   const keyPos = useMemo(() => {
     const [x, y, z] = preset.keyDir;
@@ -42,12 +56,15 @@ export function StudioLights() {
   const fillColor = useMemo(() => rgbCss(kelvinToRgb(preset.fillTemp + light.temperature)), [preset, light.temperature]);
   const rimColor = useMemo(() => rgbCss(kelvinToRgb(preset.rimTemp + light.temperature)), [preset, light.temperature]);
 
+  // "Combinar luz com o fundo": tinge o ambiente com a cor média da foto
+  const matchAvg = bg.type === 'image' && bg.matchLight ? getBackgroundAvg(bg.imageId) : null;
+
   // Environment reconstruído apenas em mudanças discretas (preset/rotação grossa)
   const envKey = `${preset.id}-${Math.round(light.rotation / 6) * 6}-${Math.round(light.intensity * 10)}`;
 
   return (
     <>
-      <ambientLight intensity={0.07} />
+      <ambientLight intensity={matchAvg ? 0.26 : 0.07} color={matchAvg ? rgbCss(matchAvg) : '#ffffff'} />
       {/* luz chave com sombra suave */}
       <directionalLight
         position={keyPos.toArray()}
@@ -60,7 +77,7 @@ export function StudioLights() {
         shadow-bias={-0.0002}
         shadow-normalBias={0.03}
       >
-        <orthographicCamera attach="shadow-camera" args={[-9, 9, 12, -2, 0.5, 60]} />
+        <orthographicCamera attach="shadow-camera" args={[-extent, extent, extent * 1.35 + 4, -2.4, 0.5, 90]} />
       </directionalLight>
       {/* preenchimento */}
       <directionalLight
@@ -162,8 +179,12 @@ const backdropFrag = /* glsl */ `
   }
 `;
 
-function hexToVec(hex: string): THREE.Color {
-  return new THREE.Color(hex).convertSRGBToLinear();
+/**
+ * Converte hex para o espaço que o shader escreve direto no framebuffer
+ * (sRGB) — SEM conversão para linear, senão o branco sai queimado/bege.
+ */
+function hexToVecRaw(hex: string): THREE.Color {
+  return new THREE.Color(hex);
 }
 
 export function Backdrop() {
@@ -171,11 +192,12 @@ export function Backdrop() {
 
   const { uA, uB, uDir } = useMemo(() => {
     let a = '#ffffff';
-    let b = '#e8e2d9';
+    let b = '#ffffff';
     let dirAngleDeg = 90;
     if (bg.type === 'studio-white') {
+      // branco PURO de ponta a ponta (padrão)
       a = '#ffffff';
-      b = '#ddd7cc';
+      b = '#ffffff';
       dirAngleDeg = 90;
     } else if (bg.type === 'studio-dark') {
       a = '#2b2721';
@@ -195,12 +217,12 @@ export function Backdrop() {
   }, [bg]);
 
   const uniforms = {
-    uA: { value: hexToVec(uA) },
-    uB: { value: hexToVec(uB) },
+    uA: { value: hexToVecRaw(uA) },
+    uB: { value: hexToVecRaw(uB) },
     uDir: { value: uDir },
   };
 
-  if (bg.type === 'transparent') return null;
+  if (bg.type === 'transparent' || bg.type === 'image') return null;
 
   return (
     <>
@@ -236,6 +258,7 @@ function GlowBoard() {
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }, []);
+  useEffect(() => () => tex.dispose(), [tex]);
   return (
     <mesh name="glowboard" position={[0, 6, -28]}>
       <planeGeometry args={[38, 26]} />
@@ -246,57 +269,184 @@ function GlowBoard() {
 
 /* ---------------- Chão + sombras ---------------- */
 
-export function Ground() {
-  const bg = useMockupStore((s) => s.bg);
-  const envIntensity = useMockupStore((s) => s.light.envIntensity);
+/** textura radial suave (usada na sombra difusa do modo flutuante) */
+function makeBlobTexture(): THREE.CanvasTexture {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createRadialGradient(S / 2, S / 2, 4, S / 2, S / 2, S / 2);
+  g.addColorStop(0, 'rgba(24,16,10,0.85)');
+  g.addColorStop(0.5, 'rgba(24,16,10,0.38)');
+  g.addColorStop(1, 'rgba(24,16,10,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, S, S);
+  return new THREE.CanvasTexture(c);
+}
 
-  const color = useMemo(() => {
-    switch (bg.type) {
-      case 'studio-white':
-        return '#efebe3';
-      case 'studio-dark':
-        return '#0b0a09';
-      case 'gradient':
-        return bg.colorB;
-      case 'solid':
-        return bg.colorB;
-      default:
-        return '#111111';
-    }
-  }, [bg]);
+/** sombra suave no ar (modo flutuante) — mais difusa e fraca quanto mais alta */
+export function FloatShadows() {
+  const floor = useMockupStore((s) => s.bg.floor);
+  const companions = useMockupStore((s) => s.companions);
+  const mugPosY = useMockupStore((s) => s.mug.posY);
+  const mugScale = useMockupStore((s) => s.mug.scale);
+  const tex = useMemo(() => makeBlobTexture(), []);
+  useEffect(() => () => tex.dispose(), [tex]);
+  if (floor !== 'flutuante') return null;
 
-  if (bg.type === 'transparent') {
-    return (
-      <mesh name="ground" rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <circleGeometry args={[16, 64]} />
-        <shadowMaterial transparent opacity={0.32} />
-      </mesh>
-    );
-  }
+  const mugs = [
+    { x: 0, z: 0, lift: FLOAT_LIFT + mugPosY, scale: mugScale },
+    ...companions.map((c) => ({ x: c.posX, z: c.posZ, lift: FLOAT_LIFT, scale: c.scale })),
+  ];
 
   return (
+    <group name="float-shadow">
+      {mugs.map((m, i) => {
+        const soft = 1 + m.lift * 0.16;
+        const opacity = Math.max(0.14, 0.5 / (1 + m.lift * 0.4));
+        return (
+          <mesh
+            key={i}
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[m.x, 0.02, m.z]}
+            scale={11 * m.scale * soft}
+          >
+            <planeGeometry args={[1, 1]} />
+            <meshBasicMaterial map={tex} transparent opacity={opacity} depthWrite={false} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+/** plano gigante que só recebe sombra — some contra o fundo em qualquer ângulo */
+function ShadowCatcher() {
+  return (
     <mesh name="ground" rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-      <circleGeometry args={[16, 64]} />
-      <meshStandardMaterial color={color} roughness={0.9} metalness={0} envMapIntensity={0.25 + envIntensity * 0.3} />
+      <planeGeometry args={[90, 90]} />
+      <shadowMaterial transparent opacity={0.32} />
     </mesh>
   );
 }
 
-export function StudioContactShadows() {
-  const enabled = useMockupStore((s) => s.bg.contactShadow);
-  const softness = useMockupStore((s) => s.light.softness);
+/** pedestal redondo premium com bevel — acompanha o tamanho do grupo */
+function Pedestal() {
+  const companions = useMockupStore((s) => s.companions);
+  const mugScale = useMockupStore((s) => s.mug.scale);
+  const envIntensity = useMockupStore((s) => s.light.envIntensity);
+  const radius = useMemo(() => Math.min(30, Math.max(8.5, groupFootprint(companions, mugScale) - 0.6)), [companions, mugScale]);
+  const geo = useMemo(() => buildPedestalGeometry(radius, PEDESTAL_H), [radius]);
+  useEffect(() => () => geo.dispose(), [geo]);
+
+  return (
+    <group name="pedestal">
+      <mesh geometry={geo} castShadow receiveShadow>
+        <meshPhysicalMaterial
+          color="#241c15"
+          roughness={0.32}
+          metalness={0.08}
+          clearcoat={0.85}
+          clearcoatRoughness={0.24}
+          envMapIntensity={0.4 + envIntensity * 0.5}
+        />
+      </mesh>
+      <ShadowCatcher />
+    </group>
+  );
+}
+
+/** piso espelhado com reflexo suave (fallback leve no celular) */
+function MirrorFloor() {
+  const bg = useMockupStore((s) => s.bg);
   const mobile = useMemo(() => detectMobile(), []);
-  if (!enabled) return null;
+  const color = useMemo(() => {
+    switch (bg.type) {
+      case 'studio-white':
+        return '#f4f2ee';
+      case 'studio-dark':
+        return '#100e0c';
+      case 'solid':
+      case 'gradient':
+        return bg.colorB;
+      default:
+        return '#191715';
+    }
+  }, [bg]);
+
+  return (
+    <mesh name="ground" rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+      <planeGeometry args={[90, 90]} />
+      <MeshReflectorMaterial
+        resolution={mobile ? 256 : 512}
+        blur={[mobile ? 200 : 320, mobile ? 60 : 100]}
+        mixBlur={0.9}
+        mixStrength={mobile ? 1.7 : 3}
+        roughness={0.86}
+        depthScale={1.1}
+        minDepthThreshold={0.9}
+        maxDepthThreshold={1.3}
+        color={color}
+        metalness={0.35}
+        mirror={0.55}
+      />
+    </mesh>
+  );
+}
+
+export function Ground() {
+  const bg = useMockupStore((s) => s.bg);
+  const floor = bg.floor ?? 'continuo';
+
+  if (floor === 'flutuante') return null; // sombras ficam por conta do FloatShadows
+  if (floor === 'pedestal') return <Pedestal />;
+  if (floor === 'espelhado') return <MirrorFloor />;
+
+  // contínuo (padrão): só receptor de sombra — o fundo (branco puro,
+  // gradiente, cor sólida ou imagem) aparece por trás sem nenhuma borda
+  return <ShadowCatcher />;
+}
+
+export function StudioContactShadows() {
+  const bg = useMockupStore((s) => s.bg);
+  const softness = useMockupStore((s) => s.light.softness);
+  const companions = useMockupStore((s) => s.companions);
+  const mugScale = useMockupStore((s) => s.mug.scale);
+  const mobile = useMemo(() => detectMobile(), []);
+  const floor = bg.floor ?? 'continuo';
+  if (!bg.contactShadow || floor === 'flutuante') return null;
+  const extent = groupFootprint(companions, mugScale);
   return (
     <ContactShadows
-      position={[0, 0.002, 0]}
-      opacity={0.48}
-      scale={15}
+      position={[0, floor === 'pedestal' ? PEDESTAL_H + 0.002 : 0.002, 0]}
+      opacity={0.44}
+      scale={Math.min(64, extent * 2.2)}
       blur={2.2 + softness * 2.4}
-      far={3.4}
+      far={4.2}
       resolution={mobile ? 256 : 512}
       color="#20140b"
       frames={Infinity}
     />
   );
 }
+
+/* ---------------- util: tempo para animação de flutuar ---------------- */
+
+/** fase estável por id (cada caneca sobe e desce fora de sincronia) */
+export function floatPhaseFor(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 1000;
+  return (h / 1000) * Math.PI * 2;
+}
+
+/** hook de referência mutável usada pelo mug.tsx para o sobe-e-desce */
+export function useFloatClock() {
+  const ref = useRef(0);
+  useFrame(({ clock }) => {
+    ref.current = clock.elapsedTime;
+  });
+  return ref;
+}
+
+/** reexpõe refs para o mug (evita import cíclico do studioRefs na cena) */
+export { studioRefs };

@@ -23,13 +23,31 @@ export const AVG_R = 4.02;
 export const CIRC_CM = 2 * Math.PI * AVG_R;
 export const GAP_ANGLE = (MUG.gapCirc / CIRC_CM) * Math.PI * 2; // rad
 export const PRINT_ARC_CM = CIRC_CM - MUG.gapCirc;
+/** Fração da volta (360°) ocupada pela arte — o resto é o vão da alça */
+export const ARC_FRACTION = PRINT_ARC_CM / CIRC_CM;
+
+/* ---------------- Encaixe das canecas (multicaneca) ---------------- */
+/** Maior raio do corpo (topo 4.11 + folga da borda arredondada) */
+export const BODY_MAX_R = 4.3;
+/** Raio máximo da caneca incluindo a alça (medido da caixa real da alça) */
+export const MUG_FULL_R = 7.15;
+/** Folga mínima garantida entre canecas (cm) */
+export const MUG_GAP_MIN = 1.0;
+/** Altura do pedestal (cm) — canecas ficam apoiadas nele */
+export const PEDESTAL_H = 0.9;
+/** Altura de flutuação padrão no modo "Flutuante" (cm) */
+export const FLOAT_LIFT = 1.7;
 
 /* ---------------- Textura da arte ---------------- */
-export const CANVAS_W_PREVIEW = 2048;
+/** Largura do canvas = volta COMPLETA (360°); a arte ocupa a fração ARC_FRACTION */
+export const CANVAS_W_PREVIEW = 2560;
 export const CANVAS_W_EXPORT = 4096;
+/** Largura em px da área de impressão (arco) no canvas de preview */
+export const ARC_W_PREVIEW = Math.round(CANVAS_W_PREVIEW * ARC_FRACTION);
 export const STRIP_PX = 32; // faixa de cor-base (exterior / interior)
 export const MAX_ART_PX = 4096; // redimensionamento interno da arte
 export const MAX_UPLOAD_MB = 25;
+export const MAX_BG_PX = 4096; // redimensionamento interno da imagem de fundo
 
 /* ---------------- Iluminação ---------------- */
 export interface LightPresetDef {
@@ -90,7 +108,7 @@ export const CAMERA_PRESETS: CameraPresetDef[] = [
   { id: 'alca-esq', label: 'Alça à esq.', pos: [23, 6, -14], target: [0, 4.7, -1.5] },
   { id: 'alca-dir', label: 'Alça à dir.', pos: [-23, 6, -14], target: [0, 4.7, -1.5] },
   { id: 'topo', label: 'Topo', pos: [0.01, 29, 5.5], target: [0, 3, 0] },
-  { id: 'heroi', label: 'Ângulo herói', pos: [4.5, 1.4, 21.5], target: [0, 4.3, 0] },
+  { id: 'heroi', label: 'Ângulo destaque', pos: [4.5, 1.4, 21.5], target: [0, 4.3, 0] },
   { id: 'angulo-alto', label: 'Ângulo alto', pos: [0, 25, 13], target: [0, 3.3, 0] },
   { id: 'close-arte', label: 'Close na arte', pos: [0, 5.2, 15.5], target: [0, 5, 0] },
   { id: 'close-alca', label: 'Close na alça', pos: [0, 5.2, -16], target: [0, 5, -2] },
@@ -101,16 +119,48 @@ export function lensToFov(lensMm: number): number {
   return (2 * Math.atan(12 / lensMm) * 180) / Math.PI;
 }
 
-/* ---------------- Fundos ---------------- */
-export type BackgroundType = 'studio-white' | 'studio-dark' | 'gradient' | 'solid' | 'transparent';
+/* ---------------- Fundos e chão ---------------- */
+export type BackgroundType = 'studio-white' | 'studio-dark' | 'gradient' | 'solid' | 'image' | 'transparent';
 
 export const BACKGROUND_LABELS: Record<BackgroundType, string> = {
-  'studio-white': 'Estúdio branco infinito',
+  'studio-white': 'Branco puro (padrão)',
   'studio-dark': 'Estúdio escuro premium',
   gradient: 'Gradiente colorido',
   solid: 'Cor sólida',
-  transparent: 'Transparente (PNG/WebP alfa)',
+  image: 'Imagem do seu dispositivo',
+  transparent: 'Sem fundo (PNG/WebP com alfa)',
 };
+
+export type FloorType = 'continuo' | 'flutuante' | 'pedestal' | 'espelhado';
+
+export const FLOOR_OPTIONS: { value: FloorType; label: string; title: string }[] = [
+  { value: 'continuo', label: 'Contínuo', title: 'Chão que se mistura ao fundo, sem borda visível' },
+  { value: 'flutuante', label: 'Flutuante', title: 'Sem chão — só a caneca, com sombra suave no ar' },
+  { value: 'pedestal', label: 'Pedestal', title: 'Base redonda premium com bordas arredondadas' },
+  { value: 'espelhado', label: 'Espelhado', title: 'Piso com reflexo suave da caneca' },
+];
+
+export const FLOOR_LABELS: Record<FloorType, string> = {
+  continuo: 'Contínuo (sem borda)',
+  flutuante: 'Flutuante (sem chão)',
+  pedestal: 'Pedestal',
+  espelhado: 'Espelhado',
+};
+
+/**
+ * Extensão horizontal do conjunto de canecas (cm) — usada para crescer
+ * sombras, chão e pedestal junto com o grupo.
+ */
+export function groupFootprint(
+  companions: { posX: number; posZ: number; scale: number }[],
+  heroScale = 1,
+): number {
+  let r = MUG_FULL_R * heroScale + 1;
+  for (const c of companions) {
+    r = Math.max(r, Math.hypot(c.posX, c.posZ) + MUG_FULL_R * c.scale + 1);
+  }
+  return Math.min(34, Math.max(9, r));
+}
 
 /* ---------------- Exportação ---------------- */
 export interface RatioDef {

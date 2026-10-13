@@ -8,8 +8,9 @@
 import { Suspense, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
-import { StudioLights, Backdrop, Ground, StudioContactShadows } from './studio';
+import { StudioLights, Backdrop, Ground, StudioContactShadows, FloatShadows } from './studio';
 import { Mug } from './mug';
+import { ImageBackdrop } from './bg-image';
 import { CameraRig } from './camera-rig';
 import { PostFX } from './postfx';
 import { studioRefs } from './studio-refs';
@@ -45,9 +46,11 @@ function SceneContent() {
   return (
     <>
       <Backdrop />
+      <ImageBackdrop />
       <StudioLights />
       <Ground />
       <Mug />
+      <FloatShadows />
       <StudioContactShadows />
       <CameraRig />
       {fxEnabled && <PostFX />}

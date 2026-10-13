@@ -16,9 +16,25 @@ export const studioRefs: {
   renderPass?: RenderPass | null;
   gradePass?: ShaderPass | null;
   bloomPass?: UnrealBloomPass | null;
+  /** true durante qualquer render offscreen (float parado, sombras estáveis) */
+  exporting?: boolean;
+  /** true quando o render offscreen é com fundo transparente */
+  exportTransparent?: boolean;
 } = {};
 
 /** grupo que contém todas as canecas (hero + acompanhantes) */
 export function mugsGroup(scene: THREE.Scene): THREE.Object3D | null {
   return scene.getObjectByName('mockup-mugs') ?? scene.getObjectByName('mockup-mug') ?? null;
+}
+
+/**
+ * Fixa as canecas flutuantes na pose de descanso (durante exportações
+ * estáticas a animação de flutuar fica parada).
+ */
+export function settleFloaters(scene: THREE.Scene): void {
+  scene.traverse((o) => {
+    if (o.name === 'mug-float' && typeof (o.userData as { baseY?: number }).baseY === 'number') {
+      o.position.y = (o.userData as { baseY: number }).baseY;
+    }
+  });
 }

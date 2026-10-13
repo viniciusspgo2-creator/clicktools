@@ -5,18 +5,20 @@
 
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ImagePlus, CupSoda, Mountain, Lightbulb, Camera, Sparkles, Download, Loader2,
   Trash2, Wand2, RotateCw, FlipHorizontal2, Crosshair, Check, TriangleAlert, Flame, Snowflake,
+  Play, Square, Grid3X3, Maximize, Move, Eye,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useMockupStore, type VideoState } from '../state/store';
 import { loadArtFile, makeSampleArt, getArtImage } from '../lib/art-registry';
 import { computeDpi } from '../lib/art-canvas';
+import { loadBgFile, ensureScenes, SCENES, drawSceneThumb } from '../lib/background-registry';
 import {
-  BACKGROUND_LABELS, CAMERA_PRESETS, EXPORT_RATIOS, LIGHT_PRESETS, MAX_EXPORT_PX,
+  BACKGROUND_LABELS, CAMERA_PRESETS, EXPORT_RATIOS, FLOOR_OPTIONS, LIGHT_PRESETS, MAX_EXPORT_PX,
   type BackgroundType,
 } from '../lib/config';
 import { ColorRow, MiniButton, PrimaryButton, Section, Segmented, SliderRow, ToggleRow } from './controls';
@@ -143,6 +145,42 @@ export function ArtPanel() {
         <Wand2 className="mr-1 inline h-3 w-3 text-primary" /> Usar arte de exemplo
       </MiniButton>
 
+      {/* texto escrito direto na caneca (sai também na folha de sublimação) */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
+        <p className="mb-1.5 text-[11px] font-medium text-neutral-400" title="Escreva uma frase ou nome — vai para a caneca e para a folha de sublimação">
+          Texto na caneca (opcional)
+        </p>
+        <input
+          value={art.text}
+          maxLength={40}
+          onChange={(e) => patch('art', { text: e.target.value })}
+          placeholder="Ex.: Feliz Aniversário! "
+          className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
+        />
+        {art.text.trim() && (
+          <div className="mt-2 space-y-2">
+            <ColorRow label="Cor do texto" value={art.textColor} onChange={(v) => patch('art', { textColor: v })} />
+            <SliderRow
+              label="Tamanho do texto"
+              value={art.textSize * 100}
+              min={4}
+              max={24}
+              onChange={(v) => patch('art', { textSize: v / 100 })}
+              defaultValue={9}
+              format={(v) => `${Math.round(v)}% da altura`}
+            />
+            <SliderRow
+              label="Altura do texto"
+              value={art.textY * 100}
+              min={-100}
+              max={100}
+              onChange={(v) => patch('art', { textY: v / 100 })}
+              defaultValue={15}
+            />
+          </div>
+        )}
+      </div>
+
       {hasArt && (
         <>
           <Segmented
@@ -191,6 +229,48 @@ export function MugPanel() {
   const patch = useMockupStore((s) => s.patch);
   const rotateMug = useMockupStore((s) => s.rotateMug);
   const isMagic = mug.variant === 'magic';
+  const [playing, setPlaying] = useState(false);
+  const rafRef = useRef<number | null>(null);
+  const holdHeatRef = useRef<number | null>(null);
+
+  const stopPlay = useCallback(() => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    setPlaying(false);
+  }, []);
+
+  useEffect(() => () => stopPlay(), [stopPlay, mug.variant]);
+
+  /** pré-visualização: a caneca preta começa a revelar a arte */
+  const startPlay = useCallback(() => {
+    stopPlay();
+    setPlaying(true);
+    const t0 = performance.now();
+    const dur = 3000;
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - t0) / dur);
+      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      useMockupStore.getState().patch('mug', { magicHeat: 0.02 + e * 0.98 });
+      if (k < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+        setPlaying(false);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, [stopPlay]);
+
+  const holdCold = () => {
+    if (holdHeatRef.current === null) holdHeatRef.current = mug.magicHeat;
+    patch('mug', { magicHeat: 0 });
+  };
+  const releaseCold = () => {
+    if (holdHeatRef.current !== null) {
+      patch('mug', { magicHeat: holdHeatRef.current });
+      holdHeatRef.current = null;
+    }
+  };
 
   return (
     <Section title="Caneca" icon={CupSoda} defaultOpen>
@@ -202,7 +282,10 @@ export function MugPanel() {
           { value: 'accent', label: 'Colorida' },
           { value: 'magic', label: 'Mágica' },
         ]}
-        onChange={(v) => patch('mug', { variant: v })}
+        onChange={(v) => {
+          stopPlay();
+          patch('mug', { variant: v });
+        }}
       />
       {mug.variant !== 'white' && (
         <ColorRow label="Cor da alça e interior" value={mug.accentColor} onChange={(v) => patch('mug', { accentColor: v })} />
@@ -219,6 +302,15 @@ export function MugPanel() {
             format={(v) => (v <= 2 ? 'fria — tudo preto' : v >= 98 ? 'quente — arte revelada' : `${Math.round(v)}% revelado`)}
           />
           <div className="flex gap-1.5">
+            {playing ? (
+              <MiniButton onClick={stopPlay} active className="flex-1">
+                <Square className="mr-1 inline h-3 w-3" /> Parar
+              </MiniButton>
+            ) : (
+              <MiniButton onClick={startPlay} className="flex-1" >
+                <Play className="mr-1 inline h-3 w-3 text-primary" /> Ver revelação
+              </MiniButton>
+            )}
             <MiniButton onClick={() => patch('mug', { magicHeat: 1 })} className="flex-1">
               <Flame className="mr-1 inline h-3 w-3 text-amber-400" /> Quente
             </MiniButton>
@@ -226,6 +318,15 @@ export function MugPanel() {
               <Snowflake className="mr-1 inline h-3 w-3 text-sky-300" /> Fria
             </MiniButton>
           </div>
+          <MiniButton
+            onClick={() => {}}
+            onPointerDown={holdCold}
+            onPointerUp={releaseCold}
+            onPointerLeave={releaseCold}
+            className="w-full"
+          >
+            <Eye className="mr-1 inline h-3 w-3" /> Segurar p/ ver antes
+          </MiniButton>
           <Segmented
             label="Direção da revelação"
             value={mug.magicDirection}
@@ -237,13 +338,13 @@ export function MugPanel() {
             onChange={(v) => patch('mug', { magicDirection: v })}
           />
           <SliderRow
-            label="Dissolução da borda"
+            label="Borda da revelação"
             value={mug.magicDissolve * 100}
             min={0}
             max={100}
             onChange={(v) => patch('mug', { magicDissolve: v / 100 })}
             defaultValue={35}
-            format={(v) => (v <= 2 ? 'linha reta' : `${Math.round(v)}% de ruído`)}
+            format={(v) => (v <= 2 ? 'linha reta' : `${Math.round(v)}% de dissolução`)}
           />
         </>
       )}
@@ -264,40 +365,155 @@ export function MugPanel() {
           Girar +45°
         </MiniButton>
       </div>
-      <SliderRow label="Inclinação" value={mug.tiltX} min={-25} max={25} onChange={(v) => patch('mug', { tiltX: v })} defaultValue={0} format={(v) => `${Math.round(v)}°`} />
+      <SliderRow
+        label="Inclinação"
+        value={mug.tiltX}
+        min={-35}
+        max={35}
+        onChange={(v) => patch('mug', { tiltX: v })}
+        defaultValue={0}
+        format={(v) => `${Math.round(v)}°`}
+      />
       <SliderRow label="Tamanho na cena" value={mug.scale * 100} min={60} max={140} onChange={(v) => patch('mug', { scale: v / 100 })} defaultValue={100} format={(v) => `${Math.round(v)}%`} />
       <SliderRow label="Altura na cena" value={mug.posY * 10} min={-8} max={20} onChange={(v) => patch('mug', { posY: v / 10 })} defaultValue={0} format={(v) => `${(v / 10).toFixed(1)} cm`} />
       {isMagic && (
         <p className="text-[10px] leading-relaxed text-neutral-500">
           A revelação também sai na exportação — crie imagens &quot;antes e depois&quot; exportando
-          com a caneca fria e depois quente.
+          com a caneca fria e depois quente, ou vídeo em Movimento &quot;Revelação&quot;.
         </p>
       )}
     </Section>
   );
 }
 
-/* ---------------- Cena (fundo) ---------------- */
+/* ---------------- Cena (fundo e chão) ---------------- */
 
-const BG_OPTIONS: { value: BackgroundType; label: string }[] = [
-  { value: 'studio-white', label: 'Branco' },
-  { value: 'studio-dark', label: 'Escuro' },
-  { value: 'gradient', label: 'Gradiente' },
-  { value: 'solid', label: 'Cor' },
-  { value: 'transparent', label: 'Alfa' },
+const BG_OPTIONS: { value: BackgroundType; label: string; title: string }[] = [
+  { value: 'studio-white', label: 'Branco', title: 'Fundo branco puro (padrão)' },
+  { value: 'studio-dark', label: 'Escuro', title: 'Estúdio escuro premium' },
+  { value: 'gradient', label: 'Gradiente', title: 'Duas cores em degradê' },
+  { value: 'solid', label: 'Cor', title: 'Uma cor sólida' },
+  { value: 'image', label: 'Imagem', title: 'Use uma foto sua como fundo' },
+  { value: 'transparent', label: 'Sem fundo', title: 'Transparente — exporta PNG/WebP com alfa' },
 ];
+
+/** galeria de cenários prontos, todos gerados por código */
+function ScenesGallery() {
+  const patch = useMockupStore((s) => s.patch);
+  const current = useMockupStore((s) => s.bg.imageId);
+  const refs = useRef<(HTMLCanvasElement | null)[]>([]);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    ensureScenes();
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    SCENES.forEach((s, i) => {
+      const c = refs.current[i];
+      if (c) drawSceneThumb(c, s.id);
+    });
+  }, [ready]);
+
+  return (
+    <div>
+      <p className="mb-1.5 text-[11px] font-medium text-neutral-400" title="Cenários desenhados pelo próprio estúdio — sem direitos autorais">
+        Cenários prontos
+      </p>
+      <div className="grid grid-cols-4 gap-1">
+        {SCENES.map((s, i) => (
+          <button
+            key={s.id}
+            onClick={() =>
+              patch('bg', {
+                type: 'image',
+                imageId: s.id,
+                imageFit: 'cover',
+                imageZoom: 1,
+                imageX: 0,
+                imageY: 0,
+                imageRot: 0,
+                imageMirror: false,
+                imageBlur: 0,
+                imageBright: 1,
+              })
+            }
+            title={s.label}
+            className={cn(
+              'overflow-hidden rounded-lg border transition-all',
+              current === s.id ? 'border-primary ring-1 ring-primary/60' : 'border-white/10 hover:border-white/30',
+            )}
+          >
+            <canvas ref={(el) => { refs.current[i] = el; }} width={128} height={72} className="block h-auto w-full" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function ScenePanel() {
   const bg = useMockupStore((s) => s.bg);
   const patch = useMockupStore((s) => s.patch);
+  const bgAdjustMode = useMockupStore((s) => s.bgAdjustMode);
+  const setBgAdjustMode = useMockupStore((s) => s.setBgAdjustMode);
+  const { toast } = useToast();
+  const [busyBg, setBusyBg] = useState(false);
+  const bgInputRef = useRef<HTMLInputElement>(null);
+
+  const handleBgFile = useCallback(
+    async (file: File | undefined | null) => {
+      if (!file) return;
+      setBusyBg(true);
+      try {
+        const entry = await loadBgFile(file);
+        patch('bg', {
+          type: 'image',
+          imageId: entry.id,
+          imageFit: 'cover',
+          imageZoom: 1,
+          imageX: 0,
+          imageY: 0,
+          imageRot: 0,
+          imageMirror: false,
+          imageBlur: 0,
+          imageBright: 1,
+        });
+        toast({ title: 'Fundo aplicado!', description: `${file.name} agora é o cenário da cena.` });
+      } catch (e) {
+        toast({
+          title: 'Não deu para usar essa imagem',
+          description: e instanceof Error ? e.message : 'Tente outro arquivo.',
+          variant: 'destructive',
+        });
+      } finally {
+        setBusyBg(false);
+      }
+    },
+    [patch, toast],
+  );
 
   return (
-    <Section title="Fundo & cena" icon={Mountain}>
-      <div className="grid grid-cols-5 gap-1">
+    <Section title="Fundo & cena" icon={Mountain} defaultOpen>
+      <input
+        ref={bgInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          handleBgFile(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
+
+      <p className="text-[11px] font-medium text-neutral-400">Fundo</p>
+      <div className="grid grid-cols-3 gap-1">
         {BG_OPTIONS.map((o) => (
           <button
             key={o.value}
-            title={BACKGROUND_LABELS[o.value]}
+            title={o.title}
             onClick={() => patch('bg', { type: o.value })}
             className={cn(
               'rounded-lg border px-1 py-2 text-[10px] font-bold transition-all',
@@ -317,14 +533,156 @@ export function ScenePanel() {
           <SliderRow label="Ângulo" value={bg.angle} min={0} max={360} onChange={(v) => patch('bg', { angle: v })} defaultValue={90} format={(v) => `${Math.round(v)}°`} />
         </>
       )}
-      {bg.type === 'solid' && <ColorRow label="Cor do fundo e chão" value={bg.colorB} onChange={(v) => patch('bg', { colorB: v })} />}
-      <ToggleRow label="Sombra de contato" checked={bg.contactShadow} onChange={(v) => patch('bg', { contactShadow: v })} />
-      <ToggleRow label="Sombra projetada" checked={bg.castShadow} onChange={(v) => patch('bg', { castShadow: v })} />
+      {bg.type === 'solid' && <ColorRow label="Cor do fundo" value={bg.colorB} onChange={(v) => patch('bg', { colorB: v })} />}
+
+      {bg.type === 'image' && (
+        <>
+          <button
+            onClick={() => bgInputRef.current?.click()}
+            disabled={busyBg}
+            className="flex w-full flex-col items-center gap-1.5 rounded-xl border-2 border-dashed border-white/15 bg-white/[0.02] px-4 py-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
+          >
+            {busyBg ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <ImagePlus className="h-5 w-5 text-primary" />}
+            <span className="text-xs font-semibold text-neutral-200">Enviar foto de fundo</span>
+            <span className="text-center text-[10px] leading-relaxed text-neutral-500">
+              JPG, PNG ou WebP · use foto horizontal 1920×1080 ou maior
+            </span>
+          </button>
+
+          <ScenesGallery />
+
+          <Segmented
+            label="Encaixe da foto"
+            value={bg.imageFit}
+            options={[
+              { value: 'cover', label: 'Cobrir' },
+              { value: 'contain', label: 'Conter' },
+              { value: 'stretch', label: 'Esticar' },
+            ]}
+            onChange={(v) => patch('bg', { imageFit: v })}
+          />
+          <SliderRow
+            label="Zoom"
+            value={bg.imageZoom * 100}
+            min={50}
+            max={300}
+            onChange={(v) => patch('bg', { imageZoom: v / 100 })}
+            defaultValue={100}
+            format={(v) => `${(v / 100).toFixed(1)}×`}
+          />
+          <SliderRow
+            label="Posição horizontal"
+            value={bg.imageX * 100}
+            min={-100}
+            max={100}
+            onChange={(v) => patch('bg', { imageX: v / 100 })}
+            defaultValue={0}
+          />
+          <SliderRow
+            label="Posição vertical"
+            value={bg.imageY * 100}
+            min={-100}
+            max={100}
+            onChange={(v) => patch('bg', { imageY: v / 100 })}
+            defaultValue={0}
+          />
+          <SliderRow
+            label="Rotação da foto"
+            value={bg.imageRot}
+            min={-180}
+            max={180}
+            onChange={(v) => patch('bg', { imageRot: v })}
+            defaultValue={0}
+            format={(v) => `${Math.round(v)}°`}
+          />
+          <div className="flex gap-1.5">
+            <MiniButton onClick={() => patch('bg', { imageMirror: !bg.imageMirror })} active={bg.imageMirror} className="flex-1">
+              <FlipHorizontal2 className="mr-1 inline h-3 w-3" /> Espelhar
+            </MiniButton>
+            <MiniButton
+              onClick={() => patch('bg', { imageX: 0, imageY: 0, imageZoom: 1, imageRot: 0 })}
+              className="flex-1"
+            >
+              <Crosshair className="mr-1 inline h-3 w-3" /> Centralizar
+            </MiniButton>
+          </div>
+          <SliderRow
+            label="Desfoque"
+            value={bg.imageBlur}
+            min={0}
+            max={20}
+            step={0.5}
+            onChange={(v) => patch('bg', { imageBlur: v })}
+            defaultValue={0}
+            format={(v) => (v <= 0.2 ? 'sem desfoque' : `${v.toFixed(1)} px`)}
+          />
+          <SliderRow
+            label="Clarear / escurecer"
+            value={bg.imageBright * 100}
+            min={50}
+            max={160}
+            onChange={(v) => patch('bg', { imageBright: v / 100 })}
+            defaultValue={100}
+            format={(v) => (v === 100 ? 'normal' : v > 100 ? `+${Math.round(v - 100)}% claro` : `${Math.round(100 - v)}% escuro`)}
+          />
+          <ToggleRow
+            label="Combinar luz com o fundo"
+            checked={bg.matchLight}
+            onChange={(v) => patch('bg', { matchLight: v })}
+          />
+          <p className="text-[10px] leading-relaxed text-neutral-500">
+            Tinge levemente a iluminação com a cor média da foto — a caneca fica “dentro” do cenário.
+          </p>
+          <MiniButton onClick={() => setBgAdjustMode(!bgAdjustMode)} active={bgAdjustMode} className="w-full">
+            <Move className="mr-1 inline h-3 w-3" /> Ajustar fundo no 3D
+          </MiniButton>
+          {bgAdjustMode && (
+            <p className="text-[10px] leading-relaxed text-primary">
+              Modo ativo: arraste direto na cena para posicionar (guia de centro com encaixe magnético). Duplo clique recentra.
+            </p>
+          )}
+        </>
+      )}
       {bg.type === 'transparent' && (
         <p className="text-[10px] leading-relaxed text-neutral-500">
           Fundo invisível para exportar PNG/WebP com alfa — a sombra continua sobre a transparência.
         </p>
       )}
+
+      <p className="pt-1 text-[11px] font-medium text-neutral-400" title="Como a base da cena aparece embaixo da caneca">
+        Chão
+      </p>
+      <div className="grid grid-cols-4 gap-1">
+        {FLOOR_OPTIONS.map((o) => (
+          <button
+            key={o.value}
+            title={o.title}
+            onClick={() => patch('bg', { floor: o.value })}
+            className={cn(
+              'rounded-lg border px-1 py-2 text-[10px] font-bold transition-all',
+              (bg.floor ?? 'continuo') === o.value
+                ? 'border-primary/60 bg-primary/15 text-primary'
+                : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {(bg.floor ?? 'continuo') === 'flutuante' && (
+        <ToggleRow
+          label="Flutuar suavemente"
+          checked={bg.floatAnim}
+          onChange={(v) => patch('bg', { floatAnim: v })}
+        />
+      )}
+      {(bg.floor ?? 'continuo') === 'flutuante' && (
+        <p className="text-[10px] leading-relaxed text-neutral-500">
+          Sem chão: a sombra vira um borrão suave no ar — quanto mais alta a caneca, mais difusa. As exportações saem paradas.
+        </p>
+      )}
+      <ToggleRow label="Sombra de contato" checked={bg.contactShadow} onChange={(v) => patch('bg', { contactShadow: v })} />
+      <ToggleRow label="Sombra projetada" checked={bg.castShadow} onChange={(v) => patch('bg', { castShadow: v })} />
     </Section>
   );
 }
@@ -354,7 +712,7 @@ export function LightPanel() {
         ))}
       </div>
       <SliderRow label="Intensidade geral" value={light.intensity * 100} min={20} max={200} onChange={(v) => patch('light', { intensity: v / 100 })} defaultValue={100} format={(v) => `${Math.round(v)}%`} />
-      <SliderRow label="Temperatura da luz" value={light.temperature} min={-2500} max={2500} onChange={(v) => patch('light', { temperature: v })} defaultValue={0} format={(v) => (v === 0 ? 'neutra' : v > 0 ? `+${Math.round(v)} K (mais quente)` : `${Math.round(v)} K (mais fria)`)} />
+      <SliderRow label="Cor da luz" value={light.temperature} min={-2500} max={2500} onChange={(v) => patch('light', { temperature: v })} defaultValue={0} format={(v) => (v === 0 ? 'neutra' : v > 0 ? `+${Math.round(v)} K (mais quente)` : `${Math.round(v)} K (mais fria)`)} />
       <SliderRow label="Girar o estúdio" value={light.rotation} min={0} max={360} onChange={(v) => patch('light', { rotation: v })} defaultValue={0} format={(v) => `${Math.round(v)}°`} />
       <SliderRow label="Suavidade das sombras" value={light.softness * 100} min={0} max={100} onChange={(v) => patch('light', { softness: v / 100 })} defaultValue={50} format={(v) => `${Math.round(v)}%`} />
       <SliderRow label="Reflexos do estúdio" value={light.envIntensity * 100} min={0} max={200} onChange={(v) => patch('light', { envIntensity: v / 100 })} defaultValue={100} format={(v) => `${Math.round(v)}%`} />
@@ -370,11 +728,20 @@ export function CameraPanel() {
   const applyPreset = useMockupStore((s) => s.applyCameraPreset);
   const rotateMug = useMockupStore((s) => s.rotateMug);
   const requestFocus = useMockupStore((s) => s.requestFocus);
+  const frameAll = useMockupStore((s) => s.frameAll);
+  const showGuides = useMockupStore((s) => s.showGuides);
+  const setShowGuides = useMockupStore((s) => s.setShowGuides);
+
+  const toggleFullscreen = () => {
+    const el = document.getElementById('mockup-root');
+    if (!document.fullscreenElement) el?.requestFullscreen?.();
+    else document.exitFullscreen?.();
+  };
 
   return (
     <Section title="Câmera" icon={Camera} defaultOpen>
       <SliderRow
-        label="Lente"
+        label="Lente (zoom óptico)"
         value={camera.lens}
         min={24}
         max={100}
@@ -384,23 +751,37 @@ export function CameraPanel() {
       />
       <div className="grid grid-cols-3 gap-1">
         {CAMERA_PRESETS.map((p) => (
-          <MiniButton key={p.id} onClick={() => applyPreset(p)} className="!px-1 !text-[10px]">
+          <MiniButton key={p.id} onClick={() => applyPreset(p)} className="!px-1 !text-[10px]" title={`Ver a caneca de: ${p.label}`}>
             {p.label}
           </MiniButton>
         ))}
       </div>
       <div className="flex gap-1.5">
-        <MiniButton onClick={requestFocus} className="flex-1">
+        <MiniButton onClick={requestFocus} className="flex-1" title="Aproxima a câmera da caneca">
           <Crosshair className="mr-1 inline h-3 w-3" /> Focar (F)
         </MiniButton>
-        <MiniButton onClick={() => rotateMug(180)} className="flex-1">
+        <MiniButton onClick={() => rotateMug(180)} className="flex-1" title="Mostra o lado de trás da caneca">
           <RotateCw className="mr-1 inline h-3 w-3" /> Virar
         </MiniButton>
       </div>
-      <ToggleRow label="Giro automático (turntable)" checked={camera.autoRotate} onChange={(v) => patch('camera', { autoRotate: v })} />
+      <MiniButton onClick={frameAll} className="w-full" title="Ajusta a câmera para caber todas as canecas no quadro">
+        <Move className="mr-1 inline h-3 w-3" /> Enquadrar tudo
+      </MiniButton>
+      <ToggleRow label="Giro automático" checked={camera.autoRotate} onChange={(v) => patch('camera', { autoRotate: v })} />
       {camera.autoRotate && (
         <SliderRow label="Velocidade do giro" value={camera.autoRotateSpeed} min={0.2} max={6} step={0.1} onChange={(v) => patch('camera', { autoRotateSpeed: v })} defaultValue={1.6} />
       )}
+      <ToggleRow
+        label="Guias de enquadramento"
+        checked={showGuides}
+        onChange={setShowGuides}
+      />
+      <p className="-mt-2 text-[10px] leading-relaxed text-neutral-500">
+        Grade de terços para compor a foto como profissional.
+      </p>
+      <MiniButton onClick={toggleFullscreen} className="w-full" title="Mostra o estúdio em tela cheia">
+        <Maximize className="mr-1 inline h-3 w-3" /> Tela cheia
+      </MiniButton>
     </Section>
   );
 }
@@ -591,7 +972,7 @@ function ImageTab() {
       )}
 
       {es.format !== 'jpeg' && (
-        <ToggleRow label="Fundo transparente (alfa)" checked={es.transparent} onChange={(v) => setExport({ transparent: v })} />
+        <ToggleRow label="Sem fundo (PNG transparente)" checked={es.transparent} onChange={(v) => setExport({ transparent: v })} />
       )}
 
       <WatermarkBox wm={wm} patch={patch} />
@@ -1013,7 +1394,7 @@ function BatchTab() {
         ]}
         onChange={(v) => setFormat(v)}
       />
-      {format === 'png' && <ToggleRow label="Fundo transparente (alfa)" checked={transparent} onChange={setTransparent} />}
+      {format === 'png' && <ToggleRow label="Sem fundo (PNG transparente)" checked={transparent} onChange={setTransparent} />}
 
       <WatermarkBox wm={wm} patch={patch} />
 

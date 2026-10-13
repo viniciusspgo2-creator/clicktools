@@ -40,6 +40,8 @@ export interface StoredProject {
   thumbnail: string; // dataURL jpeg
   state: ProjectState;
   art: ProjectArt | null;
+  /** imagem de fundo personalizada (cenários prontos não salvam blob) */
+  bgImage?: ProjectArt | null;
 }
 
 const DB_NAME = 'mockup-studio';

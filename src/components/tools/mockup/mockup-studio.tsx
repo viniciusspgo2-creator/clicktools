@@ -21,6 +21,7 @@ import { FXPanel, MultiMugPanel } from './ui/panels-extra';
 import { ProjectsDialog, autosaveSession, restoreLastSession } from './ui/projects-dialog';
 import { MiniButton, PrimaryButton } from './ui/controls';
 import { CAMERA_PRESETS } from './lib/config';
+import { loadBgFile } from './lib/background-registry';
 import { cn } from '@/lib/utils';
 
 const StudioCanvas = dynamic(() => import('./scene/studio-scene'), {
@@ -75,6 +76,9 @@ export function MockupStudio() {
   const notifyArtApplied = useMockupStore((s) => s.notifyArtApplied);
   const artAppliedNonce = useMockupStore((s) => s.artAppliedNonce);
   const art = useMockupStore((s) => s.art);
+  const bgType = useMockupStore((s) => s.bg.type);
+  const bgAdjustMode = useMockupStore((s) => s.bgAdjustMode);
+  const showGuides = useMockupStore((s) => s.showGuides);
   const projectName = useMockupStore((s) => s.projectName);
   const setProjectName = useMockupStore((s) => s.setProjectName);
   const canUndo = useMockupStore((s) => s.past.length > 0);
@@ -86,6 +90,7 @@ export function MockupStudio() {
   const fileRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
   const restoredRef = useRef(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setSupported(hasWebGL());
@@ -154,11 +159,13 @@ export function MockupStudio() {
     return () => window.removeEventListener('paste', pasteHandler);
   }, [pasteHandler]);
 
-  /* ---- atalhos de teclado ---- */
+  /* ---- atalhos de teclado (não disparam enquanto digita) ---- */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      const st = useMockupStore.getState();
+      if (st.exportOpen || st.projectsOpen) return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault();
@@ -189,20 +196,37 @@ export function MockupStudio() {
     return () => window.removeEventListener('keydown', onKey);
   }, [undo, redo, rotateMug, requestFocus, patch]);
 
-  /* ---- drag & drop ---- */
+  /* ---- drag & drop (arte OU fundo, conforme o fundo ativo) ---- */
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       dragCounter.current = 0;
       setDragging(false);
-      if (fileRef.current && e.dataTransfer.files.length) {
+      const file = e.dataTransfer.files?.[0];
+      if (!file) return;
+      if (useMockupStore.getState().bg.type === 'image') {
+        loadBgFile(file)
+          .then((entry) => {
+            patch('bg', { imageId: entry.id, imageZoom: 1, imageX: 0, imageY: 0, imageRot: 0 });
+            toast({ title: 'Fundo trocado!', description: `${file.name} agora é o cenário.` });
+          })
+          .catch((err) => {
+            toast({
+              title: 'Imagem inválida para o fundo',
+              description: err instanceof Error ? err.message : 'Tente outro arquivo.',
+              variant: 'destructive',
+            });
+          });
+        return;
+      }
+      if (fileRef.current) {
         const dt = new DataTransfer();
-        dt.items.add(e.dataTransfer.files[0]);
+        dt.items.add(file);
         fileRef.current.files = dt.files;
         fileRef.current.dispatchEvent(new Event('change', { bubbles: true }));
       }
     },
-    [],
+    [patch, toast],
   );
 
   if (supported === false) {
@@ -232,6 +256,19 @@ export function MockupStudio() {
     <div className="relative h-full w-full">
       {supported !== null && <StudioCanvas />}
 
+      {/* guias de enquadramento (grade de terços) */}
+      {showGuides && (
+        <div className="pointer-events-none absolute inset-0 z-[5]" aria-hidden>
+          <div className="absolute inset-x-0 top-1/3 h-px bg-white/25" />
+          <div className="absolute inset-x-0 top-2/3 h-px bg-white/25" />
+          <div className="absolute inset-y-0 left-1/3 w-px bg-white/25" />
+          <div className="absolute inset-y-0 left-2/3 w-px bg-white/25" />
+        </div>
+      )}
+
+      {/* modo ajustar fundo: arrasta a imagem direto na cena */}
+      {bgAdjustMode && bgType === 'image' && <BgAdjustOverlay />}
+
       {/* microinteração: flash ao aplicar arte */}
       {artAppliedNonce > 0 && (
         <motion.div
@@ -259,7 +296,7 @@ export function MockupStudio() {
       </div>
 
       {/* dica quando não há arte */}
-      {!art.imageId && (
+      {!art.imageId && !bgAdjustMode && (
         <div className="pointer-events-none absolute left-1/2 top-5 z-10 -translate-x-1/2">
           <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-black/60 px-4 py-2 text-[11px] font-semibold text-neutral-200 backdrop-blur-md">
             <MousePointer2 className="h-3.5 w-3.5 text-primary" />
@@ -273,7 +310,9 @@ export function MockupStudio() {
         <div className="absolute inset-0 z-20 flex items-center justify-center border-2 border-dashed border-primary bg-primary/10 backdrop-blur-[2px]">
           <div className="rounded-2xl bg-black/70 px-6 py-4 text-center">
             <Sparkles className="mx-auto h-6 w-6 text-primary" />
-            <p className="mt-2 font-display text-sm font-bold text-white">Solte para aplicar a arte</p>
+            <p className="mt-2 font-display text-sm font-bold text-white">
+              {bgType === 'image' ? 'Solte para usar como fundo' : 'Solte para aplicar a arte'}
+            </p>
           </div>
         </div>
       )}
@@ -311,6 +350,8 @@ export function MockupStudio() {
 
   return (
     <div
+      ref={rootRef}
+      id="mockup-root"
       className="relative flex h-[calc(100dvh-61px)] min-h-[540px] flex-col overflow-hidden bg-[#0a0908] text-neutral-100"
       onDragEnter={(e) => {
         e.preventDefault();
@@ -403,13 +444,15 @@ export function MockupStudio() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => patch('camera', { autoRotate: !camera.autoRotate })}
+            title={camera.autoRotate ? 'Para o giro automático da câmera' : 'Gira a caneca sozinha para mostrar todos os lados'}
+            aria-label={camera.autoRotate ? 'Parar giro automático' : 'Girar automaticamente'}
             className={cn(
               'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-bold transition-all',
               camera.autoRotate ? 'bg-primary text-[#1d130d]' : 'border border-white/10 text-neutral-300 hover:text-white',
             )}
           >
             {camera.autoRotate ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-            Turntable
+            {camera.autoRotate ? 'Parar giro' : 'Girar automaticamente'}
           </button>
           {camera.autoRotate && (
             <input
@@ -421,18 +464,19 @@ export function MockupStudio() {
               onChange={(e) => patch('camera', { autoRotateSpeed: +e.target.value })}
               className="w-28 accent-[#e8703a]"
               aria-label="Velocidade do giro"
+              title="Velocidade do giro"
             />
           )}
         </div>
         <p className="text-[10px] text-neutral-500">
-          Arraste para girar · scroll para zoom · duplo clique foca · <kbd className="rounded bg-white/10 px-1">R</kbd> gira a caneca ·{' '}
-          <kbd className="rounded bg-white/10 px-1">F</kbd> foca · <kbd className="rounded bg-white/10 px-1">Espaço</kbd> turntable
+          <kbd className="rounded bg-white/10 px-1">Espaço</kbd> girar/parar · <kbd className="rounded bg-white/10 px-1">R</kbd> girar a caneca 45° ·{' '}
+          <kbd className="rounded bg-white/10 px-1">F</kbd> focar · <kbd className="rounded bg-white/10 px-1">Ctrl+V</kbd> colar arte
         </p>
         <div className="flex items-center gap-1">
           {(['lateral-esq', 'topo', 'close-alca'] as const).map((id) => {
             const p = CAMERA_PRESETS.find((c) => c.id === id)!;
             return (
-              <MiniButton key={id} onClick={() => applyCameraPreset(p)}>
+              <MiniButton key={id} onClick={() => applyCameraPreset(p)} title={`Ver a caneca de: ${p.label}`}>
                 {p.label}
               </MiniButton>
             );
@@ -509,6 +553,76 @@ function LoadingPulse() {
   return (
     <div className="pointer-events-none absolute right-4 top-16 z-30 flex items-center gap-2 rounded-full border border-primary/40 bg-black/70 px-3.5 py-2 text-[11px] font-bold text-primary backdrop-blur">
       <Loader2 className="h-3.5 w-3.5 animate-spin" /> Aplicando arte…
+    </div>
+  );
+}
+
+/* ============================================================
+   Modo "Ajustar fundo no 3D" — arrasta a imagem de fundo direto
+   na cena, com guias de centro e encaixe magnético. Duplo clique
+   recentra. Também serve no toque (pointer events).
+   ============================================================ */
+
+function BgAdjustOverlay() {
+  const patch = useMockupStore((s) => s.patch);
+  const setBgAdjustMode = useMockupStore((s) => s.setBgAdjustMode);
+  const dragging = useRef(false);
+  const last = useRef({ x: 0, y: 0 });
+  const ref = useRef<HTMLDivElement>(null);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragging.current = true;
+    last.current = { x: e.clientX, y: e.clientY };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    const st = useMockupStore.getState();
+    const dx = ((e.clientX - last.current.x) / rect.width) * 1.6;
+    const dy = ((e.clientY - last.current.y) / rect.height) * 1.6;
+    last.current = { x: e.clientX, y: e.clientY };
+    let nx = Math.max(-1, Math.min(1, st.bg.imageX + dx));
+    let ny = Math.max(-1, Math.min(1, st.bg.imageY + dy));
+    // encaixe magnético no centro
+    if (Math.abs(nx) < 0.035) nx = 0;
+    if (Math.abs(ny) < 0.035) ny = 0;
+    patch('bg', { imageX: Math.round(nx * 1000) / 1000, imageY: Math.round(ny * 1000) / 1000 });
+  };
+
+  const onPointerUp = () => {
+    dragging.current = false;
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="absolute inset-0 z-20 cursor-move touch-none"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onDoubleClick={() => patch('bg', { imageX: 0, imageY: 0 })}
+    >
+      {/* guias de centro */}
+      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-primary/60" />
+      <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-primary/60" />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <div className="h-8 w-8 rounded-full border-2 border-primary/80" />
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
+        <div className="flex items-center gap-3 rounded-full border border-primary/40 bg-black/70 px-4 py-2 text-[11px] font-semibold text-neutral-100 backdrop-blur-md">
+          <span>Arraste para posicionar o fundo · duplo clique recentra</span>
+          <button
+            onClick={() => setBgAdjustMode(false)}
+            className="rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold text-[#1d130d]"
+          >
+            Concluir
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

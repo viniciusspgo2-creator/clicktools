@@ -6,7 +6,8 @@
    ============================================================ */
 
 import * as THREE from 'three';
-import { mugsGroup, studioRefs } from '../scene/studio-refs';
+import { mugsGroup, settleFloaters, studioRefs } from '../scene/studio-refs';
+import { alignBackdrop } from '../scene/bg-image';
 import { useMockupStore, type MugState } from '../state/store';
 import { renderArtCanvas, canvasHeightFor } from '../lib/art-canvas';
 import { CANVAS_W_EXPORT } from '../lib/config';
@@ -115,20 +116,23 @@ export function beginFrames(width: number, height: number, opts: Omit<FrameOpts,
   let shadowMat: THREE.ShadowMaterial | null = null;
   const usingTransparent = !!opts.transparent;
 
+  studioRefs.exporting = true;
+  studioRefs.exportTransparent = usingTransparent;
+  // congela a flutuação na pose de descanso
+  settleFloaters(scene);
+
   try {
     if (usingTransparent) {
       scene.background = null;
-      const backdrop = scene.getObjectByName('backdrop');
-      const glow = scene.getObjectByName('glowboard');
-      if (backdrop) {
-        backdrop.visible = false;
-        hidden.push(backdrop);
+      // esconde TUDO que é fundo/cenário — só canecas + sombras permanecem
+      for (const name of ['backdrop', 'glowboard', 'pedestal', 'bg-image']) {
+        const o = scene.getObjectByName(name);
+        if (o && o.visible) {
+          o.visible = false;
+          hidden.push(o);
+        }
       }
-      if (glow) {
-        glow.visible = false;
-        hidden.push(glow);
-      }
-      if (ground) {
+      if (ground && !(oldGroundMat instanceof THREE.ShadowMaterial)) {
         shadowMat = new THREE.ShadowMaterial({ transparent: true, opacity: 0.32 });
         ground.material = shadowMat;
       }
@@ -221,6 +225,8 @@ export function sceneSphereRadius(scene: THREE.Scene): number {
 
 /** renderiza um frame (com pós-processamento se ativo) */
 export function renderFrame(session: FrameSession, cam: THREE.PerspectiveCamera) {
+  // fundo imagem acompanha a câmera que renderiza (encaixe por quadro)
+  alignBackdrop(session.scene, cam);
   const composer = studioRefs.composer;
   const renderPass = studioRefs.renderPass;
   if (session.usingFx && composer && renderPass) {
@@ -286,6 +292,8 @@ export function applyWatermark(ctx: CanvasRenderingContext2D, W: number, H: numb
 /** restaura o estado completo do renderer */
 export function endFrames(session: FrameSession) {
   const { gl, scene } = session;
+  studioRefs.exporting = false;
+  studioRefs.exportTransparent = false;
   if (session.tex && session.previewCanvas) {
     session.tex.image = session.previewCanvas;
     session.tex.needsUpdate = true;
@@ -298,7 +306,10 @@ export function endFrames(session: FrameSession) {
   gl.setSize(session.oldSize.x, session.oldSize.y, false);
   gl.setClearColor(0x000000, 0);
   const cam = studioRefs.camera;
-  if (cam) gl.render(scene, cam);
+  if (cam) {
+    settleFloaters(scene);
+    gl.render(scene, cam);
+  }
 }
 
 /** dispara o download de um Blob no navegador */

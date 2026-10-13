@@ -1,17 +1,21 @@
 /* ============================================================
    Componente da caneca — corpo + alça + materiais PBR + textura
    (+ canecas acompanhantes para cenas multi-canecas)
+   Com suporte a: chão pedestal (apoio), modo flutuante (animação
+   leve de sobe-e-desce, parada durante exportações) e foco.
    ============================================================ */
 
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useMockupStore, type ArtState, type CompanionMug, type MugState } from '../state/store';
 import { buildHandleGeometry, buildMugBodyGeometry } from './mug-geometry';
 import { canvasHeightFor, makeArtTexture, renderArtCanvas } from '../lib/art-canvas';
-import { CANVAS_W_PREVIEW } from '../lib/config';
+import { CANVAS_W_PREVIEW, FLOAT_LIFT, PEDESTAL_H } from '../lib/config';
+import { floatPhaseFor } from './studio';
+import { studioRefs } from './studio-refs';
 
 /** micro-ruído para irregularidade do esmalte (bumpMap sutil) */
 function makeNoiseTexture(): THREE.CanvasTexture {
@@ -87,6 +91,13 @@ function MugMesh({ bodyGeo, handleGeo, noiseTex, texture, accent, envIntensity, 
   );
 }
 
+/** altura de apoio da caneca conforme o chão (pedestal sobe, flutuante levanta) */
+function baseYFor(floor: string, posY: number): number {
+  if (floor === 'pedestal') return PEDESTAL_H + posY;
+  if (floor === 'flutuante') return FLOAT_LIFT + posY;
+  return posY;
+}
+
 /** estado "efetivo" de render da folha para uma acompanhante */
 function companionMugState(mug: MugState, c: CompanionMug): MugState {
   return {
@@ -114,6 +125,10 @@ function CompanionView({
 }) {
   const gl = useThree((s) => s.gl);
   const heroMug = useMockupStore((s) => s.mug);
+  const floor = useMockupStore((s) => s.bg.floor);
+  const floatAnim = useMockupStore((s) => s.bg.floatAnim);
+  const groupRef = useRef<THREE.Group>(null);
+  const phase = useMemo(() => floatPhaseFor(companion.id), [companion.id]);
 
   const canvas = useMemo(() => {
     const c = document.createElement('canvas');
@@ -134,10 +149,25 @@ function CompanionView({
   useEffect(() => () => texture.dispose(), [texture]);
 
   const accent = companion.variant === 'white' ? '#ffffff' : companion.accentColor;
+  const baseY = baseYFor(floor, 0);
+
+  // flutuação leve (só preview — exportações saem paradas)
+  useFrame(({ clock }) => {
+    const g = groupRef.current;
+    if (!g) return;
+    g.userData.baseY = baseY;
+    if (floor === 'flutuante' && floatAnim && !studioRefs.exporting) {
+      g.position.y = baseY + Math.sin(clock.elapsedTime * 1.35 + phase) * 0.2;
+    } else {
+      g.position.y = baseY;
+    }
+  });
 
   return (
     <group
-      position={[companion.posX, 0, companion.posZ]}
+      ref={groupRef}
+      name="mug-float"
+      position={[companion.posX, baseY, companion.posZ]}
       rotation={[0, THREE.MathUtils.degToRad(-companion.rotationY), 0]}
       scale={companion.scale}
       onDoubleClick={(e) => {
@@ -163,6 +193,9 @@ export function Mug() {
   const mug = useMockupStore((s) => s.mug);
   const companions = useMockupStore((s) => s.companions);
   const envIntensity = useMockupStore((s) => s.light.envIntensity);
+  const floor = useMockupStore((s) => s.bg.floor);
+  const floatAnim = useMockupStore((s) => s.bg.floatAnim);
+  const heroRef = useRef<THREE.Group>(null);
 
   const bodyGeo = useMemo(() => buildMugBodyGeometry(), []);
   const handleGeo = useMemo(() => buildHandleGeometry(), []);
@@ -193,12 +226,26 @@ export function Mug() {
   );
 
   const accent = mug.variant === 'white' ? '#ffffff' : mug.accentColor;
+  const baseY = baseYFor(floor, mug.posY);
+
+  // flutuação leve da caneca principal
+  useFrame(({ clock }) => {
+    const g = heroRef.current;
+    if (!g) return;
+    g.userData.baseY = baseY;
+    if (floor === 'flutuante' && floatAnim && !studioRefs.exporting) {
+      g.position.y = baseY + Math.sin(clock.elapsedTime * 1.35) * 0.2;
+    } else {
+      g.position.y = baseY;
+    }
+  });
 
   return (
     <group name="mockup-mugs">
       <group
-        name="mockup-mug"
-        position={[0, mug.posY, 0]}
+        ref={heroRef}
+        name="mug-float"
+        position={[0, baseY, 0]}
         rotation={[THREE.MathUtils.degToRad(mug.tiltX), THREE.MathUtils.degToRad(-mug.rotationY), 0]}
         scale={mug.scale}
         onDoubleClick={(e) => {

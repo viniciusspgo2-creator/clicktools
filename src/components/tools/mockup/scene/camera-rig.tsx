@@ -32,6 +32,12 @@ export function focusOn(point: THREE.Vector3 | null) {
 const MUG_CENTER = new THREE.Vector3(0, 4.75, 0);
 const MUG_RADIUS = 7.6; // bounding aproximado com alça
 
+/** aplica a lente na câmera three (mutação intencional do objeto 3D) */
+function applyLens(camera: THREE.PerspectiveCamera, lensMm: number) {
+  camera.fov = lensToFov(lensMm);
+  camera.updateProjectionMatrix();
+}
+
 /** bounding esférico de todas as canecas (hero + acompanhantes) */
 function mugsBounding(scene: THREE.Scene | undefined): { center: THREE.Vector3; radius: number } {
   const group = scene ? mugsGroup(scene) : null;
@@ -51,6 +57,7 @@ export function CameraRig() {
   const autoRotateSpeed = useMockupStore((s) => s.camera.autoRotateSpeed);
   const presetRequest = useMockupStore((s) => s.presetRequest);
   const focusNonce = useMockupStore((s) => s.focusNonce);
+  const fitNonce = useMockupStore((s) => s.fitNonce);
   const [anim, setAnim] = useState<Anim | null>(null);
 
   // hook de depuração (útil para suporte e testes)
@@ -68,10 +75,7 @@ export function CameraRig() {
 
   // lente
   useEffect(() => {
-    // padrão oficial da API do three/R3F: mutação direta do objeto de câmera
-    // eslint-disable-next-line react-hooks/immutability
-    camera.fov = lensToFov(lens);
-    camera.updateProjectionMatrix();
+    applyLens(camera, lens);
   }, [camera, lens]);
 
   // registra handler de foco
@@ -112,6 +116,27 @@ export function CameraRig() {
     });
   }, [presetRequest, camera]);
 
+  // "Enquadrar tudo": aproxima/afasta para o grupo inteiro caber no quadro
+  useEffect(() => {
+    if (!fitNonce) return;
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const { center, radius } = mugsBounding(scene);
+    const vFov = THREE.MathUtils.degToRad(camera.fov);
+    const aspect = (gl.getSize(new THREE.Vector2()).x || 1) / (gl.getSize(new THREE.Vector2()).y || 1);
+    const hHalf = Math.atan(Math.tan(vFov / 2) * aspect);
+    const dist = Math.min(90, (radius / Math.sin(Math.min(vFov / 2, hHalf))) * 1.12);
+    const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+    setAnim({
+      fromPos: camera.position.clone(),
+      toPos: center.clone().addScaledVector(dir, dist),
+      fromTarget: controls.target.clone(),
+      toTarget: center.clone(),
+      t0: performance.now(),
+      dur: 800,
+    });
+  }, [fitNonce, scene, camera]);
+
   useFrame(() => {
     const controls = controlsRef.current;
     if (!controls) return;
@@ -143,7 +168,7 @@ export function CameraRig() {
       enablePan
       screenSpacePanning
       minDistance={6.5}
-      maxDistance={46}
+      maxDistance={95}
       maxPolarAngle={1.54}
       autoRotate={autoRotate && !anim}
       autoRotateSpeed={autoRotateSpeed}

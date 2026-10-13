@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/hooks/use-toast';
 import { useMockupStore } from '../state/store';
 import { getArtBlob, loadArtBlob } from '../lib/art-registry';
+import { getBgBlob, getBackgroundImage, loadBgBlob, ensureScenes } from '../lib/background-registry';
 import {
   blobToDataUrl, deleteProject, formatRelative, getProject, listProjects, putProject,
   type StoredProject,
@@ -69,6 +70,13 @@ export async function saveCurrentProject(id: string, name: string): Promise<Stor
   } catch {
     art = null;
   }
+  let bgImage: StoredProject['bgImage'] = null;
+  try {
+    const blob = await getBgBlob(state.bg.imageId);
+    if (blob) bgImage = { name: 'fundo.png', type: 'image/png', blob, width: 0, height: 0, naturalWidth: 0, naturalHeight: 0 };
+  } catch {
+    bgImage = null;
+  }
   const project: StoredProject = {
     id,
     name,
@@ -76,12 +84,13 @@ export async function saveCurrentProject(id: string, name: string): Promise<Stor
     thumbnail,
     state,
     art,
+    bgImage,
   };
   await putProject(project);
   return project;
 }
 
-/** abre um projeto: restaura estado + arte */
+/** abre um projeto: restaura estado + arte + fundo */
 export async function openProjectIntoStore(p: StoredProject) {
   const s = useMockupStore.getState();
   const { art, ...rest } = p.state;
@@ -94,7 +103,21 @@ export async function openProjectIntoStore(p: StoredProject) {
       imageId = null;
     }
   }
-  s.hydrate({ ...rest, art: { ...art, imageId } });
+  // fundo: blob salvo, cenário pronto (regenerado) ou nada
+  let bgId: string | null = rest.bg?.imageId ?? null;
+  if (p.bgImage) {
+    try {
+      const entry = await loadBgBlob(p.bgImage.blob, p.bgImage.name);
+      bgId = entry.id;
+    } catch {
+      bgId = null;
+    }
+  } else if (bgId?.startsWith('scene-')) {
+    ensureScenes();
+  } else if (bgId && !getBackgroundImage(bgId)) {
+    bgId = null;
+  }
+  s.hydrate({ ...rest, art: { ...art, imageId }, bg: { ...(rest.bg ?? {}), imageId: bgId } });
 }
 
 export function ProjectsDialog() {
@@ -354,6 +377,14 @@ export async function autosaveSession() {
       thumbnail: '',
       state,
       art,
+      bgImage: await (async () => {
+        try {
+          const blob = await getBgBlob(state.bg.imageId);
+          return blob ? { name: 'fundo.png', type: 'image/png', blob, width: 0, height: 0, naturalWidth: 0, naturalHeight: 0 } : null;
+        } catch {
+          return null;
+        }
+      })(),
     };
     await putProject(project);
   } catch {

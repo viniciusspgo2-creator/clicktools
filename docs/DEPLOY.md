@@ -1,66 +1,43 @@
-# Deploy na Vercel + Neon PostgreSQL
+# Deploy — Click & Gruda Tools (Vercel + Neon)
 
-## 1. Criar o banco (uma vez)
+## O que você precisa
+- O código no GitHub (já está)
+- Uma conta na Vercel (já tem)
+- Um banco no Neon (neon.tech, plano grátis)
 
-1. Crie um projeto em [neon.tech](https://neon.tech) (plano free serve).
-2. Copie a **Connection string** (formato `postgresql://usuario:senha@ep-xxx.neon.tech/neondb?sslmode=require`).
+## Passo 1 — Criar o banco (só uma vez)
+1. No neon.tech, crie um projeto.
+2. Copie a "Connection string". Ela começa com `postgresql://`.
+3. Use um banco só para este site. Não reaproveite o de outro projeto.
 
-## 2. Variáveis de ambiente na Vercel
+## Passo 2 — Colocar as 3 variáveis na Vercel
+Vercel → seu projeto → Settings → Environment Variables.
+Marque Production e Preview.
 
-Project → Settings → Environment Variables (marque Production, Preview e Development):
+| Nome | O que colocar |
+|---|---|
+| DATABASE_URL | A string do Neon |
+| ADMIN_PASSWORD | Uma senha forte para entrar no /admin |
+| ADMIN_SECRET | Um texto aleatório com 32 letras ou mais |
 
-| Nome | Valor | Exemplo / formato |
-|------|-------|-------------------|
-| `DATABASE_URL` | String de conexão do Neon | `postgresql://usuario:senha@host/banco?sslmode=require` |
-| `ADMIN_PASSWORD` | Senha do painel `/admin` | use uma senha forte (não use a de desenvolvimento) |
-| `ADMIN_SECRET` | Segredo de assinatura do cookie admin | string aleatória longa (32+ caracteres) |
+Sem ADMIN_PASSWORD e ADMIN_SECRET o /admin fica bloqueado. É de propósito, por segurança.
 
-> Opcional: o GA4 (Google Analytics) pode ser configurado depois dentro do próprio painel `/admin` → aba **SEO & Config** (campo de ID do Google Analytics), sem redeploy.
+## Passo 3 — Fazer o deploy
+Cada mudança salva na branch `main` do GitHub faz a Vercel publicar sozinha.
+O próprio build cria as tabelas no banco. Você não precisa rodar nada.
 
-## 3. Deploy
+Acompanhe em Vercel → Deployments. Quando ficar "Ready", clique em Visit.
 
-O script `build` do projeto já faz tudo sozinho em cada deploy:
+## Passo 4 — Conferir se deu certo
+1. Abra `/api/admin/login`. Deve aparecer `"configured":true`.
+2. Abra `/admin` e entre com a sua senha.
+3. No painel, vá em "SEO & Config" e coloque o endereço real do seu site.
+4. Abra `/sitemap.xml` e `/robots.txt` para ver se carregam.
 
-```
-prisma generate && prisma db push --skip-generate && next build
-```
-
-Ou seja: gera o client Prisma (compatível com o runtime da Vercel — `rhel-openssl-3.0.x`), **cria/sincroniza as tabelas no Neon automaticamente** e roda o build do Next. Nenhum comando manual de banco é necessário.
-
-Basta conectar o repositório na Vercel e fazer o deploy.
-
-> **Importante (Neon):** o `prisma db push` roda durante o build, então `DATABASE_URL` precisa estar definida **também no ambiente de Build** (marcar Production e Preview). Se o build falhar com erro de conexão/timeout, use no `DATABASE_URL` a string **direta** do Neon (host *sem* `-pooler`).
->
-> O `db push` **não** usa mais `--accept-data-loss`: se uma mudança futura no schema for destrutiva (apagar coluna/tabela com dados), o build para com aviso em vez de apagar dados em produção silenciosamente.
-
-> **Segurança:** em produção `ADMIN_PASSWORD` e `ADMIN_SECRET` são **obrigatórias**. Sem elas o login do `/admin` fica bloqueado (não existe mais senha/segredo padrão em produção).
-
-## 4. Passos manuais após o primeiro deploy
-
-Nenhum obrigatório. O banco nasce vazio e o site funciona 100% (o blog é conteúdo estático; SEO usa valores padrão). Opcionalmente, na primeira vez:
-
-1. Acesse `https://SEU-DOMINIO/admin`, faça login com `ADMIN_PASSWORD`.
-2. Gere os primeiros códigos de acesso para assinantes da Biblioteca de Artes (aba **Códigos**).
-3. Ajuste título, descrição e palavras-chave do site (aba **SEO & Config**) — aplica em tempo real, sem redeploy.
-
-## 5. Painel Admin
-
-- URL: `/admin`
-- Login: valor de `ADMIN_PASSWORD` definido na Vercel
-- Funcões: gerenciar códigos premium (limite de ativações, validade, revogação), contador de visitas (gráfico de 30 dias + páginas mais visitadas), configuração de SEO em tempo real e troca de senha.
-
-## 6. SEO / GEO incluído
-
-- Canonical absoluto + metadataBase em todas as páginas
-- Open Graph + Twitter Card com imagem 1200×630 (`/og/og-default.png`)
-- JSON-LD: WebSite + Organization (com `sameAs`), Article (+Breadcrumb+FAQ) nos 16 artigos
-- `sitemap.xml` dinâmico (18 URLs) e `robots.txt` liberando crawlers de IA (GPTBot, PerplexityBot, ClaudeBot, Google-Extended, CCBot…)
-- `/llms.txt` (visão geral da marca/ferramentas) e `/llms-full.txt` (conteúdo integral do blog para LLMs/RAG)
-- Headers de segurança (nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy)
-
-## 7. Verificações pós-deploy
-
-- `https://SEU-DOMINIO/sitemap.xml` → lista as 18 URLs com o domínio correto
-- `https://SEU-DOMINIO/robots.txt` → bots de IA listados
-- `/admin` → login, gerar código, abrir `/?tool=mockup` e liberar o Studio
-- [Google Search Console](https://search.google.com/search-console) → enviar `https://SEU-DOMINIO/sitemap.xml`
+## Se der problema
+| O que aconteceu | O que fazer |
+|---|---|
+| Página 404 da Vercel | Settings → Build and Development Settings → Framework Preset = Next.js. Depois faça Redeploy. |
+| Build falhou com erro de conexão ou tempo esgotado | Na DATABASE_URL use a string direta do Neon (host sem `-pooler`). |
+| Build falhou com aviso de perda de dados | O banco é de outro projeto. Crie um banco novo só para este site. |
+| /admin diz que está bloqueado | Falta ADMIN_PASSWORD ou ADMIN_SECRET. Cadastre e faça Redeploy. |
