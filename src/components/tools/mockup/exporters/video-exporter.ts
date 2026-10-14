@@ -32,16 +32,23 @@ export interface AnimOpts {
 
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
+/**
+ * Trajetória da câmera por frame.
+ * IMPORTANTE: `baseOffset` é o vetor CENTRO→CÂMERA original (imutável).
+ * Nunca derivamos o offset da posição atual da câmera — o bug antigo fazia
+ * exatamente isso e a rotação COMPUNHA a cada frame (devagar no início,
+ * ultra-rápido no fim). Aqui cada frame parte do offset original.
+ */
 function applyCameraPath(
   anim: VideoAnim,
   t: number,
   cam: THREE.PerspectiveCamera,
-  base: THREE.PerspectiveCamera,
+  baseOffset: THREE.Vector3,
   center: THREE.Vector3,
   heatOverride: (v: number) => void,
 ) {
-  const offset = new THREE.Vector3().subVectors(base.position, center);
-  const dist = offset.length();
+  const offset = baseOffset.clone();
+  const dist = baseOffset.length();
 
   if (anim === 'giro') {
     const a = t * Math.PI * 2;
@@ -59,6 +66,7 @@ function applyCameraPath(
     cam.position.copy(center).add(off);
   } else {
     // revelacao — câmera parada, calor 0→1 com curva suave
+    cam.position.copy(center).add(offset);
     heatOverride(easeInOut(t));
   }
   cam.lookAt(center);
@@ -125,10 +133,12 @@ async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps,
     encoder.configure({ codec, width: w, height: h, bitrate, framerate: fps });
 
     const total = Math.max(2, Math.round(duration * fps));
+    // offset original (imutável) — evita a rotação composta do bug antigo
+    const baseOffset = new THREE.Vector3().subVectors(base.position, center);
     for (let i = 0; i < total; i++) {
       if (encError) throw encError;
       const t = i / (total - 1); // 0..1 inclusive (loop suave no giro: vê a frente no início e fim)
-      applyCameraPath(anim, t, base, base, center, (v) => setMugOverride(session, { magicHeat: v }));
+      applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
       renderFrame(session, base);
 
       const frame = new VideoFrame(session.gl.domElement, {
@@ -169,7 +179,9 @@ async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps,
 async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, fps, onProgress }: AnimOpts): Promise<VideoResult> {
   const session = beginFrames(w, h, { transparent: false });
   try {
-    const canvas = session.gl.domElement as HTMLCanvasElement & { captureStream: (fps: number) => MediaStream };
+    const canvas = session.gl.domElement as HTMLCanvasElement & {
+      captureStream: (fps: number) => MediaStream;
+    };
     if (typeof canvas.captureStream !== 'function') {
       throw new ExportError('Seu navegador não suporta gravação de vídeo. Use Chrome, Edge ou Safari recentes.');
     }
@@ -181,7 +193,16 @@ async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, 
       'video/webm',
     ];
     const mimeType = mimes.find((m) => MediaRecorder.isTypeSupported(m)) ?? '';
-    const stream = canvas.captureStream(fps);
+    // captureStream(0) + requestFrame: gravamos EXATAMENTE os frames que
+    // renderizamos — o loop do r3f não interfere mais na gravação.
+    // Se o navegador não tiver requestFrame, caímos no modo automático.
+    let stream = canvas.captureStream(0);
+    let track = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void };
+    const manual = typeof track?.requestFrame === 'function';
+    if (!manual) {
+      stream = canvas.captureStream(fps);
+      track = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void };
+    }
     const rec = new MediaRecorder(stream, {
       mimeType: mimeType || undefined,
       videoBitsPerSecond: 10_000_000,
@@ -193,6 +214,7 @@ async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, 
 
     const base = fitCamera(session);
     const center = sceneCenter(session.scene);
+    const baseOffset = new THREE.Vector3().subVectors(base.position, center);
     const done = new Promise<Blob>((resolve) => {
       rec.onstop = () => resolve(new Blob(chunks, { type: mimeType || 'video/webm' }));
     });
@@ -204,8 +226,9 @@ async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, 
       const tick = () => {
         const elapsed = performance.now() - t0;
         const t = Math.min(1, elapsed / durMs);
-        applyCameraPath(anim, t, base, base, center, (v) => setMugOverride(session, { magicHeat: v }));
+        applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
         renderFrame(session, base);
+        track.requestFrame?.();
         onProgress?.(t);
         if (t >= 1) resolve();
         else requestAnimationFrame(tick);
@@ -255,10 +278,11 @@ export async function exportGif(width: number, animOpts: AnimOpts): Promise<GifR
     const center = sceneCenter(session.scene);
     const gif = GIFEncoder();
     const total = Math.max(4, Math.round(duration * fps));
+    const baseOffset = new THREE.Vector3().subVectors(base.position, center);
 
     for (let i = 0; i < total; i++) {
       const t = i / total; // loop perfeito: último frame ≠ primeiro
-      applyCameraPath(anim, t, base, base, center, (v) => setMugOverride(session, { magicHeat: v }));
+      applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
       renderFrame(session, base);
       const small = await captureFrame(session, width, width);
       const { data } = small.getContext('2d')!.getImageData(0, 0, width, width);

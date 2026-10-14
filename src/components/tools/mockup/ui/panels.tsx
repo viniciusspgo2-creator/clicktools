@@ -15,11 +15,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/hooks/use-toast';
 import { useMockupStore, type VideoState } from '../state/store';
 import { loadArtFile, makeSampleArt, getArtImage } from '../lib/art-registry';
-import { computeDpi } from '../lib/art-canvas';
+import { computeDpi, computeFitScale } from '../lib/art-canvas';
 import { loadBgFile, ensureScenes, SCENES, drawSceneThumb } from '../lib/background-registry';
 import {
-  BACKGROUND_LABELS, CAMERA_PRESETS, EXPORT_RATIOS, FLOOR_OPTIONS, LIGHT_PRESETS, MAX_EXPORT_PX,
-  type BackgroundType,
+  AREA_PRESETS, BACKGROUND_LABELS, CAMERA_PRESETS, EXPORT_RATIOS, FLOOR_OPTIONS, LIGHT_PRESETS, MAX_EXPORT_PX,
+  resolvePrintArea, type AreaMode, type BackgroundType,
 } from '../lib/config';
 import { ColorRow, MiniButton, PrimaryButton, Section, Segmented, SliderRow, ToggleRow } from './controls';
 import { downloadBlob, exportImage, ExportError } from '../exporters/image-exporter';
@@ -72,7 +72,9 @@ export function ArtPanel() {
   const notifyArtApplied = useMockupStore((s) => s.notifyArtApplied);
   const { inputRef, handleFiles, busy, openFilePicker } = useArtUploader();
   const hasArt = !!art.imageId;
-  const dpi = useMemo(() => computeDpi(art), [art]);
+  // área de impressão ativa (muda com o painel Arte) — resolvePrintArea é barato
+  const area = useMemo(() => resolvePrintArea(art), [art]);
+  const dpi = useMemo(() => computeDpi(art, area), [art, area]);
 
   return (
     <Section title="Arte" icon={ImagePlus} defaultOpen>
@@ -145,6 +147,69 @@ export function ArtPanel() {
         <Wand2 className="mr-1 inline h-3 w-3 text-primary" /> Usar arte de exemplo
       </MiniButton>
 
+      {/* tamanho da área de impressão na caneca */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
+        <p
+          className="mb-1.5 text-[11px] font-medium text-neutral-400"
+          title="Onde a arte é impressa na caneca — escolha o tamanho do papel que você usa"
+        >
+          Tamanho na caneca
+        </p>
+        <div className="grid grid-cols-2 gap-1">
+          {AREA_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              title={p.desc}
+              onClick={() => patch('art', { areaMode: p.id as AreaMode })}
+              className={cn(
+                'rounded-lg border px-1.5 py-1.5 text-[10px] font-bold transition-all',
+                (art.areaMode ?? 'padrao') === p.id
+                  ? 'border-primary/60 bg-primary/15 text-primary'
+                  : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {(art.areaMode ?? 'padrao') === 'custom' && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div>
+              <p className="mb-1 text-[10px] text-neutral-500">Largura (cm)</p>
+              <input
+                type="number"
+                min={8}
+                max={23.4}
+                step={0.1}
+                value={art.areaW}
+                onChange={(e) => patch('art', { areaW: Math.min(23.4, Math.max(8, +e.target.value || 20.7)) })}
+                className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] text-neutral-500">Altura (cm)</p>
+              <input
+                type="number"
+                min={4}
+                max={8.8}
+                step={0.1}
+                value={art.areaH}
+                onChange={(e) => patch('art', { areaH: Math.min(8.8, Math.max(4, +e.target.value || 8.7)) })}
+                className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
+              />
+            </div>
+          </div>
+        )}
+
+        <p className="mt-2 text-[10px] leading-relaxed text-neutral-500">
+          Área ativa: <strong className="text-neutral-300">{area.arcCm.toFixed(1).replace('.', ',')} × {area.heightCm.toFixed(1).replace('.', ',')} cm</strong>
+          {(art.areaMode ?? 'padrao') === 'forno' && ' · envolve a caneca toda até a alça'}
+          {(art.areaMode ?? 'padrao') === 'alta' && ' · preenche praticamente toda a altura'}
+        </p>
+      </div>
+
       {/* texto escrito direto na caneca (sai também na folha de sublimação) */}
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
         <p className="mb-1.5 text-[11px] font-medium text-neutral-400" title="Escreva uma frase ou nome — vai para a caneca e para a folha de sublimação">
@@ -193,6 +258,28 @@ export function ArtPanel() {
             ]}
             onChange={(v) => patch('art', { fit: v })}
           />
+          <div className="flex gap-1.5">
+            <MiniButton
+              className="flex-1"
+              title="Aumenta/diminui a arte para ocupar exatamente a altura toda da área"
+              onClick={() => {
+                const k = computeFitScale(art, 'height', area);
+                if (k) patch('art', { scale: Math.round(k * 100) / 100 });
+              }}
+            >
+              Preencher altura
+            </MiniButton>
+            <MiniButton
+              className="flex-1"
+              title="Aumenta/diminui a arte para ocupar exatamente a largura toda da área"
+              onClick={() => {
+                const k = computeFitScale(art, 'width', area);
+                if (k) patch('art', { scale: Math.round(k * 100) / 100 });
+              }}
+            >
+              Preencher largura
+            </MiniButton>
+          </div>
           <SliderRow label="Tamanho" value={art.scale * 100} min={10} max={300} onChange={(v) => patch('art', { scale: v / 100 })} defaultValue={100} format={(v) => `${Math.round(v)}%`} />
           <SliderRow
             label="Posição em volta (frente ← → trás)"
@@ -224,6 +311,15 @@ export function ArtPanel() {
 
 /* ---------------- Caneca ---------------- */
 
+/** presets de inclinação/perspectiva da caneca */
+const TILT_PRESETS: { id: string; label: string; tiltX: number; tiltZ: number; title: string }[] = [
+  { id: 'frontal', label: 'Frontal', tiltX: 0, tiltZ: 0, title: 'Caneca reta, de frente' },
+  { id: 'esq', label: 'Inclinada ←', tiltX: 5, tiltZ: 16, title: 'Inclinada para a esquerda' },
+  { id: 'dir', label: 'Inclinada →', tiltX: 5, tiltZ: -16, title: 'Inclinada para a direita' },
+  { id: 'cima', label: 'Vista de cima', tiltX: 22, tiltZ: 0, title: 'Topo da caneca virado para a câmera' },
+  { id: 'baixo', label: 'Vista de baixo', tiltX: -14, tiltZ: 0, title: 'Base da caneca virada para a câmera' },
+];
+
 export function MugPanel() {
   const mug = useMockupStore((s) => s.mug);
   const patch = useMockupStore((s) => s.patch);
@@ -232,6 +328,7 @@ export function MugPanel() {
   const [playing, setPlaying] = useState(false);
   const rafRef = useRef<number | null>(null);
   const holdHeatRef = useRef<number | null>(null);
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopPlay = useCallback(() => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -239,7 +336,13 @@ export function MugPanel() {
     setPlaying(false);
   }, []);
 
-  useEffect(() => () => stopPlay(), [stopPlay, mug.variant]);
+  useEffect(
+    () => () => {
+      stopPlay();
+      if (previewTimer.current) clearTimeout(previewTimer.current);
+    },
+    [stopPlay],
+  );
 
   /** pré-visualização: a caneca preta começa a revelar a arte */
   const startPlay = useCallback(() => {
@@ -266,10 +369,26 @@ export function MugPanel() {
     patch('mug', { magicHeat: 0 });
   };
   const releaseCold = () => {
+    if (previewTimer.current) {
+      clearTimeout(previewTimer.current);
+      previewTimer.current = null;
+    }
     if (holdHeatRef.current !== null) {
       patch('mug', { magicHeat: holdHeatRef.current });
       holdHeatRef.current = null;
     }
+  };
+  /** clique simples: pré-visualiza a caneca fria por 1,2 s (o hold também funciona) */
+  const clickPreviewCold = () => {
+    if (holdHeatRef.current !== null) return; // já segurando
+    const held = mug.magicHeat;
+    holdHeatRef.current = held;
+    patch('mug', { magicHeat: 0 });
+    previewTimer.current = setTimeout(() => {
+      patch('mug', { magicHeat: held });
+      holdHeatRef.current = null;
+      previewTimer.current = null;
+    }, 1200);
   };
 
   return (
@@ -319,13 +438,14 @@ export function MugPanel() {
             </MiniButton>
           </div>
           <MiniButton
-            onClick={() => {}}
+            onClick={clickPreviewCold}
             onPointerDown={holdCold}
             onPointerUp={releaseCold}
             onPointerLeave={releaseCold}
             className="w-full"
+            title="Clique (1,2 s) ou segure para ver a caneca fria"
           >
-            <Eye className="mr-1 inline h-3 w-3" /> Segurar p/ ver antes
+            <Eye className="mr-1 inline h-3 w-3" /> Ver antes (clique ou segure)
           </MiniButton>
           <Segmented
             label="Direção da revelação"
@@ -365,12 +485,51 @@ export function MugPanel() {
           Girar +45°
         </MiniButton>
       </div>
+
+      {/* perspectivas prontas */}
+      <div>
+        <p className="mb-1.5 text-[11px] font-medium text-neutral-400" title="Inclinações prontas da caneca na cena">
+          Perspectiva da caneca
+        </p>
+        <div className="grid grid-cols-3 gap-1">
+          {TILT_PRESETS.map((p) => {
+            const active =
+              Math.abs((mug.tiltX ?? 0) - p.tiltX) < 0.5 &&
+              Math.abs((mug.tiltZ ?? 0) - p.tiltZ) < 0.5;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                title={p.title}
+                onClick={() => patch('mug', { tiltX: p.tiltX, tiltZ: p.tiltZ })}
+                className={cn(
+                  'rounded-lg border px-1 py-2 text-[10px] font-bold transition-all',
+                  active
+                    ? 'border-primary/60 bg-primary/15 text-primary'
+                    : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+                )}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <SliderRow
-        label="Inclinação"
+        label="Inclinar frente/trás"
         value={mug.tiltX}
         min={-35}
         max={35}
         onChange={(v) => patch('mug', { tiltX: v })}
+        defaultValue={0}
+        format={(v) => `${Math.round(v)}°`}
+      />
+      <SliderRow
+        label="Inclinar esquerda/direita"
+        value={mug.tiltZ ?? 0}
+        min={-30}
+        max={30}
+        onChange={(v) => patch('mug', { tiltZ: v })}
         defaultValue={0}
         format={(v) => `${Math.round(v)}°`}
       />
@@ -396,6 +555,22 @@ const BG_OPTIONS: { value: BackgroundType; label: string; title: string }[] = [
   { value: 'image', label: 'Imagem', title: 'Use uma foto sua como fundo' },
   { value: 'transparent', label: 'Sem fundo', title: 'Transparente — exporta PNG/WebP com alfa' },
 ];
+
+/** ícone de transparência (xadrez) desenhado em CSS puro */
+function TransparentSwatch() {
+  return (
+    <span
+      aria-hidden
+      className="inline-block h-3 w-3 shrink-0 rounded-[3px] border border-white/40"
+      style={{
+        backgroundImage:
+          'linear-gradient(45deg, #9ca3af 25%, transparent 25%, transparent 75%, #9ca3af 75%), linear-gradient(45deg, #9ca3af 25%, #efefef 25%, #efefef 75%, #9ca3af 75%)',
+        backgroundSize: '8px 8px',
+        backgroundPosition: '0 0, 4px 4px',
+      }}
+    />
+  );
+}
 
 /** galeria de cenários prontos, todos gerados por código */
 function ScenesGallery() {
@@ -510,9 +685,10 @@ export function ScenePanel() {
 
       <p className="text-[11px] font-medium text-neutral-400">Fundo</p>
       <div className="grid grid-cols-3 gap-1">
-        {BG_OPTIONS.map((o) => (
+        {BG_OPTIONS.filter((o) => o.value !== 'transparent').map((o) => (
           <button
             key={o.value}
+            type="button"
             title={o.title}
             onClick={() => patch('bg', { type: o.value })}
             className={cn(
@@ -526,6 +702,29 @@ export function ScenePanel() {
           </button>
         ))}
       </div>
+      {/* opção "Sem fundo" em destaque — transparente de verdade */}
+      <button
+        type="button"
+        title="A caneca fica sobre transparência (xadrez). Exporte em PNG/WebP para manter o fundo invisível."
+        onClick={() => patch('bg', { type: 'transparent' })}
+        className={cn(
+          'flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left transition-all',
+          bg.type === 'transparent'
+            ? 'border-primary/70 bg-primary/15 text-primary'
+            : 'border-white/15 bg-white/[0.03] text-neutral-300 hover:border-white/30 hover:text-white',
+        )}
+      >
+        <TransparentSwatch />
+        <span className="flex-1 text-[11px] font-bold">Fundo transparente</span>
+        {bg.type === 'transparent' && <Check className="h-3.5 w-3.5" />}
+      </button>
+      {bg.type === 'transparent' && (
+        <p className="rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-2 text-[10px] leading-relaxed text-neutral-300">
+          O fundo some de verdade (veja o xadrez atrás da caneca). Na exportação, marque
+          <strong className="text-primary"> “Sem fundo (PNG transparente)”</strong> e escolha PNG ou WebP — a
+          caneca fica pronta para montar em qualquer lugar, com a sombra suave preservada.
+        </p>
+      )}
       {bg.type === 'gradient' && (
         <>
           <ColorRow label="Cor 1 (topo)" value={bg.colorA} onChange={(v) => patch('bg', { colorA: v })} />
@@ -650,12 +849,13 @@ export function ScenePanel() {
       )}
 
       <p className="pt-1 text-[11px] font-medium text-neutral-400" title="Como a base da cena aparece embaixo da caneca">
-        Chão
+        Base / chão
       </p>
-      <div className="grid grid-cols-4 gap-1">
+      <div className="grid grid-cols-3 gap-1">
         {FLOOR_OPTIONS.map((o) => (
           <button
             key={o.value}
+            type="button"
             title={o.title}
             onClick={() => patch('bg', { floor: o.value })}
             className={cn(
@@ -669,6 +869,21 @@ export function ScenePanel() {
           </button>
         ))}
       </div>
+      {(bg.floor ?? 'continuo') === 'base-redonda' && (
+        <p className="text-[10px] leading-relaxed text-neutral-500">
+          Prato redondo de cerâmica clara sob a caneca — look de loja de produtos artesanais.
+        </p>
+      )}
+      {(bg.floor ?? 'continuo') === 'base-quadrada' && (
+        <p className="text-[10px] leading-relaxed text-neutral-500">
+          Placa quadrada com cantos arredondados — o clássico dos mockups premium.
+        </p>
+      )}
+      {(bg.floor ?? 'continuo') === 'pedestal' && (
+        <p className="text-[10px] leading-relaxed text-neutral-500">
+          Pódium escuro elevado — destaque de vitrine.
+        </p>
+      )}
       {(bg.floor ?? 'continuo') === 'flutuante' && (
         <ToggleRow
           label="Flutuar suavemente"
@@ -680,6 +895,13 @@ export function ScenePanel() {
         <p className="text-[10px] leading-relaxed text-neutral-500">
           Sem chão: a sombra vira um borrão suave no ar — quanto mais alta a caneca, mais difusa. As exportações saem paradas.
         </p>
+      )}
+      {(bg.type === 'studio-dark' || bg.type === 'solid') && (
+        <ToggleRow
+          label="Brilho suave atrás da caneca"
+          checked={bg.glow ?? false}
+          onChange={(v) => patch('bg', { glow: v })}
+        />
       )}
       <ToggleRow label="Sombra de contato" checked={bg.contactShadow} onChange={(v) => patch('bg', { contactShadow: v })} />
       <ToggleRow label="Sombra projetada" checked={bg.castShadow} onChange={(v) => patch('bg', { castShadow: v })} />
@@ -1418,21 +1640,21 @@ function BatchTab() {
 function TemplateTab() {
   const art = useMockupStore((s) => s.art);
   const [dpi, setDpi] = useState<300 | 600>(300);
-  const [fullWrap, setFullWrap] = useState(false);
   const [guides, setGuides] = useState(true);
   const setOpen = useMockupStore((s) => s.setExportOpen);
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
 
-  const widthCm = fullWrap ? 25.3 : 21.0;
-  const heightCm = 8.7;
+  const area = useMemo(() => resolvePrintArea(art), [art]);
+  const widthCm = area.arcCm;
+  const heightCm = area.heightCm;
   const outW = Math.round((widthCm * dpi) / 2.54);
   const outH = Math.round((heightCm * dpi) / 2.54);
 
   const doExport = async () => {
     setBusy(true);
     try {
-      const res = await exportTemplate({ dpi, fullWrap, guides });
+      const res = await exportTemplate({ dpi, guides });
       downloadBlob(res.blob, res.filename);
       setOpen(false);
       toast({
@@ -1450,11 +1672,21 @@ function TemplateTab() {
     }
   };
 
+  const areaLabel =
+    area.mode === 'forno'
+      ? 'Forno 360° — envolve a caneca toda até a alça'
+      : area.mode === 'alta'
+        ? 'Altura cheia — papel 21×9,7'
+        : area.mode === 'custom'
+          ? 'Medidas personalizadas'
+          : 'Prensa padrão — 20,7 × 8,7 cm';
+
   return (
     <div className="space-y-4">
       <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] leading-relaxed text-neutral-300">
-        A folha planificada é a arte no tamanho exato de impressão da caneca 11 oz — envie direto para a prensa
-        térmica. Os ajustes do painel Arte (escala, posição, repetir) são aplicados.
+        A folha planificada é a arte no tamanho exato de impressão — envie direto para a prensa
+        térmica. Ela segue o <strong className="text-primary">tamanho configurado no painel Arte</strong>
+        ({areaLabel}) e os ajustes de escala, posição e repetir.
       </p>
 
       <Segmented
@@ -1467,7 +1699,6 @@ function TemplateTab() {
         onChange={(v) => setDpi(Number(v) as 300 | 600)}
       />
 
-      <ToggleRow label="Volta completa (inclui a região da alça)" checked={fullWrap} onChange={setFullWrap} />
       <ToggleRow label="Guias de corte e margem de segurança" checked={guides} onChange={setGuides} />
 
       <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[11px]">

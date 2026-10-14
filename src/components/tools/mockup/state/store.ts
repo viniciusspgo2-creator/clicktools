@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import {
   BODY_MAX_R, FLOAT_LIFT, MUG_FULL_R, MUG_GAP_MIN, PEDESTAL_H,
-  type FloorType,
+  type AreaMode, type FloorType,
 } from '../lib/config';
 
 export interface ArtState {
@@ -22,6 +22,10 @@ export interface ArtState {
   mirror: boolean;
   fit: 'cover' | 'contain' | 'stretch';
   repeat: number; // 1..4
+  /** tamanho da área de impressão na caneca (prensa / altura cheia / forno / custom) */
+  areaMode: AreaMode;
+  areaW: number; // cm — largura do arco (modo custom)
+  areaH: number; // cm — altura da área (modo custom)
   /** camada de texto (ideia de editor concorrente, implementada ao nosso jeito) */
   text: string;
   textColor: string;
@@ -36,7 +40,8 @@ export interface MugState {
   magicDirection: 'baixo' | 'lateral' | 'radial'; // de onde a revelação começa
   magicDissolve: number; // 0..1 — 0 = linha reta · 1 = dissolução total
   rotationY: number; // graus — gira a caneca (não a câmera)
-  tiltX: number; // graus -35..35
+  tiltX: number; // graus -35..35 (inclina p/ frente/trás)
+  tiltZ: number; // graus -30..30 (inclina p/ esquerda/direita)
   scale: number; // 0.6..1.4
   posY: number; // cm -1..2
 }
@@ -59,6 +64,8 @@ export interface BackgroundState {
   castShadow: boolean;
   /** tipo de chão — padrão: contínuo (sem borda) */
   floor: FloorType;
+  /** brilho suave atrás da caneca (look premium) — desligado por padrão */
+  glow: boolean;
   /** animação leve de sobe-e-desce (só preview; exportações saem paradas) */
   floatAnim: boolean;
   /* ---- imagem de fundo ---- */
@@ -154,6 +161,7 @@ type Snapshot = {
   bg: BackgroundState;
   companions: CompanionMug[];
   fx: FxState;
+  camera: CameraState;
 };
 
 export type PatchSlice = 'art' | 'mug' | 'light' | 'bg' | 'camera' | 'fx' | 'watermark' | 'video' | 'gif';
@@ -225,6 +233,9 @@ const initialArt: ArtState = {
   mirror: false,
   fit: 'cover',
   repeat: 1,
+  areaMode: 'padrao',
+  areaW: 20.7,
+  areaH: 8.7,
   text: '',
   textColor: '#1d130d',
   textSize: 0.09,
@@ -239,6 +250,7 @@ const initialMug: MugState = {
   magicDissolve: 0.35,
   rotationY: 0,
   tiltX: 0,
+  tiltZ: 0,
   scale: 1,
   posY: 0,
 };
@@ -260,6 +272,7 @@ const initialBg: BackgroundState = {
   contactShadow: true,
   castShadow: true,
   floor: 'continuo',
+  glow: false,
   floatAnim: false,
   imageId: null,
   imageFit: 'cover',
@@ -461,7 +474,7 @@ const HISTORY_LIMIT = 60;
 let commitTimer: ReturnType<typeof setTimeout> | null = null;
 
 function snap(s: MockupStore): Snapshot {
-  return { art: s.art, mug: s.mug, light: s.light, bg: s.bg, companions: s.companions, fx: s.fx };
+  return { art: s.art, mug: s.mug, light: s.light, bg: s.bg, companions: s.companions, fx: s.fx, camera: s.camera };
 }
 
 export const useMockupStore = create<MockupStore>((set, get) => {
@@ -541,7 +554,6 @@ export const useMockupStore = create<MockupStore>((set, get) => {
       });
       set((s) => ({ artAppliedNonce: s.artAppliedNonce + 1 }));
     },
-
     clearArt: () => {
       get().patch('art', { imageId: null, name: '', width: 0, height: 0 });
     },
@@ -583,6 +595,8 @@ export const useMockupStore = create<MockupStore>((set, get) => {
 
     patchCompanion: (id, partial) => {
       guardHistory();
+      // liberdade total: a pessoa posiciona onde quiser — só impedimos
+      // que uma caneca fique literalmente DENTRO da outra
       const list = get().companions.map((c) => (c.id === id ? { ...c, ...partial } : c));
       const touchesPose = 'posX' in partial || 'posZ' in partial || 'scale' in partial || 'rotationY' in partial;
       if (touchesPose) {
@@ -698,6 +712,7 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         bg: prev.bg,
         companions: prev.companions,
         fx: prev.fx,
+        camera: prev.camera,
       });
     },
 
@@ -718,17 +733,24 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         bg: next.bg,
         companions: next.companions,
         fx: next.fx,
+        camera: next.camera,
       });
     },
 
     resetAll: () => {
-      get().patch('art', { ...initialArt });
-      get().patch('mug', { ...initialMug });
-      get().patch('light', { ...initialLight });
-      get().patch('bg', { ...initialBg });
-      get().patch('fx', { ...initialFx });
+      // zera TUDO de verdade: arte, caneca, luz, cena, efeitos, câmera e acompanhantes
+      // (mantém um passo de histórico para poder desfazer o reset se for acidental)
       guardHistory();
-      set({ companions: [], bgAdjustMode: false });
+      set({
+        art: { ...initialArt },
+        mug: { ...initialMug },
+        light: { ...initialLight },
+        bg: { ...initialBg },
+        fx: { ...initialFx },
+        camera: { ...initialCamera },
+        companions: [],
+        bgAdjustMode: false,
+      });
     },
   };
 });

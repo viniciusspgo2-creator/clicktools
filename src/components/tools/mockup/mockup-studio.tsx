@@ -179,6 +179,9 @@ export function MockupStudio() {
         return;
       }
       if (mod) return;
+      // espaço só alterna o giro quando NADA selecionável está focado —
+      // antes, um botão focado recebia clique + alternância (duplo disparo)
+      if (e.key === ' ' && t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.closest?.('[role=switch]'))) return;
       switch (e.key.toLowerCase()) {
         case 'r':
           rotateMug(45);
@@ -402,12 +405,13 @@ export function MockupStudio() {
           <button
             onClick={() => {
               resetAll();
-              toast({ title: 'Cena zerada', description: 'Tudo voltou ao padrão.' });
+              toast({ title: 'Tudo zerado', description: 'A cena voltou ao padrão — Ctrl+Z desfaz se mudar de ideia.' });
             }}
-            className="hidden rounded-lg p-2 text-neutral-400 transition-colors hover:bg-white/5 hover:text-white sm:block"
-            title="Zerar tudo"
+            className="flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-neutral-300 transition-colors hover:border-primary/50 hover:text-primary"
+            title="Resetar tudo para começar do zero"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Reset</span>
           </button>
           <button
             onClick={() => setProjectsOpen(true)}

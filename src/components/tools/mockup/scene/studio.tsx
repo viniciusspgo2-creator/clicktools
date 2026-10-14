@@ -14,10 +14,10 @@ import { useFrame } from '@react-three/fiber';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { useMockupStore } from '../state/store';
 import {
-  FLOAT_LIFT, LIGHT_PRESETS, PEDESTAL_H, detectMobile, groupFootprint, kelvinToRgb,
+  FLOAT_LIFT, LIGHT_PRESETS, PEDESTAL_H, PLATE_H, detectMobile, groupFootprint, kelvinToRgb,
 } from '../lib/config';
 import { getBackgroundAvg } from '../lib/background-registry';
-import { buildPedestalGeometry } from './mug-geometry';
+import { buildPedestalGeometry, buildRoundPlateGeometry, buildSquarePlateGeometry } from './mug-geometry';
 import { studioRefs } from './studio-refs';
 
 let rectAreaReady = false;
@@ -96,7 +96,7 @@ export function StudioLights() {
         position={[keyPos.x * 0.7, 8.5, keyPos.z * 0.9 + 2]}
         width={7}
         height={10}
-        intensity={preset.keyInt * light.intensity * 2.6}
+        intensity={preset.keyInt * light.intensity * 1.9}
         color={keyColor}
         onUpdate={(self) => self.lookAt(0, 4.5, 0)}
       />
@@ -236,12 +236,12 @@ export function Backdrop() {
           depthWrite={false}
         />
       </mesh>
-      {bg.type === 'studio-dark' || bg.type === 'solid' ? <GlowBoard /> : null}
+      {(bg.type === 'studio-dark' || bg.type === 'solid') && bg.glow === true ? <GlowBoard /> : null}
     </>
   );
 }
 
-/** brilho suave atrás da caneca (look premium no fundo escuro) */
+/** brilho suave atrás da caneca — OPCIONAL (ligado no painel Cena) */
 function GlowBoard() {
   const tex = useMemo(() => {
     const S = 256;
@@ -356,6 +356,58 @@ function Pedestal() {
   );
 }
 
+/** prato redondo de cerâmica clara (base redonda) */
+function RoundPlate() {
+  const companions = useMockupStore((s) => s.companions);
+  const mugScale = useMockupStore((s) => s.mug.scale);
+  const envIntensity = useMockupStore((s) => s.light.envIntensity);
+  const radius = useMemo(() => Math.min(28, Math.max(7.4, groupFootprint(companions, mugScale) - 1.6)), [companions, mugScale]);
+  const geo = useMemo(() => buildRoundPlateGeometry(radius, PLATE_H), [radius]);
+  useEffect(() => () => geo.dispose(), [geo]);
+
+  return (
+    <group name="pedestal">
+      <mesh geometry={geo} castShadow receiveShadow>
+        <meshPhysicalMaterial
+          color="#edeae4"
+          roughness={0.28}
+          metalness={0.02}
+          clearcoat={0.8}
+          clearcoatRoughness={0.2}
+          envMapIntensity={0.45 + envIntensity * 0.55}
+        />
+      </mesh>
+      <ShadowCatcher />
+    </group>
+  );
+}
+
+/** placa quadrada com cantos arredondados (base quadrada — look premium) */
+function SquarePlate() {
+  const companions = useMockupStore((s) => s.companions);
+  const mugScale = useMockupStore((s) => s.mug.scale);
+  const envIntensity = useMockupStore((s) => s.light.envIntensity);
+  const size = useMemo(() => Math.min(52, Math.max(15, (groupFootprint(companions, mugScale) - 1.2) * 2)), [companions, mugScale]);
+  const geo = useMemo(() => buildSquarePlateGeometry(size, PLATE_H), [size]);
+  useEffect(() => () => geo.dispose(), [geo]);
+
+  return (
+    <group name="pedestal">
+      <mesh geometry={geo} castShadow receiveShadow>
+        <meshPhysicalMaterial
+          color="#e7e2da"
+          roughness={0.3}
+          metalness={0.03}
+          clearcoat={0.75}
+          clearcoatRoughness={0.22}
+          envMapIntensity={0.45 + envIntensity * 0.55}
+        />
+      </mesh>
+      <ShadowCatcher />
+    </group>
+  );
+}
+
 /** piso espelhado com reflexo suave (fallback leve no celular) */
 function MirrorFloor() {
   const bg = useMockupStore((s) => s.bg);
@@ -400,6 +452,8 @@ export function Ground() {
 
   if (floor === 'flutuante') return null; // sombras ficam por conta do FloatShadows
   if (floor === 'pedestal') return <Pedestal />;
+  if (floor === 'base-redonda') return <RoundPlate />;
+  if (floor === 'base-quadrada') return <SquarePlate />;
   if (floor === 'espelhado') return <MirrorFloor />;
 
   // contínuo (padrão): só receptor de sombra — o fundo (branco puro,
@@ -416,9 +470,15 @@ export function StudioContactShadows() {
   const floor = bg.floor ?? 'continuo';
   if (!bg.contactShadow || floor === 'flutuante') return null;
   const extent = groupFootprint(companions, mugScale);
+  const topY =
+    floor === 'pedestal'
+      ? PEDESTAL_H + 0.002
+      : floor === 'base-redonda' || floor === 'base-quadrada'
+        ? PLATE_H + 0.002
+        : 0.002;
   return (
     <ContactShadows
-      position={[0, floor === 'pedestal' ? PEDESTAL_H + 0.002 : 0.002, 0]}
+      position={[0, topY, 0]}
       opacity={0.44}
       scale={Math.min(64, extent * 2.2)}
       blur={2.2 + softness * 2.4}

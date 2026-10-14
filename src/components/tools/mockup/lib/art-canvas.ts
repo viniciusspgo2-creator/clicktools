@@ -6,11 +6,17 @@
      linhas [0 .. printH)            → área de impressão (v: 1 → vBase)
      linhas [printH .. printH+S)     → cor-base exterior (alça, borda, pé)
      linhas [printH+S .. H)          → cor-base interior
+
+   A área de impressão é PARAMETRIZÁVEL (prensa / altura cheia /
+   forno 360° / personalizada) e os UVs ganham um inset que impede
+   o "bleed" da filtragem bilinear+mip na fronteira arte/cor-base —
+   a arte sai limpa, sem bordas ou marcações estranhas.
    ============================================================ */
 
 import * as THREE from 'three';
 import {
-  CANVAS_W_PREVIEW, STRIP_PX, MUG, PRINT_ARC_CM, PRINT_HEIGHT_CM, CIRC_CM, GAP_ANGLE, ARC_FRACTION,
+  CANVAS_W_PREVIEW, STRIP_PX, MUG, CIRC_CM, UV_PAD_PX,
+  resolvePrintArea, type PrintArea,
 } from './config';
 import type { ArtState, MugState } from '../state/store';
 import { getArtImage } from './art-registry';
@@ -96,37 +102,49 @@ function applyMagicReveal(canvas: HTMLCanvasElement, printH: number, mug: MugSta
   ctx.putImageData(img, 0, 0);
 }
 
-export function canvasHeightFor(width: number): number {
+export function canvasHeightFor(width: number, area?: PrintArea): number {
   // o canvas cobre a volta COMPLETA (360°): px/cm = width / CIRC_CM
-  const printH = Math.round((width * PRINT_HEIGHT_CM) / CIRC_CM);
+  const a = area ?? resolvePrintArea({});
+  const printH = Math.round((width * a.heightCm) / CIRC_CM);
   return printH + STRIP_PX * 2;
 }
 
 /** v mínimo da área de impressão (faixas ficam abaixo) */
-export function printVBase(): number {
-  return (STRIP_PX * 2) / canvasHeightFor(CANVAS_W_PREVIEW);
+export function printVBase(area?: PrintArea): number {
+  const a = area ?? resolvePrintArea({});
+  return (STRIP_PX * 2) / canvasHeightFor(CANVAS_W_PREVIEW, a);
 }
 
 const UV_EPS = 0.004;
 
 /**
  * Sobrescreve as UVs do corpo (LatheGeometry) para:
- *  - parede externa → u percorre a VOLTA INTEIRA de 360° (o vão da alça
- *    amostra uma região própria do canvas preenchida com a cor-base —
- *    nunca “vaza” a última coluna da arte);
+ *  - parede externa → u percorre o ARCO DE IMPRESSÃO da área ativa com INSET
+ *    anti-bleed (a filtragem nunca mistura a arte com a cor-base);
  *  - borda/pé/fundo externo → faixa de cor exterior;
  *  - interior → faixa de cor interior.
+ * O vão da alça amostra uma região própria preenchida com a cor-base.
  */
-export function remapBodyUVs(geo: THREE.BufferGeometry) {
+export function remapBodyUVs(geo: THREE.BufferGeometry, area?: PrintArea) {
+  const a = area ?? resolvePrintArea({});
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const uv = new Float32Array(pos.count * 2);
   const total = Math.PI * 2;
-  const start = Math.PI + GAP_ANGLE / 2; // gap centrado atrás (alça em -Z)
-  const H = canvasHeightFor(CANVAS_W_PREVIEW);
+  const gapAngle = (a.gapCm / CIRC_CM) * total;
+  const arcAngle = total - gapAngle;
+  const start = Math.PI + gapAngle / 2; // gap centrado atrás (alça em -Z)
+  const H = canvasHeightFor(CANVAS_W_PREVIEW, a);
   const printH = H - STRIP_PX * 2;
   const vBase = (STRIP_PX * 2) / H; // v da base da área de impressão
   const vExtMid = (H - printH - STRIP_PX / 2) / H;
   const vIntMid = (H - printH - STRIP_PX - STRIP_PX / 2) / H;
+
+  const arcFrac = a.arcCm / CIRC_CM;
+  // inset em unidades de textura (4 px) — mata o bleed na fronteira
+  const padU = UV_PAD_PX / CANVAS_W_PREVIEW;
+  const padV = UV_PAD_PX / H;
+  const vLo = vBase + padV;
+  const vHi = 1 - padV;
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
@@ -135,23 +153,29 @@ export function remapBodyUVs(geo: THREE.BufferGeometry) {
     const r = Math.sqrt(x * x + z * z);
     let u: number, v: number;
 
-    if (y > MUG.printTop + 0.04 || y < MUG.printBottom - 0.06) {
+    if (y > a.printTop + 0.045 || y < a.printBottom - 0.075) {
       // borda arredondada, pé, fundo externo → cor-base exterior
-      u = 0.985;
+      u = 0.988;
       v = vExtMid;
     } else if (r < 3.93) {
       // parede/fundo internos → cor-base interior
-      u = 0.985;
+      u = 0.988;
       v = vIntMid;
     } else {
-      // parede externa → folha de impressão (u cobre os 360°)
-      const a = Math.atan2(x, z); // 0 = +Z (frente da arte)
-      let rel = (a - start) % total;
+      // parede externa → folha de impressão
+      const ang = Math.atan2(x, z); // 0 = +Z (frente da arte)
+      let rel = (ang - start) % total;
       if (rel < 0) rel += total;
-      // 0..1 na volta inteira: o vão da alça cai no fim do canvas (cor-base)
-      u = Math.min(1 - UV_EPS, Math.max(UV_EPS, rel / total));
-      const vf = (y - MUG.printBottom) / (MUG.printTop - MUG.printBottom);
-      v = vBase + Math.min(1, Math.max(0, vf)) * (1 - vBase) - UV_EPS * 0.5;
+      if (rel <= arcAngle) {
+        // dentro do arco impresso → amostra a arte com inset nas duas pontas
+        const k = rel / arcAngle;
+        u = padU + k * (arcFrac - 2 * padU);
+      } else {
+        // vão da alça → cor-base
+        u = Math.min(1 - UV_EPS, arcFrac + ((rel - arcAngle) / total));
+      }
+      const vf = (y - a.printBottom) / (a.printTop - a.printBottom);
+      v = vLo + Math.min(1, Math.max(0, vf)) * (vHi - vLo);
     }
     uv[i * 2] = u;
     uv[i * 2 + 1] = v;
@@ -235,20 +259,22 @@ export function drawArtIntoArea(ctx: CanvasRenderingContext2D, W: number, printH
 /**
  * Desenha a arte na folha (canvas) conforme os ajustes do usuário.
  * O canvas cobre a volta completa: a arte fica confinada ao arco de
- * impressão e o vão da alça é preenchido com a cor-base (branco / preto
- * na mágica) — sem listras nem vazamento da última coluna.
+ * impressão da área ativa e o vão da alça é preenchido com a cor-base —
+ * sem listras nem vazamento da última coluna.
  * Na caneca mágica aplica a revelação térmica sobre a área de impressão.
  */
 export function renderArtCanvas(
   canvas: HTMLCanvasElement,
   art: ArtState,
   mug: MugState,
+  area?: PrintArea,
 ) {
+  const a = area ?? resolvePrintArea(art);
   const W = canvas.width;
   const H = canvas.height;
   const S = STRIP_PX * (W / CANVAS_W_PREVIEW);
   const printH = H - S * 2;
-  const arcW = Math.round(W * ARC_FRACTION);
+  const arcW = Math.round(W * (a.arcCm / CIRC_CM));
   const ctx = canvas.getContext('2d')!;
 
   const isMagic = mug.variant === 'magic';
@@ -281,17 +307,18 @@ export function makeArtTexture(canvas: HTMLCanvasElement, maxAniso: number): THR
   tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.magFilter = THREE.LinearFilter;
   tex.generateMipmaps = true;
-  tex.anisotropy = Math.min(8, maxAniso);
+  tex.anisotropy = Math.min(16, maxAniso);
   tex.flipY = true;
   return tex;
 }
 
-/** DPI efetivo da arte na área de impressão (≈ 20,7 cm de arco) */
-export function computeDpi(art: ArtState): number | null {
+/** DPI efetivo da arte na área de impressão ativa */
+export function computeDpi(art: ArtState, area?: PrintArea): number | null {
   const entry = getArtImage(art.imageId);
   if (!entry) return null;
-  const printH = printHFor();
-  const arcPx = Math.round(CANVAS_W_PREVIEW * ARC_FRACTION);
+  const a = area ?? resolvePrintArea(art);
+  const printH = Math.round((CANVAS_W_PREVIEW * a.heightCm) / CIRC_CM);
+  const arcPx = Math.round(CANVAS_W_PREVIEW * (a.arcCm / CIRC_CM));
   const slotW = arcPx / Math.max(1, Math.round(art.repeat));
   const iw = entry.naturalWidth;
   const ih = entry.naturalHeight;
@@ -299,11 +326,35 @@ export function computeDpi(art: ArtState): number | null {
   if (art.fit === 'stretch') printedPx = slotW;
   else if (art.fit === 'cover') printedPx = Math.max(slotW, (iw * printH) / ih);
   else printedPx = Math.min(slotW, (iw * printH) / ih);
-  const printedCm = Math.min(PRINT_ARC_CM, printedPx * (PRINT_ARC_CM / arcPx)) * art.scale;
+  const printedCm = Math.min(a.arcCm, printedPx * (a.arcCm / arcPx)) * art.scale;
   if (printedCm <= 0.01) return null;
   return iw / (printedCm / 2.54);
 }
 
-function printHFor(): number {
-  return Math.round((CANVAS_W_PREVIEW * PRINT_HEIGHT_CM) / CIRC_CM);
+/**
+ * Escala exata para a arte preencher a altura (ou a largura) da área,
+ * respeitando o modo de encaixe atual — usada pelos botões rápidos do painel.
+ */
+export function computeFitScale(
+  art: ArtState,
+  target: 'height' | 'width',
+  area?: PrintArea,
+): number | null {
+  const entry = getArtImage(art.imageId);
+  if (!entry) return null;
+  const a = area ?? resolvePrintArea(art);
+  const printH = Math.round((CANVAS_W_PREVIEW * a.heightCm) / CIRC_CM);
+  const arcPx = Math.round(CANVAS_W_PREVIEW * (a.arcCm / CIRC_CM));
+  const slotW = arcPx / Math.max(1, Math.round(art.repeat));
+  const iw = entry.width;
+  const ih = entry.height;
+  if (iw <= 0 || ih <= 0) return null;
+  if (art.fit === 'stretch') return 1; // esticado já preenche os dois eixos
+  const s = art.fit === 'cover'
+    ? Math.max(slotW / iw, printH / ih)
+    : Math.min(slotW / iw, printH / ih);
+  const dwBase = iw * s;
+  const dhBase = ih * s;
+  const k = target === 'height' ? printH / dhBase : slotW / dwBase;
+  return Math.max(0.1, Math.min(3, art.scale * k));
 }

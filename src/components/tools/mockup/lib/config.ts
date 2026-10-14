@@ -9,8 +9,8 @@ export const MUG = {
   bottomOuterR: 3.9, // raio na base (leve conicidade)
   footH: 0.34, // altura do pé/recesso
   innerFloorY: 0.9, // piso interno
-  printTop: 9.32, // y do topo da área de impressão
-  printBottom: 0.62, // y da base da área de impressão
+  printTop: 9.32, // y do topo da área de impressão (padrão prensa)
+  printBottom: 0.62, // y da base da área de impressão (padrão prensa)
   paperW: 21, // cm — largura do papel padrão (referência de DPI)
   paperH: 9.5, // cm — altura do papel padrão (referência de DPI)
   gapCirc: 4.6, // cm da circunferência sem impressão (região da alça)
@@ -26,15 +26,94 @@ export const PRINT_ARC_CM = CIRC_CM - MUG.gapCirc;
 /** Fração da volta (360°) ocupada pela arte — o resto é o vão da alça */
 export const ARC_FRACTION = PRINT_ARC_CM / CIRC_CM;
 
+/* ---------------- Área de impressão parametrizável ---------------- */
+
+/**
+ * Modos da área de impressão:
+ *  - padrao:  prensa térmica clássica (≈20,7 × 8,7 cm)
+ *  - alta:    papel 21×9,7 — preenche a altura praticamente toda
+ *  - forno:   sublimação em forno — envolve 360° até a alça
+ *  - custom:  medidas escolhidas pela pessoa
+ */
+export type AreaMode = 'padrao' | 'alta' | 'forno' | 'custom';
+
+export interface PrintArea {
+  mode: AreaMode;
+  printBottom: number; // y cm (inferior da área)
+  printTop: number; // y cm (superior da área)
+  heightCm: number;
+  arcCm: number; // arco impresso (o resto da volta é o vão da alça)
+  gapCm: number;
+}
+
+/** limites físicos da parede impressível */
+export const PRINT_BOTTOM_MIN = 0.45;
+export const PRINT_TOP_MAX = 9.26;
+/** vão mínimo escondido atrás da alça (cm) — mesmo no modo forno */
+export const GAP_MIN_CM = 1.9;
+
+const AREA_CENTER_Y = (PRINT_BOTTOM_MIN + PRINT_TOP_MAX) / 2; // 4.855
+const AREA_MAX_H = PRINT_TOP_MAX - PRINT_BOTTOM_MIN; // 8.81
+
+export const AREA_PRESETS: { id: AreaMode; label: string; desc: string }[] = [
+  { id: 'padrao', label: 'Prensa 20,7×8,7', desc: 'Padrão clássico da prensa térmica' },
+  { id: 'alta', label: 'Altura cheia', desc: 'Papel 21×9,7 — preenche a caneca de cima a baixo' },
+  { id: 'forno', label: 'Forno 360°', desc: 'Sublimação em forno — envolve a caneca toda até a alça' },
+  { id: 'custom', label: 'Personalizado', desc: 'Você define largura e altura em cm' },
+];
+
+/** Resolve a área de impressão a partir do estado da arte */
+export function resolvePrintArea(art: {
+  areaMode?: AreaMode;
+  areaW?: number;
+  areaH?: number;
+}): PrintArea {
+  const mode = art.areaMode ?? 'padrao';
+  if (mode === 'padrao') {
+    return {
+      mode,
+      printBottom: MUG.printBottom,
+      printTop: MUG.printTop,
+      heightCm: PRINT_HEIGHT_CM,
+      arcCm: PRINT_ARC_CM,
+      gapCm: MUG.gapCirc,
+    };
+  }
+  if (mode === 'alta' || mode === 'forno') {
+    const arcCm = mode === 'forno' ? CIRC_CM - GAP_MIN_CM : PRINT_ARC_CM;
+    return {
+      mode,
+      printBottom: PRINT_BOTTOM_MIN,
+      printTop: PRINT_TOP_MAX,
+      heightCm: AREA_MAX_H,
+      arcCm,
+      gapCm: CIRC_CM - arcCm,
+    };
+  }
+  // custom
+  const arcCm = Math.min(CIRC_CM - GAP_MIN_CM, Math.max(8, art.areaW ?? PRINT_ARC_CM));
+  const heightCm = Math.min(AREA_MAX_H, Math.max(4, art.areaH ?? PRINT_HEIGHT_CM));
+  return {
+    mode,
+    printBottom: AREA_CENTER_Y - heightCm / 2,
+    printTop: AREA_CENTER_Y + heightCm / 2,
+    heightCm,
+    arcCm,
+    gapCm: CIRC_CM - arcCm,
+  };
+}
+
 /* ---------------- Encaixe das canecas (multicaneca) ---------------- */
 /** Maior raio do corpo (topo 4.11 + folga da borda arredondada) */
 export const BODY_MAX_R = 4.3;
 /** Raio máximo da caneca incluindo a alça (medido da caixa real da alça) */
 export const MUG_FULL_R = 7.15;
-/** Folga mínima garantida entre canecas (cm) */
-export const MUG_GAP_MIN = 1.0;
+/** Folga mínima entre canecas (cm) — quase zero: liberdade total de composição */
+export const MUG_GAP_MIN = 0.08;
 /** Altura do pedestal (cm) — canecas ficam apoiadas nele */
 export const PEDESTAL_H = 0.9;
+/** Altura das bases (redonda/quadrada) (cm) */
+export const PLATE_H = 0.65;
 /** Altura de flutuação padrão no modo "Flutuante" (cm) */
 export const FLOAT_LIFT = 1.7;
 
@@ -45,6 +124,8 @@ export const CANVAS_W_EXPORT = 4096;
 /** Largura em px da área de impressão (arco) no canvas de preview */
 export const ARC_W_PREVIEW = Math.round(CANVAS_W_PREVIEW * ARC_FRACTION);
 export const STRIP_PX = 32; // faixa de cor-base (exterior / interior)
+/** Inset UV (px) que impede o “bleed” da filtragem na fronteira arte/cor-base */
+export const UV_PAD_PX = 4;
 export const MAX_ART_PX = 4096; // redimensionamento interno da arte
 export const MAX_UPLOAD_MB = 25;
 export const MAX_BG_PX = 4096; // redimensionamento interno da imagem de fundo
@@ -131,19 +212,23 @@ export const BACKGROUND_LABELS: Record<BackgroundType, string> = {
   transparent: 'Sem fundo (PNG/WebP com alfa)',
 };
 
-export type FloorType = 'continuo' | 'flutuante' | 'pedestal' | 'espelhado';
+export type FloorType = 'continuo' | 'flutuante' | 'base-redonda' | 'base-quadrada' | 'pedestal' | 'espelhado';
 
 export const FLOOR_OPTIONS: { value: FloorType; label: string; title: string }[] = [
   { value: 'continuo', label: 'Contínuo', title: 'Chão que se mistura ao fundo, sem borda visível' },
   { value: 'flutuante', label: 'Flutuante', title: 'Sem chão — só a caneca, com sombra suave no ar' },
-  { value: 'pedestal', label: 'Pedestal', title: 'Base redonda premium com bordas arredondadas' },
+  { value: 'base-redonda', label: 'Base redonda', title: 'Prato redondo de cerâmica sob a caneca' },
+  { value: 'base-quadrada', label: 'Base quadrada', title: 'Placa quadrada com cantos arredondados (look premium)' },
+  { value: 'pedestal', label: 'Podium', title: 'Pedestal escuro premium com bordas arredondadas' },
   { value: 'espelhado', label: 'Espelhado', title: 'Piso com reflexo suave da caneca' },
 ];
 
 export const FLOOR_LABELS: Record<FloorType, string> = {
   continuo: 'Contínuo (sem borda)',
   flutuante: 'Flutuante (sem chão)',
-  pedestal: 'Pedestal',
+  'base-redonda': 'Base redonda',
+  'base-quadrada': 'Base quadrada',
+  pedestal: 'Podium',
   espelhado: 'Espelhado',
 };
 

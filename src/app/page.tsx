@@ -57,12 +57,23 @@ function ToolHeader({ tool }: { tool: Exclude<ToolId, 'inicio'> }) {
 export default function Page() {
   const activeTool = useToolsStore((s) => s.activeTool);
 
-  /* deep-link: /?tool=mockup, /?tool=qr … (usado pelo blog e compartilhamentos) */
+  /* deep-link + histórico do navegador: o botão VOLTAR (inclusive o do
+     mouse) volta para a ferramenta anterior em vez de sair do site */
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tool') as ToolId | null;
     if (t && t !== 'inicio' && t in TOOL_META) {
-      useToolsStore.getState().setActiveTool(t);
+      window.history.replaceState({ tool: t }, '', window.location.href);
+      useToolsStore.getState().setActiveTool(t, undefined, { silent: true });
+    } else {
+      window.history.replaceState({ tool: 'inicio' }, '', window.location.pathname);
     }
+    const onPop = (e: PopStateEvent) => {
+      const st = e.state as { tool?: ToolId } | null;
+      const tool = st?.tool && st.tool in TOOL_META ? st.tool : 'inicio';
+      useToolsStore.getState().setActiveTool(tool, undefined, { silent: true });
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   return (

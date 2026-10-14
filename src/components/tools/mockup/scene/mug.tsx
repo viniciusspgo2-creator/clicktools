@@ -13,7 +13,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useMockupStore, type ArtState, type CompanionMug, type MugState } from '../state/store';
 import { buildHandleGeometry, buildMugBodyGeometry } from './mug-geometry';
 import { canvasHeightFor, makeArtTexture, renderArtCanvas } from '../lib/art-canvas';
-import { CANVAS_W_PREVIEW, FLOAT_LIFT, PEDESTAL_H } from '../lib/config';
+import { CANVAS_W_PREVIEW, FLOAT_LIFT, PEDESTAL_H, PLATE_H, resolvePrintArea } from '../lib/config';
 import { floatPhaseFor } from './studio';
 import { studioRefs } from './studio-refs';
 
@@ -26,7 +26,7 @@ function makeNoiseTexture(): THREE.CanvasTexture {
   const ctx = c.getContext('2d')!;
   const img = ctx.createImageData(S, S);
   for (let i = 0; i < img.data.length; i += 4) {
-    const v = 118 + Math.random() * 20;
+    const v = 122 + Math.random() * 12;
     img.data[i] = v;
     img.data[i + 1] = v;
     img.data[i + 2] = v;
@@ -66,13 +66,13 @@ function MugMesh({ bodyGeo, handleGeo, noiseTex, texture, accent, envIntensity, 
           ref={bodyMat}
           map={texture}
           bumpMap={noiseTex}
-          bumpScale={0.0016}
+          bumpScale={0.0011}
           roughness={0.16}
           metalness={0}
-          clearcoat={1}
-          clearcoatRoughness={0.07}
-          envMapIntensity={1.2}
-          specularIntensity={0.85}
+          clearcoat={0.9}
+          clearcoatRoughness={0.12}
+          envMapIntensity={1.05}
+          specularIntensity={0.5}
           side={THREE.FrontSide}
         />
       </mesh>
@@ -82,18 +82,19 @@ function MugMesh({ bodyGeo, handleGeo, noiseTex, texture, accent, envIntensity, 
           color={accent}
           roughness={0.18}
           metalness={0}
-          clearcoat={1}
-          clearcoatRoughness={0.09}
-          envMapIntensity={1.2}
+          clearcoat={0.9}
+          clearcoatRoughness={0.14}
+          envMapIntensity={1.05}
         />
       </mesh>
     </>
   );
 }
 
-/** altura de apoio da caneca conforme o chão (pedestal sobe, flutuante levanta) */
+/** altura de apoio da caneca conforme o chão (pedestal/base sobem, flutuante levanta) */
 function baseYFor(floor: string, posY: number): number {
   if (floor === 'pedestal') return PEDESTAL_H + posY;
+  if (floor === 'base-redonda' || floor === 'base-quadrada') return PLATE_H + posY;
   if (floor === 'flutuante') return FLOAT_LIFT + posY;
   return posY;
 }
@@ -111,6 +112,7 @@ function companionMugState(mug: MugState, c: CompanionMug): MugState {
 function CompanionView({
   companion,
   art,
+  area,
   bodyGeo,
   handleGeo,
   noiseTex,
@@ -118,6 +120,7 @@ function CompanionView({
 }: {
   companion: CompanionMug;
   art: ArtState;
+  area: ReturnType<typeof resolvePrintArea>;
   bodyGeo: THREE.BufferGeometry;
   handleGeo: THREE.BufferGeometry;
   noiseTex: THREE.CanvasTexture;
@@ -133,18 +136,21 @@ function CompanionView({
   const canvas = useMemo(() => {
     const c = document.createElement('canvas');
     c.width = CANVAS_W_PREVIEW;
-    c.height = canvasHeightFor(CANVAS_W_PREVIEW);
+    c.height = canvasHeightFor(CANVAS_W_PREVIEW, area);
     return c;
-  }, []);
+  }, [area]);
   const texture = useMemo(() => makeArtTexture(canvas, gl.capabilities.getMaxAnisotropy()), [canvas, gl]);
 
   const effArt = companion.showArt ? art : { ...art, imageId: null, name: '', width: 0, height: 0 };
   const effMug = useMemo(() => companionMugState(heroMug, companion), [heroMug, companion]);
 
   useEffect(() => {
-    renderArtCanvas(canvas, effArt, effMug);
+    if (canvas.height !== canvasHeightFor(CANVAS_W_PREVIEW, area)) {
+      canvas.height = canvasHeightFor(CANVAS_W_PREVIEW, area);
+    }
+    renderArtCanvas(canvas, effArt, effMug, area);
     texture.needsUpdate = true;
-  }, [effArt, effMug, canvas, texture]);
+  }, [effArt, effMug, canvas, texture, area]);
 
   useEffect(() => () => texture.dispose(), [texture]);
 
@@ -182,6 +188,7 @@ function CompanionView({
         texture={texture}
         accent={accent}
         envIntensity={envIntensity}
+        name="mug-body-comp"
       />
     </group>
   );
@@ -197,32 +204,41 @@ export function Mug() {
   const floatAnim = useMockupStore((s) => s.bg.floatAnim);
   const heroRef = useRef<THREE.Group>(null);
 
-  const bodyGeo = useMemo(() => buildMugBodyGeometry(), []);
+  // área de impressão ativa (muda com o painel Arte)
+  const area = useMemo(() => resolvePrintArea(art), [art.areaMode, art.areaW, art.areaH]);
+  const areaKey = `${area.mode}|${area.printBottom.toFixed(3)}|${area.printTop.toFixed(3)}|${area.arcCm.toFixed(3)}`;
+
+  // área muda → geometria com anéis exatos nas fronteiras é reconstruída
+  const bodyGeo = useMemo(() => buildMugBodyGeometry(area), [areaKey]);
   const handleGeo = useMemo(() => buildHandleGeometry(), []);
   const noiseTex = useMemo(() => makeNoiseTexture(), []);
+
+  useEffect(() => () => bodyGeo.dispose(), [bodyGeo]);
 
   const canvas = useMemo(() => {
     const c = document.createElement('canvas');
     c.width = CANVAS_W_PREVIEW;
-    c.height = canvasHeightFor(CANVAS_W_PREVIEW);
+    c.height = canvasHeightFor(CANVAS_W_PREVIEW, area);
     return c;
-  }, []);
+  }, [areaKey]);
   const texture = useMemo(() => makeArtTexture(canvas, gl.capabilities.getMaxAnisotropy()), [canvas, gl]);
 
-  // redesenha a folha quando arte/caneca mudam
+  // redesenha a folha quando arte/caneca/área mudam
   useEffect(() => {
-    renderArtCanvas(canvas, art, mug);
+    if (canvas.height !== canvasHeightFor(CANVAS_W_PREVIEW, area)) {
+      canvas.height = canvasHeightFor(CANVAS_W_PREVIEW, area);
+    }
+    renderArtCanvas(canvas, art, mug, area);
     texture.needsUpdate = true;
-  }, [art, mug, canvas, texture]);
+  }, [art, mug, canvas, texture, area]);
 
   useEffect(
     () => () => {
-      bodyGeo.dispose();
       handleGeo.dispose();
       noiseTex.dispose();
       texture.dispose();
     },
-    [bodyGeo, handleGeo, noiseTex, texture],
+    [handleGeo, noiseTex, texture],
   );
 
   const accent = mug.variant === 'white' ? '#ffffff' : mug.accentColor;
@@ -246,7 +262,11 @@ export function Mug() {
         ref={heroRef}
         name="mug-float"
         position={[0, baseY, 0]}
-        rotation={[THREE.MathUtils.degToRad(mug.tiltX), THREE.MathUtils.degToRad(-mug.rotationY), 0]}
+        rotation={[
+          THREE.MathUtils.degToRad(mug.tiltX),
+          THREE.MathUtils.degToRad(-mug.rotationY),
+          THREE.MathUtils.degToRad(mug.tiltZ),
+        ]}
         scale={mug.scale}
         onDoubleClick={(e) => {
           e.stopPropagation();
@@ -269,6 +289,7 @@ export function Mug() {
           key={c.id}
           companion={c}
           art={art}
+          area={area}
           bodyGeo={bodyGeo}
           handleGeo={handleGeo}
           noiseTex={noiseTex}

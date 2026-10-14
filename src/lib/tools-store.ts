@@ -28,24 +28,41 @@ interface ToolsState {
   activeTool: ToolId;
   activeExtra: ExtraToolId | null;
   qrSeed: string; // texto/URL para pré-preencher o gerador de QR
-  setActiveTool: (t: ToolId, qrSeed?: string) => void;
+  setActiveTool: (t: ToolId, qrSeed?: string, opts?: { silent?: boolean }) => void;
   openExtra: (id: ExtraToolId) => void;
+}
+
+/** grava a troca de ferramenta no histórico do navegador (botão voltar funciona) */
+function pushHistory(tool: ToolId, extra?: string | null) {
+  if (typeof window === 'undefined') return;
+  try {
+    const url = new URL(window.location.href);
+    if (tool === 'inicio') url.searchParams.delete('tool');
+    else url.searchParams.set('tool', tool);
+    const state = extra ? { tool, extra } : { tool };
+    window.history.pushState(state, '', url.toString());
+  } catch {
+    /* histórico indisponível — segue sem */
+  }
 }
 
 export const useToolsStore = create<ToolsState>((set) => ({
   activeTool: 'inicio',
   activeExtra: null,
   qrSeed: '',
-  setActiveTool: (t, qrSeed) => {
+  setActiveTool: (t, qrSeed, opts) => {
     if (t !== 'inicio') trackPage(`/ferramenta/${t}`);
     set({
       activeTool: t,
       qrSeed: qrSeed ?? '',
-      activeExtra: t === 'extras' ? null : null,
+      activeExtra: null,
     });
+    // silent = vindo do popstate (o histórico já andou — não empurra de novo)
+    if (!opts?.silent) pushHistory(t);
   },
   openExtra: (id) => {
     trackPage(`/ferramentas-mais/${id}`);
     set({ activeTool: 'extras', activeExtra: id });
+    pushHistory('extras', id);
   },
 }));

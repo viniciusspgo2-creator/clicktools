@@ -150,10 +150,10 @@ export function CameraRig() {
       }
       controls.update();
     } else {
-      // clamp do pan
-      controls.target.x = THREE.MathUtils.clamp(controls.target.x, -6, 6);
-      controls.target.y = THREE.MathUtils.clamp(controls.target.y, 0.5, 12);
-      controls.target.z = THREE.MathUtils.clamp(controls.target.z, -6, 6);
+      // clamp do pan — folga ampla para compor cenas com várias canecas
+      controls.target.x = THREE.MathUtils.clamp(controls.target.x, -16, 16);
+      controls.target.y = THREE.MathUtils.clamp(controls.target.y, 0.5, 13);
+      controls.target.z = THREE.MathUtils.clamp(controls.target.z, -14, 14);
     }
   });
 

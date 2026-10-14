@@ -1,18 +1,17 @@
 /* ============================================================
    Folha planificada para sublimação — a arte exatamente como
-   deve ser impressa: 21 × 8,7 cm (ou volta completa) em DPI real
-   com guias de corte opcionais. 100% client-side.
+   deve ser impressa, no tamanho da área configurada no painel
+   Arte (prensa 20,7×8,7 · altura cheia · forno 360° · personalizada),
+   em DPI real com guias de corte opcionais. 100% client-side.
    ============================================================ */
 
-import { CIRC_CM, PRINT_ARC_CM, PRINT_HEIGHT_CM } from '../lib/config';
+import { resolvePrintArea } from '../lib/config';
 import { drawArtIntoArea } from '../lib/art-canvas';
 import { useMockupStore } from '../state/store';
 import { ExportError } from './frame-capture';
 
 export interface TemplateOpts {
   dpi: 300 | 600;
-  /** volta completa (inclui a região da alça) em vez do papel padrão */
-  fullWrap: boolean;
   guides: boolean;
 }
 
@@ -31,8 +30,9 @@ export async function exportTemplate(opts: TemplateOpts): Promise<TemplateResult
     throw new ExportError('Envie uma arte antes de gerar a folha de sublimação.');
   }
 
-  const widthCm = opts.fullWrap ? CIRC_CM : PRINT_ARC_CM;
-  const heightCm = PRINT_HEIGHT_CM;
+  const area = resolvePrintArea(art);
+  const widthCm = area.arcCm;
+  const heightCm = area.heightCm;
   const pxPerCm = opts.dpi / 2.54;
   const artW = Math.round(widthCm * pxPerCm);
   const artH = Math.round(heightCm * pxPerCm);
@@ -72,7 +72,7 @@ export async function exportTemplate(opts: TemplateOpts): Promise<TemplateResult
     canvas.toBlob((b) => (b ? res(b) : rej(new ExportError('Falha ao gerar a folha.'))), 'image/png'),
   );
 
-  const label = opts.fullWrap ? 'volta-completa' : 'papel-21x8.7';
+  const label = area.mode === 'forno' ? 'forno-360' : area.mode === 'custom' ? 'personalizada' : area.mode === 'alta' ? 'altura-cheia' : 'papel-padrao';
   return {
     blob,
     filename: `folha-sublimacao-caneca-${label}-${opts.dpi}dpi-${Date.now()}.png`,

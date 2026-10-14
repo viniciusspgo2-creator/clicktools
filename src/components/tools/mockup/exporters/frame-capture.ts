@@ -10,7 +10,7 @@ import { mugsGroup, settleFloaters, studioRefs } from '../scene/studio-refs';
 import { alignBackdrop } from '../scene/bg-image';
 import { useMockupStore, type MugState } from '../state/store';
 import { renderArtCanvas, canvasHeightFor } from '../lib/art-canvas';
-import { CANVAS_W_EXPORT } from '../lib/config';
+import { CANVAS_W_EXPORT, resolvePrintArea } from '../lib/config';
 
 export class ExportError extends Error {}
 
@@ -103,7 +103,7 @@ export function beginFrames(width: number, height: number, opts: Omit<FrameOpts,
     previewCanvas = tex.image as HTMLCanvasElement;
     artCanvas = document.createElement('canvas');
     artCanvas.width = CANVAS_W_EXPORT;
-    artCanvas.height = canvasHeightFor(CANVAS_W_EXPORT);
+    artCanvas.height = canvasHeightFor(CANVAS_W_EXPORT, resolvePrintArea(useMockupStore.getState().art));
     renderWithOverride(artCanvas, opts.mugOverride ?? {});
     tex.image = artCanvas;
     tex.needsUpdate = true;
@@ -174,7 +174,7 @@ export function beginFrames(width: number, height: number, opts: Omit<FrameOpts,
 /** renderiza a folha em alta resolução com overrides aplicados */
 function renderWithOverride(canvas: HTMLCanvasElement, override: Partial<MugState>) {
   const { art, mug } = useMockupStore.getState();
-  renderArtCanvas(canvas, art, { ...mug, ...override });
+  renderArtCanvas(canvas, art, { ...mug, ...override }, resolvePrintArea(art));
 }
 
 /** atualiza overrides da caneca (ex.: calor da mágica animando); re-renderiza só se mudou */
@@ -208,11 +208,32 @@ export function fitCamera(session: FrameSession): THREE.PerspectiveCamera {
   return cam2;
 }
 
-/** centro do conjunto de canecas */
+/**
+ * centro do conjunto de canecas — calculado só com os CORPOS (sem a alça):
+ * a alça salta para trás e deslocaria a órbita do vídeo, fazendo a caneca
+ * "girar meio fora do centro".
+ */
 export function sceneCenter(scene: THREE.Scene): THREE.Vector3 {
   const group = mugsGroup(scene);
   if (!group) return new THREE.Vector3(0, 4.75, 0);
-  return new THREE.Box3().setFromObject(group).getBoundingSphere(new THREE.Sphere()).center;
+  const box = new THREE.Box3();
+  let has = false;
+  group.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh && (m.name === 'mug-body' || m.name === 'mug-body-comp')) {
+      m.updateWorldMatrix(true, false);
+      const b = new THREE.Box3().setFromObject(m);
+      if (b.isEmpty()) return;
+      if (!has) {
+        box.copy(b);
+        has = true;
+      } else {
+        box.union(b);
+      }
+    }
+  });
+  if (!has) return new THREE.Vector3(0, 4.75, 0);
+  return box.getBoundingSphere(new THREE.Sphere()).center;
 }
 
 /** raio do conjunto de canecas */
