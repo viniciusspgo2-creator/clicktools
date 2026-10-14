@@ -175,38 +175,61 @@ export function ArtPanel() {
         </div>
 
         {(art.areaMode ?? 'padrao') === 'custom' && (
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <div>
-              <p className="mb-1 text-[10px] text-neutral-500">Largura (cm)</p>
-              <input
-                type="number"
-                min={8}
-                max={23.4}
-                step={0.1}
-                value={art.areaW}
-                onChange={(e) => patch('art', { areaW: Math.min(23.4, Math.max(8, +e.target.value || 20.7)) })}
-                className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
-              />
+          <div className="mt-2 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="mb-1 text-[10px] text-neutral-500">Largura (cm)</p>
+                <input
+                  type="number"
+                  min={8}
+                  max={23.4}
+                  step={0.1}
+                  value={art.areaW}
+                  onChange={(e) => patch('art', { areaW: Math.min(23.4, Math.max(8, +e.target.value || 20.7)) })}
+                  className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-[10px] text-neutral-500">Altura (cm)</p>
+                <input
+                  type="number"
+                  min={3}
+                  max={9.1}
+                  step={0.1}
+                  value={art.areaH}
+                  onChange={(e) => patch('art', { areaH: Math.min(9.1, Math.max(3, +e.target.value || 8.7)) })}
+                  className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
+                />
+              </div>
             </div>
             <div>
-              <p className="mb-1 text-[10px] text-neutral-500">Altura (cm)</p>
+              <p className="mb-1 flex justify-between text-[10px] text-neutral-500">
+                <span>Posição vertical da área</span>
+                <span className="text-neutral-300">{(art.areaY ?? 0) > 0 ? '+' : ''}{(art.areaY ?? 0).toFixed(1).replace('.', ',')} cm</span>
+              </p>
               <input
-                type="number"
-                min={4}
-                max={8.8}
-                step={0.1}
-                value={art.areaH}
-                onChange={(e) => patch('art', { areaH: Math.min(8.8, Math.max(4, +e.target.value || 8.7)) })}
-                className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
+                type="range"
+                min={-4}
+                max={4}
+                step={0.05}
+                value={art.areaY ?? 0}
+                onChange={(e) => patch('art', { areaY: +e.target.value })}
+                className="w-full accent-orange-500"
               />
             </div>
+            <MiniButton
+              onClick={() => patch('art', { areaMode: 'alta' as AreaMode })}
+              className="w-full"
+            >
+              Cobrir a caneca de cima a baixo
+            </MiniButton>
           </div>
         )}
 
         <p className="mt-2 text-[10px] leading-relaxed text-neutral-500">
           Área ativa: <strong className="text-neutral-300">{area.arcCm.toFixed(1).replace('.', ',')} × {area.heightCm.toFixed(1).replace('.', ',')} cm</strong>
           {(art.areaMode ?? 'padrao') === 'forno' && ' · envolve a caneca toda até a alça'}
-          {(art.areaMode ?? 'padrao') === 'alta' && ' · preenche praticamente toda a altura'}
+          {(art.areaMode ?? 'padrao') === 'alta' && ' · vai do pé até a borda, sem espaço em branco'}
         </p>
       </div>
 

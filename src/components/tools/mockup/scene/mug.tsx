@@ -138,7 +138,7 @@ function CompanionView({
     c.width = CANVAS_W_PREVIEW;
     c.height = canvasHeightFor(CANVAS_W_PREVIEW, area);
     return c;
-  }, [area]);
+  }, []);
   const texture = useMemo(() => makeArtTexture(canvas, gl.capabilities.getMaxAnisotropy()), [canvas, gl]);
 
   const effArt = companion.showArt ? art : { ...art, imageId: null, name: '', width: 0, height: 0 };
@@ -225,11 +225,10 @@ export function Mug() {
   const heroRef = useRef<THREE.Group>(null);
 
   // área de impressão ativa (muda com o painel Arte)
-  const area = useMemo(() => resolvePrintArea(art), [art.areaMode, art.areaW, art.areaH]);
-  const areaKey = `${area.mode}|${area.printBottom.toFixed(3)}|${area.printTop.toFixed(3)}|${area.arcCm.toFixed(3)}`;
+  const area = useMemo(() => resolvePrintArea(art), [art.areaMode, art.areaW, art.areaH, art.areaY]);
 
-  // área muda → geometria com anéis exatos nas fronteiras é reconstruída
-  const bodyGeo = useMemo(() => buildMugBodyGeometry(area), [areaKey]);
+  // geometria fixa — a área de impressão só muda a textura (sem anéis/fronteiras no 3D)
+  const bodyGeo = useMemo(() => buildMugBodyGeometry(), []);
   const handleGeo = useMemo(() => buildHandleGeometry(), []);
   const noiseTex = useMemo(() => makeNoiseTexture(), []);
 
@@ -240,7 +239,7 @@ export function Mug() {
     c.width = CANVAS_W_PREVIEW;
     c.height = canvasHeightFor(CANVAS_W_PREVIEW, area);
     return c;
-  }, [areaKey]);
+  }, []);
   const texture = useMemo(() => makeArtTexture(canvas, gl.capabilities.getMaxAnisotropy()), [canvas, gl]);
 
   // redesenha a folha quando arte/caneca/área mudam

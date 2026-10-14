@@ -26,6 +26,7 @@ export interface ArtState {
   areaMode: AreaMode;
   areaW: number; // cm — largura do arco (modo custom)
   areaH: number; // cm — altura da área (modo custom)
+  areaY: number; // cm — deslocamento vertical da área (modo custom, + sobe)
   /** camada de texto (ideia de editor concorrente, implementada ao nosso jeito) */
   text: string;
   textColor: string;
@@ -236,6 +237,7 @@ const initialArt: ArtState = {
   areaMode: 'padrao',
   areaW: 20.7,
   areaH: 8.7,
+  areaY: 0,
   text: '',
   textColor: '#1d130d',
   textSize: 0.09,

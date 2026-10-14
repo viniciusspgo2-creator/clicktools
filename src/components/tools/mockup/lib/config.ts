@@ -47,8 +47,11 @@ export interface PrintArea {
 }
 
 /** limites físicos da parede impressível */
-export const PRINT_BOTTOM_MIN = 0.45;
-export const PRINT_TOP_MAX = 9.26;
+/** A arte pode ir praticamente do pé (envolvendo o chanfro, y≥0,06) até o início
+ *  da borda arredondada (y=9,35). Esses limites NÃO vêm mais da geometria:
+ *  a fronteira da arte agora é desenhada na própria textura. */
+export const PRINT_BOTTOM_MIN = 0.06;
+export const PRINT_TOP_MAX = 9.32;
 /** vão mínimo escondido atrás da alça (cm) — mesmo no modo forno */
 export const GAP_MIN_CM = 1.9;
 
@@ -57,7 +60,7 @@ const AREA_MAX_H = PRINT_TOP_MAX - PRINT_BOTTOM_MIN; // 8.81
 
 export const AREA_PRESETS: { id: AreaMode; label: string; desc: string }[] = [
   { id: 'padrao', label: 'Prensa 20,7×8,7', desc: 'Padrão clássico da prensa térmica' },
-  { id: 'alta', label: 'Altura cheia', desc: 'Papel 21×9,7 — preenche a caneca de cima a baixo' },
+  { id: 'alta', label: 'Altura cheia', desc: 'Arte do pé até a borda da caneca — sem espaço em branco em cima nem embaixo' },
   { id: 'forno', label: 'Forno 360°', desc: 'Sublimação em forno — envolve a caneca toda até a alça' },
   { id: 'custom', label: 'Personalizado', desc: 'Você define largura e altura em cm' },
 ];
@@ -67,6 +70,7 @@ export function resolvePrintArea(art: {
   areaMode?: AreaMode;
   areaW?: number;
   areaH?: number;
+  areaY?: number;
 }): PrintArea {
   const mode = art.areaMode ?? 'padrao';
   if (mode === 'padrao') {
@@ -90,13 +94,15 @@ export function resolvePrintArea(art: {
       gapCm: CIRC_CM - arcCm,
     };
   }
-  // custom
+  // custom — altura e posição vertical livres dentro dos limites da parede
   const arcCm = Math.min(CIRC_CM - GAP_MIN_CM, Math.max(8, art.areaW ?? PRINT_ARC_CM));
-  const heightCm = Math.min(AREA_MAX_H, Math.max(4, art.areaH ?? PRINT_HEIGHT_CM));
+  const heightCm = Math.min(AREA_MAX_H, Math.max(3, art.areaH ?? PRINT_HEIGHT_CM));
+  const wantBottom = AREA_CENTER_Y + (art.areaY ?? 0) - heightCm / 2;
+  const printBottom = Math.min(PRINT_TOP_MAX - heightCm, Math.max(PRINT_BOTTOM_MIN, wantBottom));
   return {
     mode,
-    printBottom: AREA_CENTER_Y - heightCm / 2,
-    printTop: AREA_CENTER_Y + heightCm / 2,
+    printBottom,
+    printTop: printBottom + heightCm,
     heightCm,
     arcCm,
     gapCm: CIRC_CM - arcCm,
@@ -123,7 +129,22 @@ export const CANVAS_W_PREVIEW = 2560;
 export const CANVAS_W_EXPORT = 4096;
 /** Largura em px da área de impressão (arco) no canvas de preview */
 export const ARC_W_PREVIEW = Math.round(CANVAS_W_PREVIEW * ARC_FRACTION);
-export const STRIP_PX = 32; // faixa de cor-base (exterior / interior)
+/**
+ * Layout da folha de textura (tudo em cm → a geometria e o canvas concordam
+ * exatamente, em qualquer resolução):
+ *   topo  → zona da parede, y = ZONE_CM (topo) … 0 (pé)  [cor-base + a arte]
+ *           faixa de cor-base EXTERIOR (STRIP_CM)  — pé, fundo e borda
+ *           faixa de cor-base INTERIOR (STRIP_CM)  — interior da caneca
+ * Horizontal: 360° completos; a costura da textura fica ATRÁS (no vão da alça).
+ */
+export const ZONE_CM = 9.6;
+export const STRIP_CM = 0.32;
+export const TEX_TOTAL_CM = ZONE_CM + STRIP_CM * 2;
+/** v (0..1, flipY) de uma altura y da parede */
+export const texV = (y: number) => 1 - (ZONE_CM - Math.min(ZONE_CM, Math.max(0, y))) / TEX_TOTAL_CM;
+export const V_EXT = 1 - (ZONE_CM + STRIP_CM / 2) / TEX_TOTAL_CM;
+export const V_INT = 1 - (ZONE_CM + STRIP_CM * 1.5) / TEX_TOTAL_CM;
+export const STRIP_PX = 32; // (legado)
 /** Inset UV (px) que impede o “bleed” da filtragem na fronteira arte/cor-base */
 export const UV_PAD_PX = 4;
 export const MAX_ART_PX = 4096; // redimensionamento interno da arte

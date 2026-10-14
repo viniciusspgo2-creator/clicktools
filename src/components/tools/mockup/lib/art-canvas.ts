@@ -1,21 +1,23 @@
 /* ============================================================
    Motor de arte em canvas — desenha a arte na "folha" que
-   envolve o corpo da caneca em projeção cilíndrica.
+   envolve a caneca em projeção cilíndrica.
 
-   Layout do canvas (flipY=true):
-     linhas [0 .. printH)            → área de impressão (v: 1 → vBase)
-     linhas [printH .. printH+S)     → cor-base exterior (alça, borda, pé)
-     linhas [printH+S .. H)          → cor-base interior
+   A folha cobre a parede INTEIRA (0 → 9,6 cm de altura × 360°) com a
+   cor-base, e a arte é desenhada num retângulo exato dentro dela.
+   Os UVs da geometria são CONTÍNUOS (sem anéis nem saltos), então não
+   existe mais esticamento de textura nas bordas: a fronteira da arte é
+   só a borda do retângulo na textura. Por isso a área de impressão pode
+   ir do pé até a borda da caneca (ver config.ts) sem nenhuma marcação.
 
-   A área de impressão é PARAMETRIZÁVEL (prensa / altura cheia /
-   forno 360° / personalizada) e os UVs ganham um inset que impede
-   o "bleed" da filtragem bilinear+mip na fronteira arte/cor-base —
-   a arte sai limpa, sem bordas ou marcações estranhas.
+   Layout (cm, de cima para baixo — ver texV/V_EXT/V_INT no config):
+     zona da parede  y = 9,6 … 0   → cor-base + arte
+     faixa exterior  (borda arredondada, pé, fundo)
+     faixa interior  (interior da caneca)
    ============================================================ */
 
 import * as THREE from 'three';
 import {
-  CANVAS_W_PREVIEW, STRIP_PX, MUG, CIRC_CM, UV_PAD_PX,
+  CANVAS_W_PREVIEW, CIRC_CM, ZONE_CM, STRIP_CM, TEX_TOTAL_CM,
   resolvePrintArea, type PrintArea,
 } from './config';
 import type { ArtState, MugState } from '../state/store';
@@ -61,15 +63,16 @@ function magicNoise(w: number, h: number): Uint8Array {
  * Revelação térmica da caneca mágica: mistura cada pixel da folha entre a
  * arte revelada e o revestimento preto conforme calor × campo de gradiente + ruído.
  */
-function applyMagicReveal(canvas: HTMLCanvasElement, printH: number, mug: MugState) {
+function applyMagicReveal(canvas: HTMLCanvasElement, rect: ArtRect, mug: MugState) {
   if (mug.magicHeat >= 0.995) return;
-  const W = canvas.width;
+  const W = rect.w;
+  const printH = rect.h;
   const ctx = canvas.getContext('2d')!;
   const heat = Math.max(0, mug.magicHeat);
   const dis = Math.max(0, Math.min(1, mug.magicDissolve));
   const dir = mug.magicDirection;
   const noise = magicNoise(W, printH);
-  const img = ctx.getImageData(0, 0, W, printH);
+  const img = ctx.getImageData(rect.x, rect.y, W, printH);
   const px = img.data;
   const edge = 0.09 + dis * 0.5;
   const reach = 1.22; // margem para heat=1 revelar 100%
@@ -99,90 +102,34 @@ function applyMagicReveal(canvas: HTMLCanvasElement, printH: number, mug: MugSta
       px[i + 2] = px[i + 2] * a + 14 * k;
     }
   }
-  ctx.putImageData(img, 0, 0);
+  ctx.putImageData(img, rect.x, rect.y);
 }
 
-export function canvasHeightFor(width: number, area?: PrintArea): number {
-  // o canvas cobre a volta COMPLETA (360°): px/cm = width / CIRC_CM
-  const a = area ?? resolvePrintArea({});
-  const printH = Math.round((width * a.heightCm) / CIRC_CM);
-  return printH + STRIP_PX * 2;
-}
+/** retângulo (px do canvas) onde a arte é impressa */
+export interface ArtRect { x: number; y: number; w: number; h: number }
 
-/** v mínimo da área de impressão (faixas ficam abaixo) */
-export function printVBase(area?: PrintArea): number {
-  const a = area ?? resolvePrintArea({});
-  return (STRIP_PX * 2) / canvasHeightFor(CANVAS_W_PREVIEW, a);
+/** Altura do canvas para uma largura (a volta de 360°) — independe da área ativa */
+export function canvasHeightFor(width: number, _area?: PrintArea): number {
+  return Math.round((width / CIRC_CM) * TEX_TOTAL_CM);
 }
-
-const UV_EPS = 0.004;
 
 /**
- * Sobrescreve as UVs do corpo (LatheGeometry) para:
- *  - parede externa → u percorre o ARCO DE IMPRESSÃO da área ativa com INSET
- *    anti-bleed (a filtragem nunca mistura a arte com a cor-base);
- *  - borda/pé/fundo externo → faixa de cor exterior;
- *  - interior → faixa de cor interior.
- * O vão da alça amostra uma região própria preenchida com a cor-base.
+ * Onde a arte cai na folha. Tudo vem do mesmo layout em cm usado pela
+ * geometria (texV/V_EXT/V_INT), então a borda da arte coincide EXATAMENTE
+ * com a altura física pedida — sem anéis, sem costuras, sem esticar pixel.
+ * Horizontal: arco centrado na FRENTE (x = W/2); o vão da alça (atrás)
+ * cai nas pontas do canvas, onde fica a costura da textura.
  */
-export function remapBodyUVs(geo: THREE.BufferGeometry, area?: PrintArea) {
-  const a = area ?? resolvePrintArea({});
-  const pos = geo.attributes.position as THREE.BufferAttribute;
-  const uv = new Float32Array(pos.count * 2);
-  const total = Math.PI * 2;
-  const gapAngle = (a.gapCm / CIRC_CM) * total;
-  const arcAngle = total - gapAngle;
-  const start = Math.PI + gapAngle / 2; // gap centrado atrás (alça em -Z)
-  const H = canvasHeightFor(CANVAS_W_PREVIEW, a);
-  const printH = H - STRIP_PX * 2;
-  const vBase = (STRIP_PX * 2) / H; // v da base da área de impressão
-  const vExtMid = (H - printH - STRIP_PX / 2) / H;
-  const vIntMid = (H - printH - STRIP_PX - STRIP_PX / 2) / H;
-
-  const arcFrac = a.arcCm / CIRC_CM;
-  // inset em unidades de textura (4 px) — mata o bleed na fronteira
-  const padU = UV_PAD_PX / CANVAS_W_PREVIEW;
-  const padV = UV_PAD_PX / H;
-  const vLo = vBase + padV;
-  const vHi = 1 - padV;
-
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
-    const r = Math.sqrt(x * x + z * z);
-    let u: number, v: number;
-
-    // tolerância milimétrica: os anéis da geometria ficam a ±0,011 cm das
-    // fronteiras — a transição arte → cor-base tem menos de 0,1 mm (navalha)
-    if (y > a.printTop + 0.008 || y < a.printBottom - 0.008) {
-      // borda arredondada, pé, fundo externo → cor-base exterior
-      u = 0.988;
-      v = vExtMid;
-    } else if (r < 3.93) {
-      // parede/fundo internos → cor-base interior
-      u = 0.988;
-      v = vIntMid;
-    } else {
-      // parede externa → folha de impressão
-      const ang = Math.atan2(x, z); // 0 = +Z (frente da arte)
-      let rel = (ang - start) % total;
-      if (rel < 0) rel += total;
-      if (rel <= arcAngle) {
-        // dentro do arco impresso → amostra a arte com inset nas duas pontas
-        const k = rel / arcAngle;
-        u = padU + k * (arcFrac - 2 * padU);
-      } else {
-        // vão da alça → cor-base
-        u = Math.min(1 - UV_EPS, arcFrac + ((rel - arcAngle) / total));
-      }
-      const vf = (y - a.printBottom) / (a.printTop - a.printBottom);
-      v = vLo + Math.min(1, Math.max(0, vf)) * (vHi - vLo);
-    }
-    uv[i * 2] = u;
-    uv[i * 2 + 1] = v;
-  }
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+export function artRectFor(W: number, H: number, a: PrintArea): ArtRect {
+  const ppcX = W / CIRC_CM;
+  const ppcY = H / TEX_TOTAL_CM;
+  const w = Math.round(a.arcCm * ppcX);
+  return {
+    x: Math.round((W - w) / 2),
+    y: Math.round((ZONE_CM - a.printTop) * ppcY),
+    w,
+    h: Math.round(a.heightCm * ppcY),
+  };
 }
 
 /**
@@ -290,38 +237,42 @@ export function renderArtCanvas(
   const a = area ?? resolvePrintArea(art);
   const W = canvas.width;
   const H = canvas.height;
-  const S = STRIP_PX * (W / CANVAS_W_PREVIEW);
-  const printH = H - S * 2;
-  const arcW = Math.round(W * (a.arcCm / CIRC_CM));
+  const ppcY = H / TEX_TOTAL_CM;
+  const rect = artRectFor(W, H, a);
+  const zoneBottom = Math.round(ZONE_CM * ppcY);
+  const extBottom = Math.round((ZONE_CM + STRIP_CM) * ppcY);
   const ctx = canvas.getContext('2d')!;
 
   const isMagic = mug.variant === 'magic';
   const ext = isMagic ? '#141110' : '#ffffff';
   const interior = mug.variant === 'white' ? '#ffffff' : mug.accentColor;
 
-  // faixas de cor-base (o vão da alça fica sempre com a cor exterior)
+  // cor-base em TODA a parede + faixa exterior; interior numa faixa à parte
+  ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = ext;
-  ctx.fillRect(0, 0, W, printH + S);
+  ctx.fillRect(0, 0, W, extBottom);
   ctx.fillStyle = interior;
-  ctx.fillRect(0, printH + S, W, H - printH - S);
+  ctx.fillRect(0, extBottom, W, H - extBottom);
 
-  // arte confinada ao arco de impressão (x: 0..arcW); o wrap usa a volta
-  // COMPLETA do canvas (W) — nunca o arco — para não criar listras nas bordas
+  // arte confinada ao retângulo de impressão (bordas em pixel inteiro);
+  // o wrap usa a volta COMPLETA (W) — nunca o arco — para não criar listras
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0, 0, arcW, printH);
+  ctx.rect(rect.x, rect.y, rect.w, rect.h);
   ctx.clip();
-  drawArtIntoArea(ctx, arcW, printH, art, W);
+  ctx.translate(rect.x, rect.y);
+  drawArtIntoArea(ctx, rect.w, rect.h, art, W);
   ctx.restore();
 
-  if (isMagic) applyMagicReveal(canvas, printH, mug);
+  if (isMagic) applyMagicReveal(canvas, rect, mug);
+  void zoneBottom;
 }
 
 /** Cria a CanvasTexture com flags corretas de cor/filtragem */
 export function makeArtTexture(canvas: HTMLCanvasElement, maxAniso: number): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapS = THREE.RepeatWrapping; // costura da textura fica atrás (vão da alça)
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.magFilter = THREE.LinearFilter;

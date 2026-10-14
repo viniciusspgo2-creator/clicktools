@@ -10,54 +10,44 @@
    ============================================================ */
 
 import * as THREE from 'three';
-import { MUG, type PrintArea, resolvePrintArea } from '../lib/config';
-import { remapBodyUVs } from '../lib/art-canvas';
+import { MUG, V_EXT, V_INT, texV, type PrintArea } from '../lib/config';
 
 type P = [number, number]; // [raio, y]
 
-/** pontos intermediários de um arco (circular) entre dois raios */
+/** pontos de um arco (circular), de a0 a a1 inclusive */
 function arcPoints(cx: number, cy: number, r: number, a0: number, a1: number, n: number): P[] {
   const pts: P[] = [];
-  for (let i = 1; i < n; i++) {
+  for (let i = 0; i <= n; i++) {
     const a = a0 + ((a1 - a0) * i) / n;
     pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
   }
   return pts;
 }
 
-/** perfil cônico da parede externa (interpolação linear) */
-const WALL_RAMP: P[] = [
-  [4.02, 0.45],
-  [4.03, 0.62],
-  [4.04, 0.95],
-  [4.05, 1.3],
+/** nós da parede externa cônica (interpolação linear entre eles) */
+const WALL_KNOTS: P[] = [
+  [3.98, 0.14],
+  [4.01, 0.4],
+  [4.03, 0.9],
+  [4.05, 1.6],
   [4.08, 3.2],
   [4.1, 6.0],
   [4.11, 8.7],
-  [4.11, 9.2],
+  [4.115, 9.35],
 ];
 
-function wallRAt(y: number): number {
-  if (y <= WALL_RAMP[0][1]) return WALL_RAMP[0][0];
-  for (let i = 1; i < WALL_RAMP.length; i++) {
-    if (y <= WALL_RAMP[i][1]) {
-      const [r0, y0] = WALL_RAMP[i - 1];
-      const [r1, y1] = WALL_RAMP[i];
-      const t = (y - y0) / (y1 - y0);
-      return r0 + (r1 - r0) * t;
-    }
-  }
-  return WALL_RAMP[WALL_RAMP.length - 1][0];
-}
-
 /**
- * Perfil (polilinha em (r, y)) do corpo, do centro do fundo externo,
- * subindo pela parede, passando pela borda e descendo pelo interior.
- * Pontos duplicados criam arestas vivas onde precisa (cantos do pé).
- * Anéis são inseridos exatamente nas fronteiras da área de impressão
- * para a borda da arte ficar cravada, sem degradê.
+ * Perfil do corpo, do centro do fundo externo, subindo pela parede,
+ * passando pela borda e descendo pelo interior. Pontos duplicados criam
+ * arestas vivas (cantos do pé) e a emenda borda → interior (a duplicata
+ * é uma aresta de comprimento ZERO onde o UV pula para a cor interior,
+ * sem interpolar textura nenhuma).
+ *
+ * NÃO há mais anéis na fronteira da arte: a borda da arte é definida na
+ * textura. Era isso que causava as faixas coloridas (um anel de 0,05 mm
+ * esticava toda a textura numa linha fina).
  */
-function bodyProfile(area: PrintArea): P[] {
+function bodyProfile(): { pts: P[]; iWall0: number; iArcEnd: number } {
   const pts: P[] = [];
   // ---- fundo externo rebaixado + pé ----
   pts.push([0, MUG.footH]); // centro recesso
@@ -65,34 +55,15 @@ function bodyProfile(area: PrintArea): P[] {
   pts.push([3.52, MUG.footH]); // canto interno do anel
   pts.push([3.72, 0.08]); // chanfro do pé
   pts.push([MUG.bottomOuterR, 0]); // borda de contato com o chão (aresta viva)
+  // duplicata: a partir daqui o UV segue a altura (a arte pode envolver o chanfro do pé)
+  const iWall0 = pts.length;
   pts.push([MUG.bottomOuterR, 0]);
-  pts.push([3.98, 0.14]);
-  // ---- subida até a base da área de impressão ----
-  // anéis cor-base e parede colados (transição navalha na base da arte)
-  const bWhite = Math.max(0.16, area.printBottom - 0.011); // anel cor-base
-  const bArt = Math.max(0.18, area.printBottom - 0.005); // anel parede (colado)
-  if (area.printBottom - 0.2 > 0.2) pts.push([wallRAt(area.printBottom - 0.2), area.printBottom - 0.2]);
-  pts.push([wallRAt(bWhite), bWhite]);
-  pts.push([wallRAt(bArt), bArt]);
-  // ---- parede externa cônica com anéis regulares ----
-  const step = 0.55;
-  for (let y = area.printBottom + step; y < area.printTop - 0.02; y += step) {
-    pts.push([wallRAt(y), Math.round(y * 1000) / 1000]);
-  }
-  // ---- anéis colados na borda superior da área ----
-  // Dois anéis a poucos mícrons da fronteira: transição arte → cor-base
-  // em menos de 0,1 mm (borda navalha, como a caneca rosa de referência).
-  // IMPORTANTE: o perfil é ESTRITAMENTE ASCENDENTE aqui — nunca inserir
-  // ponto abaixo do anterior (a dobra criava 3 camadas coincidentes
-  // perto do aro: z-fighting = “marcações” na borda superior).
-  const tArt = area.printTop + 0.005; // anel parede (v clampado no topo)
-  const tWhite = area.printTop + 0.011; // anel cor-base (colado)
-  pts.push([wallRAt(tArt), tArt]);
-  pts.push([wallRAt(tWhite), tWhite]);
-  // conexão ascendente até o início do arco do lábio (4.115, 9.35)
-  pts.push([4.115, 9.35]);
-  // ---- borda arredondada (raio ~0.15) ----
-  pts.push(...arcPoints(3.96, 9.35, 0.155, 0, Math.PI, 7)); // de (4.115,9.35) até (3.805,9.35) por cima
+  // ---- parede externa ----
+  pts.push(...WALL_KNOTS);
+  // ---- borda arredondada (raio ~0.155), de (4.115, 9.35) até (3.805, 9.35) ----
+  pts.push(...arcPoints(3.96, 9.35, 0.155, 0, Math.PI, 12).slice(1));
+  const iArcEnd = pts.length - 1;
+  pts.push([3.805, 9.35]); // duplicata: aresta de comprimento zero (UV exterior → interior)
   // ---- parede interna ----
   pts.push([3.8, 8.4]);
   pts.push([3.78, 6.0]);
@@ -104,14 +75,37 @@ function bodyProfile(area: PrintArea): P[] {
   pts.push([2.0, 0.9]);
   pts.push([1.0, 0.9]);
   pts.push([0, 0.9]);
-  return pts;
+  return { pts, iWall0, iArcEnd };
 }
 
-export function buildMugBodyGeometry(area?: PrintArea): THREE.BufferGeometry {
-  const a = area ?? resolvePrintArea({});
-  const pts = bodyProfile(a).map(([r, y]) => new THREE.Vector2(Math.max(r, 0.0001), y));
-  const geo = new THREE.LatheGeometry(pts, MUG.segments);
-  remapBodyUVs(geo, a);
+/**
+ * @param _area mantido por compatibilidade: a geometria NÃO depende mais da
+ * área de impressão (a arte é limitada pela textura, não pelo modelo 3D).
+ */
+export function buildMugBodyGeometry(_area?: PrintArea): THREE.BufferGeometry {
+  const { pts, iWall0, iArcEnd } = bodyProfile();
+  const N = pts.length;
+  const geo = new THREE.LatheGeometry(
+    pts.map(([r, y]) => new THREE.Vector2(Math.max(r, 0.0001), y)),
+    MUG.segments,
+  );
+
+  // UVs: u contínuo em volta (a costura do Lathe é duplicada, sem salto) com
+  // a FRENTE da caneca no meio da textura; v linear com a altura na parede.
+  // Pé/fundo → faixa exterior; interior → faixa interior (cores sólidas).
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  const uvAttr = geo.attributes.uv as THREE.BufferAttribute;
+  for (let k = 0; k < pos.count; k++) {
+    const j = k % N; // vértices do Lathe: i * N + j
+    const u = uvAttr.getX(k) + 0.5; // textura com RepeatWrapping
+    let v: number;
+    if (j < iWall0) v = V_EXT;
+    else if (j <= iArcEnd) v = texV(pos.getY(k));
+    else v = V_INT;
+    uvAttr.setXY(k, u, v);
+  }
+  uvAttr.needsUpdate = true;
+
   geo.computeVertexNormals();
   return geo;
 }
