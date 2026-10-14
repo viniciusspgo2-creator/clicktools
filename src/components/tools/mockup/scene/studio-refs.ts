@@ -20,6 +20,14 @@ export const studioRefs: {
   exporting?: boolean;
   /** true quando o render offscreen é com fundo transparente */
   exportTransparent?: boolean;
+  /**
+   * Frames restantes de "refresh" da folha da arte após uma exportação.
+   * Exportações pesadas podem derrubar/restaurar o contexto WebGL (GPU
+   * fraca/driver); o needsUpdate disparado contra o contexto morto se perde.
+   * Redesenhar por alguns frames garante que o primeiro frame com contexto
+   * realmente vivo re-sobe a textura — a caneca nunca fica branca.
+   */
+  artRefreshFrames?: number;
 } = {};
 
 /** grupo que contém todas as canecas (hero + acompanhantes) */

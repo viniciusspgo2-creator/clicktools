@@ -152,20 +152,40 @@ function CompanionView({
     texture.needsUpdate = true;
   }, [effArt, effMug, canvas, texture, area]);
 
+  // blindagem: se o contexto WebGL cair e for restaurado (driver/GPU fraca
+  // durante exportações pesadas), redesenha a folha e re-sobe a textura —
+  // sem isso a caneca ficaria branca até o usuário mexer em algo
+  useEffect(() => {
+    const onRestored = () => {
+      const st = useMockupStore.getState();
+      const a = companion.showArt ? st.art : { ...st.art, imageId: null };
+      renderArtCanvas(canvas, a, companionMugState(st.mug, companion), area);
+      texture.needsUpdate = true;
+    };
+    gl.domElement.addEventListener('webglcontextrestored', onRestored);
+    return () => gl.domElement.removeEventListener('webglcontextrestored', onRestored);
+  }, [gl, canvas, texture, area, companion]);
+
   useEffect(() => () => texture.dispose(), [texture]);
 
   const accent = companion.variant === 'white' ? '#ffffff' : companion.accentColor;
   const baseY = baseYFor(floor, 0);
 
-  // flutuação leve (só preview — exportações saem paradas)
+  // flutuação leve (só preview — exportações saem paradas) + refresh da folha
   useFrame(({ clock }) => {
     const g = groupRef.current;
-    if (!g) return;
-    g.userData.baseY = baseY;
-    if (floor === 'flutuante' && floatAnim && !studioRefs.exporting) {
-      g.position.y = baseY + Math.sin(clock.elapsedTime * 1.35 + phase) * 0.2;
-    } else {
-      g.position.y = baseY;
+    if (g) {
+      g.userData.baseY = baseY;
+      if (floor === 'flutuante' && floatAnim && !studioRefs.exporting) {
+        g.position.y = baseY + Math.sin(clock.elapsedTime * 1.35 + phase) * 0.2;
+      } else {
+        g.position.y = baseY;
+      }
+    }
+    if ((studioRefs.artRefreshFrames ?? 0) > 0 && !studioRefs.exporting) {
+      const st = useMockupStore.getState();
+      renderArtCanvas(canvas, companion.showArt ? st.art : { ...st.art, imageId: null }, companionMugState(st.mug, companion));
+      texture.needsUpdate = true;
     }
   });
 
@@ -232,6 +252,21 @@ export function Mug() {
     texture.needsUpdate = true;
   }, [art, mug, canvas, texture, area]);
 
+  // blindagem: contexto WebGL restaurado (queda de driver/GPU fraca durante
+  // exportações) → redesenha a folha e re-sobe a textura na hora
+  useEffect(() => {
+    const onRestored = () => {
+      const st = useMockupStore.getState();
+      if (canvas.height !== canvasHeightFor(CANVAS_W_PREVIEW, area)) {
+        canvas.height = canvasHeightFor(CANVAS_W_PREVIEW, area);
+      }
+      renderArtCanvas(canvas, st.art, st.mug, area);
+      texture.needsUpdate = true;
+    };
+    gl.domElement.addEventListener('webglcontextrestored', onRestored);
+    return () => gl.domElement.removeEventListener('webglcontextrestored', onRestored);
+  }, [gl, canvas, texture, area]);
+
   useEffect(
     () => () => {
       handleGeo.dispose();
@@ -244,15 +279,24 @@ export function Mug() {
   const accent = mug.variant === 'white' ? '#ffffff' : mug.accentColor;
   const baseY = baseYFor(floor, mug.posY);
 
-  // flutuação leve da caneca principal
+  // flutuação leve da caneca principal + refresh assistido da folha
   useFrame(({ clock }) => {
     const g = heroRef.current;
-    if (!g) return;
-    g.userData.baseY = baseY;
-    if (floor === 'flutuante' && floatAnim && !studioRefs.exporting) {
-      g.position.y = baseY + Math.sin(clock.elapsedTime * 1.35) * 0.2;
-    } else {
-      g.position.y = baseY;
+    if (g) {
+      g.userData.baseY = baseY;
+      if (floor === 'flutuante' && floatAnim && !studioRefs.exporting) {
+        g.position.y = baseY + Math.sin(clock.elapsedTime * 1.35) * 0.2;
+      } else {
+        g.position.y = baseY;
+      }
+    }
+    // pós-exportação: redesenha a folha por alguns frames — o primeiro frame
+    // com o contexto WebGL realmente restaurado re-sobe a textura
+    if ((studioRefs.artRefreshFrames ?? 0) > 0 && !studioRefs.exporting) {
+      studioRefs.artRefreshFrames = (studioRefs.artRefreshFrames ?? 0) - 1;
+      const st = useMockupStore.getState();
+      renderArtCanvas(canvas, st.art, st.mug, area);
+      texture.needsUpdate = true;
     }
   });
 

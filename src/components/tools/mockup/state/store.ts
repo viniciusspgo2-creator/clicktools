@@ -551,6 +551,9 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         rotation: 0,
         mirror: false,
         repeat: 1,
+        // toda arte inserida PREENCHE a área inteira (topo a base, como o
+        // modelo de referência) — sem espaço branco; ajustável nos controles
+        fit: 'cover',
       });
       set((s) => ({ artAppliedNonce: s.artAppliedNonce + 1 }));
     },

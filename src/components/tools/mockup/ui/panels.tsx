@@ -256,7 +256,7 @@ export function ArtPanel() {
               { value: 'contain', label: 'Conter' },
               { value: 'stretch', label: 'Esticar' },
             ]}
-            onChange={(v) => patch('art', { fit: v })}
+            onChange={(v) => patch('art', { fit: v, scale: 1 })}
           />
           <div className="flex gap-1.5">
             <MiniButton

@@ -20,6 +20,10 @@ export interface FrameOpts {
   transparent?: boolean;
   /** overrides do estado da caneca p/ render da folha (lote de variantes) */
   mugOverride?: Partial<MugState>;
+  /** desliga o supersampling (gravação em tempo real precisa ser leve) */
+  noSupersample?: boolean;
+  /** teto do supersampling (vídeo usa 1,5: memória/GPU sob pressão) */
+  ssCap?: number;
 }
 
 export interface FrameSession {
@@ -82,8 +86,8 @@ export function beginFrames(width: number, height: number, opts: Omit<FrameOpts,
   // supersampling dobra memória e custo — desativa
   const fx = useMockupStore.getState().fx;
   const usingFx = fx.enabled && !!studioRefs.composer;
-  const ssCap = usingFx ? 1 : 2;
-  const ss = Math.max(1, Math.min(ssCap, Math.min(maxBuffer / width, maxBuffer / height)));
+  const ssCap = Math.max(1, Math.min(opts.ssCap ?? 2, usingFx ? 1 : 2));
+  const ss = opts.noSupersample ? 1 : Math.max(1, Math.min(ssCap, Math.min(maxBuffer / width, maxBuffer / height)));
   const ssWidth = Math.round(width * ss);
   const ssHeight = Math.round(height * ss);
 
@@ -315,7 +319,19 @@ export function endFrames(session: FrameSession) {
   const { gl, scene } = session;
   studioRefs.exporting = false;
   studioRefs.exportTransparent = false;
+  // pede o refresh assistido da folha nos próximos frames — cobre a queda/
+  // restauração assíncrona do contexto WebGL durante a exportação
+  studioRefs.artRefreshFrames = 45;
   if (session.tex && session.previewCanvas) {
+    // REDESENHA a folha de preview do estado atual antes de devolver a
+    // textura — à prova de contexto WebGL perdido/restaurado durante a
+    // exportação (a caneca nunca fica branca depois de exportar) e de
+    // qualquer mudança de estado que tenha passado durante o processo.
+    try {
+      renderWithOverride(session.previewCanvas, session.mugOverride);
+    } catch {
+      /* estado indisponível: mantém o conteúdo atual do canvas */
+    }
     session.tex.image = session.previewCanvas;
     session.tex.needsUpdate = true;
   }

@@ -12,6 +12,7 @@ import {
   beginFrames, captureFrame, checkH264Support, detectWebCodecs, endFrames, ExportError, fitCamera,
   renderFrame, sceneCenter, setMugOverride, type FrameSession,
 } from './frame-capture';
+import { mugsGroup } from '../scene/studio-refs';
 import { useMockupStore, type VideoAnim } from '../state/store';
 
 export const VIDEO_RESOLUTIONS: Record<string, { w: number; h: number; label: string }> = {
@@ -32,12 +33,71 @@ export interface AnimOpts {
 
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
+/* ---------------- mesa giratória (turntable) ---------------- */
+
+/**
+ * GIRO PROFISSIONAL — a CANECA gira sobre o próprio eixo (mesa giratória
+ * de estúdio), com câmera, luzes e cenário parados:
+ *  - o enquadramento não oscila um milímetro (câmera fixa);
+ *  - os reflexos varrem o esmalte de forma natural (o look premium dos
+ *    vídeos de produto);
+ *  - a sombra de contato da alça varre o chão como numa mesa real;
+ *  - velocidade angular constante e loop perfeito.
+ */
+interface Turntable {
+  obj: THREE.Object3D | null;
+  rot0: number;
+}
+
+function beginTurntable(scene: THREE.Scene): Turntable {
+  const obj = mugsGroup(scene)?.getObjectByName('mug-float') ?? null;
+  return { obj, rot0: obj?.rotation.y ?? 0 };
+}
+
+function applyTurntable(tt: Turntable, angle: number) {
+  if (tt.obj) tt.obj.rotation.y = tt.rot0 - angle;
+}
+
+function endTurntable(tt: Turntable | null) {
+  if (!tt?.obj) return;
+  tt.obj.rotation.y = tt.rot0;
+}
+
+/**
+ * Espera o contexto WebGL ser restaurado (queda por GPU fraca/driver).
+ * Segurança: resolve mesmo assim após 4 s para nunca travar a exportação.
+ */
+function waitForContext(gl: THREE.WebGLRenderer): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
+    gl.domElement.addEventListener('webglcontextrestored', finish, { once: true });
+    setTimeout(finish, 4000);
+  });
+}
+
+/**
+ * Robustez por frame: se o contexto caiu (GPU fraca), espera restaurar e
+ * força a re-subida da textura da folha — os frames nunca saem brancos.
+ */
+async function ensureContext(session: FrameSession) {
+  const ctx = session.gl.getContext();
+  if (ctx && !ctx.isContextLost()) return;
+  await waitForContext(session.gl);
+  if (session.tex) session.tex.needsUpdate = true;
+}
+
 /**
  * Trajetória da câmera por frame.
  * IMPORTANTE: `baseOffset` é o vetor CENTRO→CÂMERA original (imutável).
  * Nunca derivamos o offset da posição atual da câmera — o bug antigo fazia
  * exatamente isso e a rotação COMPUNHA a cada frame (devagar no início,
  * ultra-rápido no fim). Aqui cada frame parte do offset original.
+ * No anim “giro” a câmera fica PARADA (a caneca é que gira — turntable).
  */
 function applyCameraPath(
   anim: VideoAnim,
@@ -51,8 +111,7 @@ function applyCameraPath(
   const dist = baseOffset.length();
 
   if (anim === 'giro') {
-    const a = t * Math.PI * 2;
-    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), a);
+    // câmera fixa no enquadramento original — a caneca gira (turntable)
     cam.position.copy(center).add(offset);
   } else if (anim === 'orbita') {
     const a = Math.sin(t * Math.PI * 2) * THREE.MathUtils.degToRad(46);
@@ -95,7 +154,9 @@ export async function exportVideo(resolution: string, animOpts: AnimOpts): Promi
 }
 
 async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps, onProgress }: AnimOpts): Promise<VideoResult> {
-  const session = beginFrames(w, h, { transparent: false });
+  // supersampling 1,5× (não 2×): vídeo em movimento esconde o detalhe e a
+  // memória de GPU poupada evita perda de contexto WebGL em máquinas fracas
+  const session = beginFrames(w, h, { transparent: false, ssCap: 1.5 });
   try {
     const base = fitCamera(session);
     const center = sceneCenter(session.scene);
@@ -115,7 +176,9 @@ async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps,
     }
 
     const pixels = w * h;
-    const bitrate = Math.round(Math.min(24_000_000, Math.max(6_000_000, pixels * fps * 0.14)));
+    // bitrate generoso: produto parado girando tem fundo limpo — o encoder
+    // gasta os bits na caneca; 0,26·px·fps ≈ 9,8 Mbps em 1080²@30
+    const bitrate = Math.round(Math.min(24_000_000, Math.max(6_000_000, pixels * fps * 0.26)));
     const target = new ArrayBufferTarget();
     const muxer = new Muxer({
       target,
@@ -135,24 +198,32 @@ async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps,
     const total = Math.max(2, Math.round(duration * fps));
     // offset original (imutável) — evita a rotação composta do bug antigo
     const baseOffset = new THREE.Vector3().subVectors(base.position, center);
-    for (let i = 0; i < total; i++) {
-      if (encError) throw encError;
-      const t = i / (total - 1); // 0..1 inclusive (loop suave no giro: vê a frente no início e fim)
-      applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
-      renderFrame(session, base);
+    // giro = mesa giratória: a caneca gira, a câmera fica parada
+    const tt = anim === 'giro' ? beginTurntable(session.scene) : null;
+    try {
+      for (let i = 0; i < total; i++) {
+        if (encError) throw encError;
+        await ensureContext(session);
+        const t = i / (total - 1); // 0..1 inclusive (loop suave no giro: vê a frente no início e fim)
+        if (tt) applyTurntable(tt, t * Math.PI * 2);
+        applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
+        renderFrame(session, base);
 
-      const frame = new VideoFrame(session.gl.domElement, {
-        timestamp: Math.round((i * 1e6) / fps),
-        duration: Math.round(1e6 / fps),
-      });
-      encoder.encode(frame, { keyFrame: i % (fps * 2) === 0 });
-      frame.close();
+        const frame = new VideoFrame(session.gl.domElement, {
+          timestamp: Math.round((i * 1e6) / fps),
+          duration: Math.round(1e6 / fps),
+        });
+        encoder.encode(frame, { keyFrame: i % (fps * 2) === 0 });
+        frame.close();
 
-      // respeita o backpressure do encoder
-      while (encoder.encodeQueueSize > 6) {
-        await new Promise((r) => setTimeout(r, 4));
+        // respeita o backpressure do encoder
+        while (encoder.encodeQueueSize > 6) {
+          await new Promise((r) => setTimeout(r, 4));
+        }
+        onProgress?.((i + 1) / total);
       }
-      onProgress?.((i + 1) / total);
+    } finally {
+      endTurntable(tt);
     }
 
     await encoder.flush();
@@ -175,9 +246,11 @@ async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps,
   }
 }
 
-/** fallback universal: animação em tempo real capturada via MediaRecorder */
+/** fallback universal: animação capturada via MediaRecorder */
 async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, fps, onProgress }: AnimOpts): Promise<VideoResult> {
-  const session = beginFrames(w, h, { transparent: false });
+  // sem supersampling: a gravação é em tempo real — o render precisa ser leve
+  // para manter a cadência uniforme (rotação suave).
+  const session = beginFrames(w, h, { transparent: false, noSupersample: true });
   try {
     const canvas = session.gl.domElement as HTMLCanvasElement & {
       captureStream: (fps: number) => MediaStream;
@@ -205,7 +278,7 @@ async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, 
     }
     const rec = new MediaRecorder(stream, {
       mimeType: mimeType || undefined,
-      videoBitsPerSecond: 10_000_000,
+      videoBitsPerSecond: 12_000_000,
     });
     const chunks: BlobPart[] = [];
     rec.ondataavailable = (e) => {
@@ -215,28 +288,37 @@ async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, 
     const base = fitCamera(session);
     const center = sceneCenter(session.scene);
     const baseOffset = new THREE.Vector3().subVectors(base.position, center);
+    const tt = anim === 'giro' ? beginTurntable(session.scene) : null;
     const done = new Promise<Blob>((resolve) => {
       rec.onstop = () => resolve(new Blob(chunks, { type: mimeType || 'video/webm' }));
     });
 
     rec.start(200);
+    // PASSO FIXO por frame (t = i/(total-1)): a rotação avança SEMPRE o mesmo
+    // ângulo por frame — uniforme mesmo se o render atrasar; a cadência de
+    // relógio abaixo mantém os timestamps do gravador regulares.
+    const total = Math.max(2, Math.round(duration * fps));
+    const frameMs = 1000 / fps;
     const t0 = performance.now();
-    const durMs = duration * 1000;
-    await new Promise<void>((resolve) => {
-      const tick = () => {
-        const elapsed = performance.now() - t0;
-        const t = Math.min(1, elapsed / durMs);
+    try {
+      for (let i = 0; i < total; i++) {
+        await ensureContext(session);
+        const t = i / (total - 1);
+        if (tt) applyTurntable(tt, t * Math.PI * 2);
         applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
         renderFrame(session, base);
         track.requestFrame?.();
-        onProgress?.(t);
-        if (t >= 1) resolve();
-        else requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    });
-    // deixa o último frame respirar
-    await new Promise((r) => setTimeout(r, 220));
+        onProgress?.((i + 1) / total);
+        // espera até o instante do PRÓXIMO frame — timestamps uniformes
+        const waitMs = t0 + (i + 1) * frameMs - performance.now();
+        if (waitMs > 0) await new Promise((r) => setTimeout(r, waitMs));
+        else await new Promise((r) => setTimeout(r, 0)); // respira a UI
+      }
+      // deixa o último frame respirar
+      await new Promise((r) => setTimeout(r, 220));
+    } finally {
+      endTurntable(tt);
+    }
     rec.stop();
     const blob = await done;
     const ext = (mimeType || 'video/webm').includes('mp4') ? 'mp4' : 'webm';
@@ -279,19 +361,26 @@ export async function exportGif(width: number, animOpts: AnimOpts): Promise<GifR
     const gif = GIFEncoder();
     const total = Math.max(4, Math.round(duration * fps));
     const baseOffset = new THREE.Vector3().subVectors(base.position, center);
+    const tt = anim === 'giro' ? beginTurntable(session.scene) : null;
 
-    for (let i = 0; i < total; i++) {
-      const t = i / total; // loop perfeito: último frame ≠ primeiro
-      applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
-      renderFrame(session, base);
-      const small = await captureFrame(session, width, width);
-      const { data } = small.getContext('2d')!.getImageData(0, 0, width, width);
-      const palette = quantize(data, 256);
-      const index = applyPalette(data, palette);
-      gif.writeFrame(index, width, width, { palette, delay: Math.round(1000 / fps), repeat: 0 });
-      onProgress?.((i + 1) / total);
-      // deixa a UI respirar
-      if (i % 3 === 2) await new Promise((r) => setTimeout(r, 0));
+    try {
+      for (let i = 0; i < total; i++) {
+        await ensureContext(session);
+        const t = i / total; // loop perfeito: último frame ≠ primeiro
+        if (tt) applyTurntable(tt, t * Math.PI * 2);
+        applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
+        renderFrame(session, base);
+        const small = await captureFrame(session, width, width);
+        const { data } = small.getContext('2d')!.getImageData(0, 0, width, width);
+        const palette = quantize(data, 256);
+        const index = applyPalette(data, palette);
+        gif.writeFrame(index, width, width, { palette, delay: Math.round(1000 / fps), repeat: 0 });
+        onProgress?.((i + 1) / total);
+        // deixa a UI respirar
+        if (i % 3 === 2) await new Promise((r) => setTimeout(r, 0));
+      }
+    } finally {
+      endTurntable(tt);
     }
     gif.finish();
     const blob = new Blob([gif.bytes() as BlobPart], { type: 'image/gif' });

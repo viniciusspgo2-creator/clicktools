@@ -55,13 +55,14 @@ export async function exportTemplate(opts: TemplateOpts): Promise<TemplateResult
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
 
-  // arte nas coordenadas reais de impressão
+  // arte nas coordenadas reais de impressão — SEM cópias de wrap: a folha
+  // plana é um documento físico de impressão, o que passar da área é cortado
   ctx.save();
   ctx.translate(marginPx, marginPx);
   ctx.beginPath();
   ctx.rect(0, 0, artW, artH);
   ctx.clip();
-  drawArtIntoArea(ctx, artW, artH, art);
+  drawArtIntoArea(ctx, artW, artH, art, 0);
   ctx.restore();
 
   if (opts.guides) {

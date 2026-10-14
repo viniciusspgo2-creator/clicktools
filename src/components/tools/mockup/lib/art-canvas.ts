@@ -153,7 +153,9 @@ export function remapBodyUVs(geo: THREE.BufferGeometry, area?: PrintArea) {
     const r = Math.sqrt(x * x + z * z);
     let u: number, v: number;
 
-    if (y > a.printTop + 0.045 || y < a.printBottom - 0.075) {
+    // tolerância milimétrica: os anéis da geometria ficam a ±0,011 cm das
+    // fronteiras — a transição arte → cor-base tem menos de 0,1 mm (navalha)
+    if (y > a.printTop + 0.008 || y < a.printBottom - 0.008) {
       // borda arredondada, pé, fundo externo → cor-base exterior
       u = 0.988;
       v = vExtMid;
@@ -207,8 +209,21 @@ function drawArtText(ctx: CanvasRenderingContext2D, W: number, printH: number, a
  * ajustes do usuário (fit, escala, posição, rotação, espelho, repetir)
  * e a camada de texto. Usada pela folha de textura 3D e pela folha
  * planificada para sublimação. W aqui = largura do ARCO de impressão.
+ *
+ * `wrapW` = período da volta COMPLETA (360°) em px do canvas. As cópias
+ * de continuidade (a arte que “sai” de um lado reaparece do outro depois
+ * de uma volta inteira) são desenhadas nesse período — nunca no período
+ * do arco: com o período errado as cópias invadiam a área visível e
+ * criavam as listras/faixas duplicadas perto das bordas da arte.
+ * `wrapW = 0` desliga as cópias (folha plana de impressão).
  */
-export function drawArtIntoArea(ctx: CanvasRenderingContext2D, W: number, printH: number, art: ArtState) {
+export function drawArtIntoArea(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  printH: number,
+  art: ArtState,
+  wrapW?: number,
+) {
   const entry = getArtImage(art.imageId);
 
   if (entry) {
@@ -237,12 +252,15 @@ export function drawArtIntoArea(ctx: CanvasRenderingContext2D, W: number, printH
     dw *= art.scale;
     dh *= art.scale;
 
+    const wrap = Math.max(0, wrapW ?? W); // volta completa em px (0 = sem cópias)
     const phase = art.offsetX * W; // desloca em volta da caneca (com wrap)
     const cy = printH / 2 + art.offsetY * printH * 0.5;
 
     for (let i = 0; i < repeat; i++) {
       const cx = i * slotW + slotW / 2 + phase;
-      for (const xo of [0, -W, W]) {
+      // cópias de continuidade PRIMEIRO, cópia principal por último —
+      // em zoom extremo (arte maior que a volta) a principal domina
+      for (const xo of wrap > 0 ? [-wrap, wrap, 0] : [0]) {
         ctx.save();
         ctx.translate(cx + xo, cy);
         ctx.rotate((art.rotation * Math.PI) / 180);
@@ -287,12 +305,13 @@ export function renderArtCanvas(
   ctx.fillStyle = interior;
   ctx.fillRect(0, printH + S, W, H - printH - S);
 
-  // arte confinada ao arco de impressão (x: 0..arcW)
+  // arte confinada ao arco de impressão (x: 0..arcW); o wrap usa a volta
+  // COMPLETA do canvas (W) — nunca o arco — para não criar listras nas bordas
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, 0, arcW, printH);
   ctx.clip();
-  drawArtIntoArea(ctx, arcW, printH, art);
+  drawArtIntoArea(ctx, arcW, printH, art, W);
   ctx.restore();
 
   if (isMagic) applyMagicReveal(canvas, printH, mug);

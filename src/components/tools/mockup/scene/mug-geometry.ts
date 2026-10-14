@@ -68,22 +68,29 @@ function bodyProfile(area: PrintArea): P[] {
   pts.push([MUG.bottomOuterR, 0]);
   pts.push([3.98, 0.14]);
   // ---- subida até a base da área de impressão ----
-  const bLow = Math.max(0.16, area.printBottom - 0.075); // anel cor-base
-  const bWall = Math.max(0.18, area.printBottom - 0.07); // anel parede (colado)
-  if (area.printBottom - 0.075 > 0.2) pts.push([wallRAt(area.printBottom - 0.2), area.printBottom - 0.2]);
-  pts.push([wallRAt(bLow), bLow]);
-  pts.push([wallRAt(bWall), bWall]);
+  // anéis cor-base e parede colados (transição navalha na base da arte)
+  const bWhite = Math.max(0.16, area.printBottom - 0.011); // anel cor-base
+  const bArt = Math.max(0.18, area.printBottom - 0.005); // anel parede (colado)
+  if (area.printBottom - 0.2 > 0.2) pts.push([wallRAt(area.printBottom - 0.2), area.printBottom - 0.2]);
+  pts.push([wallRAt(bWhite), bWhite]);
+  pts.push([wallRAt(bArt), bArt]);
   // ---- parede externa cônica com anéis regulares ----
   const step = 0.55;
-  for (let y = area.printBottom + step; y < area.printTop - 0.05; y += step) {
+  for (let y = area.printBottom + step; y < area.printTop - 0.02; y += step) {
     pts.push([wallRAt(y), Math.round(y * 1000) / 1000]);
   }
   // ---- anéis colados na borda superior da área ----
-  const tWall = area.printTop + 0.04; // anel parede (v clampado no topo)
-  const tLow = area.printTop + 0.045; // anel cor-base (colado)
-  pts.push([wallRAt(tWall), tWall]);
-  pts.push([wallRAt(tLow), tLow]);
-  pts.push([4.11, 9.2]);
+  // Dois anéis a poucos mícrons da fronteira: transição arte → cor-base
+  // em menos de 0,1 mm (borda navalha, como a caneca rosa de referência).
+  // IMPORTANTE: o perfil é ESTRITAMENTE ASCENDENTE aqui — nunca inserir
+  // ponto abaixo do anterior (a dobra criava 3 camadas coincidentes
+  // perto do aro: z-fighting = “marcações” na borda superior).
+  const tArt = area.printTop + 0.005; // anel parede (v clampado no topo)
+  const tWhite = area.printTop + 0.011; // anel cor-base (colado)
+  pts.push([wallRAt(tArt), tArt]);
+  pts.push([wallRAt(tWhite), tWhite]);
+  // conexão ascendente até o início do arco do lábio (4.115, 9.35)
+  pts.push([4.115, 9.35]);
   // ---- borda arredondada (raio ~0.15) ----
   pts.push(...arcPoints(3.96, 9.35, 0.155, 0, Math.PI, 7)); // de (4.115,9.35) até (3.805,9.35) por cima
   // ---- parede interna ----
