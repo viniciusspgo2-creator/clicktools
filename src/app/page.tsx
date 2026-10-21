@@ -16,6 +16,7 @@ import { useToolsStore, type ToolId } from '@/lib/tools-store';
 import { PremiumGate } from '@/components/site/premium-gate';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect } from 'react';
+import { EXTRA_TOOLS } from '@/components/tools/extra/registry';
 
 const MockupStudio = dynamic(
   () => import('@/components/tools/mockup/mockup-studio').then((m) => m.MockupStudio),
@@ -30,7 +31,7 @@ const TOOL_META: Record<Exclude<ToolId, 'inicio'>, { title: string; subtitle: st
   pdf: { title: 'Leitor & Editor de PDF', subtitle: 'Organize páginas, mescle, marque d\u2019água e edite — tudo local' },
   imagens: { title: 'Conversor de Imagens', subtitle: 'Converta até 10 imagens por vez para JPG, PNG ou WEBP' },
   mockup: { title: 'Mockup Studio — Canecas 3D', subtitle: 'PREMIUM · Sua arte em 3D fotorrealista, agora com caneca mágica' },
-  extras: { title: 'Ferramentas+', subtitle: '39 utilitários de finanças, texto, design, segurança e mais' },
+  extras: { title: 'Ferramentas+', subtitle: `${EXTRA_TOOLS.length} utilitários para negócios, impressão, design, texto e mais` },
 };
 
 function ToolHeader({ tool }: { tool: Exclude<ToolId, 'inicio'> }) {
@@ -62,15 +63,19 @@ export default function Page() {
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tool') as ToolId | null;
     if (t && t !== 'inicio' && t in TOOL_META) {
-      window.history.replaceState({ tool: t }, '', window.location.href);
+      const extra = new URLSearchParams(window.location.search).get('extra');
+      const validExtra = t === 'extras' && EXTRA_TOOLS.some((item) => item.id === extra) ? extra : null;
+      window.history.replaceState({ tool: t, ...(validExtra ? { extra: validExtra } : {}) }, '', window.location.href);
       useToolsStore.getState().setActiveTool(t, undefined, { silent: true });
+      if (validExtra) useToolsStore.setState({ activeExtra: validExtra as import('@/lib/tools-store').ExtraToolId });
     } else {
       window.history.replaceState({ tool: 'inicio' }, '', window.location.pathname);
     }
     const onPop = (e: PopStateEvent) => {
-      const st = e.state as { tool?: ToolId } | null;
+      const st = e.state as { tool?: ToolId; extra?: string } | null;
       const tool = st?.tool && st.tool in TOOL_META ? st.tool : 'inicio';
       useToolsStore.getState().setActiveTool(tool, undefined, { silent: true });
+      if (tool === 'extras' && EXTRA_TOOLS.some((item) => item.id === st?.extra)) useToolsStore.setState({ activeExtra: st?.extra as import('@/lib/tools-store').ExtraToolId });
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);

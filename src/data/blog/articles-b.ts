@@ -673,9 +673,9 @@ export const ARTICLES_B: BlogArticle[] = [
   },
   {
     slug: 'ferramentas-gratis-click-gruda-guia-completo',
-    title: '45 Ferramentas Grátis do Click & Gruda: Guia Completo para seu Negócio',
+    title: '80 Ferramentas Grátis do Click & Gruda: Guia Completo para seu Negócio',
     description:
-      'Conheça as 45 ferramentas grátis do Click & Gruda: QR Code, WhatsApp, orçamento, contrato, PDF, imagens e mockup 3D para vender mais canecas hoje.',
+      'Conheça as 80 ferramentas grátis do Click & Gruda: QR Code, WhatsApp, orçamento, contrato, PDF, imagens e mockup 3D para vender mais canecas hoje.',
     category: 'Ferramentas',
     tags: ['ferramentas grátis', 'click e gruda', 'personalizados', 'produtividade'],
     date: '2026-10-11',
@@ -688,7 +688,7 @@ export const ARTICLES_B: BlogArticle[] = [
     content: [
       {
         type: 'p',
-        text: 'O Click & Gruda nasceu com uma missão simples: dar ao pequeno produtor de personalizados as mesmas ferramentas das lojas grandes, de graça e sem cadastro. São 45 ferramentas online que rodam direto no navegador, do gerador de QR Code com PIX ao estúdio de mockup 3D de canecas, todas em português e pensadas para quem vende no Brasil.',
+        text: 'O Click & Gruda nasceu com uma missão simples: dar ao pequeno produtor de personalizados as mesmas ferramentas das lojas grandes, de graça e sem cadastro. São 80 ferramentas online que rodam direto no navegador, do gerador de QR Code com PIX ao estúdio de mockup 3D de canecas, todas em português e pensadas para quem vende no Brasil.',
       },
       {
         type: 'p',
@@ -728,7 +728,7 @@ export const ARTICLES_B: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'O módulo Ferramentas+ reúne outras 39 utilidades: sorteador para promoções, gerador de código de barras, senhas fortes, validador de CPF e CNPJ, gerador de UTM para medir campanhas, paleta de cores a partir de imagem e muito mais. Tudo na mesma página, sem login e sem custo, do computador ou do celular.',
+        text: 'O módulo Ferramentas+ reúne outras 74 utilidades: sorteador para promoções, gerador de código de barras, senhas fortes, validador de CPF e CNPJ, gerador de UTM para medir campanhas, paleta de cores a partir de imagem e muito mais. Tudo na mesma página, sem login e sem custo, do computador ou do celular.',
       },
       { type: 'h2', text: 'O fluxo de uma venda real, do primeiro contato à entrega' },
       {
@@ -746,7 +746,7 @@ export const ARTICLES_B: BlogArticle[] = [
       },
       {
         type: 'cta',
-        title: 'Explore as 45 ferramentas grátis',
+        title: 'Explore as 80 ferramentas grátis',
         text: 'QR Code, WhatsApp, orçamento, contrato, PDF, imagens, mockup 3D e muito mais, sem cadastro e sem limite de uso.',
         href: CTA_LINKS.ferramentas,
         label: 'Ver todas as ferramentas',
@@ -766,7 +766,7 @@ export const ARTICLES_B: BlogArticle[] = [
     faq: [
       {
         q: 'As ferramentas do Click & Gruda são realmente grátis?',
-        a: 'Sim, todas as 45 ferramentas são gratuitas e funcionam direto no navegador, sem cadastro nem limite de uso. O módulo Ferramentas+, com 39 utilidades extras, também é aberto, e a Biblioteca de Artes é o único produto pago, com pagamento único.',
+        a: 'Sim, todas as 80 ferramentas são gratuitas e funcionam direto no navegador, sem cadastro nem limite de uso. O módulo Ferramentas+, com 74 utilidades extras, também é aberto, e a Biblioteca de Artes é o único produto pago, com pagamento único.',
       },
       {
         q: 'Preciso instalar algum programa para usar as ferramentas?',

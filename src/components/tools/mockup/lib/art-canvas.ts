@@ -326,5 +326,7 @@ export function computeFitScale(
   const dwBase = iw * s;
   const dhBase = ih * s;
   const k = target === 'height' ? printH / dhBase : slotW / dwBase;
-  return Math.max(0.1, Math.min(3, art.scale * k));
+  // A escala é um valor absoluto. Multiplicar pela escala atual faz o botão
+  // aplicar o ajuste em cascata (ex.: 200% vira 400%) em vez de encaixar a arte.
+  return Math.max(0.1, Math.min(3, k));
 }

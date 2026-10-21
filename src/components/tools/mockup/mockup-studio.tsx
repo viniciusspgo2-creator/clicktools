@@ -82,6 +82,7 @@ export function MockupStudio() {
   const projectName = useMockupStore((s) => s.projectName);
   const setProjectName = useMockupStore((s) => s.setProjectName);
   const canUndo = useMockupStore((s) => s.past.length > 0);
+  const canRedo = useMockupStore((s) => s.future.length > 0);
   const { toast } = useToast();
 
   const [supported, setSupported] = useState<boolean | null>(null);
@@ -371,18 +372,18 @@ export function MockupStudio() {
       {hiddenFile}
 
       {/* ---------- barra superior ---------- */}
-      <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-white/[0.07] bg-[#0d0b0a] px-3 sm:px-4">
+      <div className="relative z-30 flex min-h-[56px] shrink-0 items-center gap-2 border-b border-white/[0.08] bg-[#0d0b0a]/95 px-3 shadow-[0_8px_24px_-20px_rgba(0,0,0,.9)] backdrop-blur-xl sm:px-4">
         <button
           onClick={() => setActiveTool('inicio')}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 text-neutral-400 transition-colors hover:border-primary/50 hover:text-primary"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[.025] text-neutral-400 transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
           aria-label="Voltar às ferramentas"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div className="flex shrink-0 items-center gap-2">
-          <Coffee className="h-4 w-4 text-primary" />
-          <span className="hidden font-display text-sm font-bold sm:block">
-            Mockup <span className="text-primary">Studio</span>
+        <div className="flex shrink-0 items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10"><Coffee className="h-4 w-4 text-primary" /></span>
+          <span className="hidden font-display text-sm font-bold leading-tight sm:block">
+            Mockup <span className="text-primary">Studio</span><span className="mt-0.5 block text-[9px] font-medium uppercase tracking-[.16em] text-neutral-500">Workspace 3D</span>
           </span>
           <span className="hidden items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400 sm:inline-flex">
             Premium
@@ -391,15 +392,15 @@ export function MockupStudio() {
         <input
           value={projectName}
           onChange={(e) => setProjectName(e.target.value)}
-          className="mx-1 min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1.5 text-xs text-neutral-300 outline-none transition-colors hover:border-white/10 focus:border-white/20 focus:bg-black/30"
+          className="mx-1 min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-2 text-xs text-neutral-300 outline-none transition-colors hover:border-white/10 focus:border-primary/35 focus:bg-black/30"
           aria-label="Nome do projeto"
           placeholder="Nome do projeto"
         />
         <div className="flex shrink-0 items-center gap-1">
-          <button onClick={undo} disabled={!canUndo} className="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-white/5 hover:text-white disabled:opacity-30" title="Desfazer (Ctrl+Z)">
+          <button onClick={undo} disabled={!canUndo} aria-label="Desfazer" className="rounded-lg border border-transparent p-2 text-neutral-400 transition-colors hover:border-white/10 hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-25" title="Desfazer (Ctrl+Z)">
             <Undo2 className="h-4 w-4" />
           </button>
-          <button onClick={redo} className="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-white/5 hover:text-white" title="Refazer (Ctrl+Shift+Z)">
+          <button onClick={redo} disabled={!canRedo} aria-label="Refazer" className="rounded-lg border border-transparent p-2 text-neutral-400 transition-colors hover:border-white/10 hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-25" title="Refazer (Ctrl+Shift+Z)">
             <Redo2 className="h-4 w-4" />
           </button>
           <button
@@ -415,7 +416,7 @@ export function MockupStudio() {
           </button>
           <button
             onClick={() => setProjectsOpen(true)}
-            className="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-white/5 hover:text-white"
+            className="rounded-lg border border-transparent p-2 text-neutral-400 transition-colors hover:border-white/10 hover:bg-white/5 hover:text-white"
             title="Meus projetos"
           >
             <FolderOpen className="h-4 w-4" />
@@ -429,14 +430,14 @@ export function MockupStudio() {
 
       {/* ---------- desktop ---------- */}
       <div className="hidden min-h-0 flex-1 lg:grid lg:grid-cols-[292px_1fr_292px]">
-        <aside className="min-h-0 space-y-2.5 overflow-y-auto border-r border-white/[0.07] bg-[#0d0b0a] p-3 thin-scroll">
+        <aside aria-label="Controles de arte, caneca e cena" className="min-h-0 space-y-2.5 overflow-y-auto border-r border-white/[0.07] bg-[#0d0b0a] p-3.5 thin-scroll">
           <ArtPanel />
           <MugPanel />
           <MultiMugPanel />
           <ScenePanel />
         </aside>
-        <main className="relative min-h-0">{viewport}</main>
-        <aside className="min-h-0 space-y-2.5 overflow-y-auto border-l border-white/[0.07] bg-[#0d0b0a] p-3 thin-scroll">
+        <main aria-label="Prévia 3D da caneca" className="relative min-h-0 bg-[radial-gradient(ellipse_at_50%_55%,#211811,#0b0a09_70%)]">{viewport}</main>
+        <aside aria-label="Controles de iluminação, efeitos e câmera" className="min-h-0 space-y-2.5 overflow-y-auto border-l border-white/[0.07] bg-[#0d0b0a] p-3.5 thin-scroll">
           <LightPanel />
           <FXPanel />
           <CameraPanel />
@@ -505,6 +506,7 @@ export function MockupStudio() {
             <button
               key={id}
               onClick={() => setTab(id)}
+              aria-pressed={tab === id}
               className={cn(
                 'flex-1 rounded-lg px-2 py-2 text-[11px] font-bold transition-all',
                 tab === id ? 'bg-primary text-[#1d130d]' : 'text-neutral-400 hover:bg-white/5',

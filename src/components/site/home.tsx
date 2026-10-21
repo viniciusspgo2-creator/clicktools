@@ -9,7 +9,7 @@ import {
   QrCode, MessageCircle, FileSpreadsheet, Scale, FileText, Image as ImageIcon,
   Coffee, ArrowRight, ArrowDown, Zap, ShieldCheck, Infinity as InfinityIcon,
   Sparkles, Check, Crown, Download, Wrench, Share2, CupSoda,
-  LockKeyhole, Wand2,
+  LockKeyhole, Wand2, Search, ArrowUpRight,
 } from 'lucide-react';
 
 const TOOLS: { id: ToolId; icon: React.ComponentType<{ className?: string }>; title: string; desc: string; chips: string[] }[] = [
@@ -69,7 +69,7 @@ const MARQUEE = [
 
 const STATS = [
   { v: `${TOOL_COUNT}+`, l: 'ferramentas' },
-  { v: '9', l: 'categorias' },
+  { v: String(CATEGORY_META.length), l: 'categorias' },
   { v: '100%', l: 'grátis' },
   { v: '0', l: 'cadastros' },
 ];
@@ -371,7 +371,7 @@ function ExtrasPanel() {
             </p>
             <div className="mt-5 flex items-center gap-4 text-xs text-[#a89c8e]">
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> {EXTRA_COUNT} utilitários</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> 9 categorias</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> {CATEGORY_META.length} categorias</span>
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> R$ 0,00</span>
             </div>
             <button
@@ -670,14 +670,65 @@ function FinalCta() {
 /* ================= HOME ================= */
 
 export function Home() {
+  const [query, setQuery] = useState('');
+  const setActiveTool = useToolsStore((s) => s.setActiveTool);
+  const setExtrasCategory = useToolsStore((s) => s.setExtrasCategory);
+  const setExtrasQuery = useToolsStore((s) => s.setExtrasQuery);
+  const explore = (category: string | null = null, search = '') => {
+    setExtrasCategory(category);
+    setExtrasQuery(search);
+    setActiveTool('extras');
+  };
+
   return (
-    <div className="relative">
-      <Hero />
-      <MarqueeBand />
-      <EssentialsSection />
-      <MockupBanner />
-      <CanecasBanner />
-      <FinalCta />
+    <div className="relative overflow-hidden bg-[#0b0a09] text-[#f5f1eb]">
+      <section className="relative isolate overflow-hidden border-b border-white/[.06]">
+        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_5%,rgba(232,112,58,.19),transparent_40%),radial-gradient(ellipse_at_10%_55%,rgba(86,65,160,.13),transparent_38%)]" />
+          <div className="absolute inset-0 opacity-[.08] [background-image:linear-gradient(rgba(255,255,255,.35)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.35)_1px,transparent_1px)] [background-size:48px_48px]" />
+        </div>
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:grid-cols-[1.05fr_.95fr] lg:gap-14 lg:pb-24">
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[.08] px-3.5 py-2 text-[10px] font-bold uppercase tracking-[.17em] text-[#ffb488]"><Sparkles className="h-3.5 w-3.5"/> Seu espaço de trabalho criativo</div>
+            <h1 className="mt-6 max-w-3xl font-display text-4xl font-bold leading-[1.04] tracking-[-.04em] text-white sm:text-5xl lg:text-[4.3rem]">Menos tarefas repetidas.<br/><span className="text-gradient-brand">Mais trabalho que rende.</span></h1>
+            <p className="mt-5 max-w-xl text-sm leading-relaxed text-neutral-300 sm:text-base">Ferramentas certeiras para vender, criar, produzir e organizar seu dia — de um jeito simples, rápido e direto no navegador.</p>
+            <form onSubmit={(e)=>{e.preventDefault();explore(null,query);}} className="mt-7 flex max-w-2xl items-center gap-2 rounded-2xl border border-white/10 bg-white/[.06] p-2 shadow-[0_24px_70px_-40px_rgba(232,112,58,.65)] backdrop-blur-xl focus-within:border-primary/50">
+              <Search className="ml-2 h-5 w-5 shrink-0 text-primary"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="O que você precisa fazer hoje?" aria-label="Buscar uma ferramenta" className="h-11 min-w-0 flex-1 bg-transparent px-1 text-sm text-white outline-none placeholder:text-neutral-500"/><button className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-[#1d130d] transition hover:brightness-110 sm:px-5">Buscar <ArrowRight className="h-4 w-4"/></button>
+            </form>
+            <div className="mt-5 flex flex-wrap gap-2 text-[11px] text-neutral-400"><span className="mr-1 self-center">Buscas populares:</span>{['preço','impressão','WhatsApp','cores'].map(q=><button key={q} onClick={()=>{setQuery(q);explore(null,q);}} className="rounded-full border border-white/10 px-3 py-1.5 transition hover:border-primary/40 hover:text-white">{q}</button>)}</div>
+            <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-[11px] font-medium text-neutral-400"><span><b className="text-white">{TOOL_COUNT}</b> ferramentas</span><span><b className="text-white">{CATEGORY_META.length}</b> categorias</span><span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400"/>Arquivos processados localmente</span></div>
+          </div>
+          <div className="relative mx-auto w-full max-w-[560px]">
+            <div className="absolute -inset-8 rounded-[40px] bg-primary/10 blur-3xl" />
+            <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#15120f] p-3 shadow-[0_40px_120px_-45px_rgba(0,0,0,.9)] sm:p-4">
+              <div className="flex items-center justify-between border-b border-white/[.07] px-3 pb-3"><div><span className="text-[9px] font-bold uppercase tracking-[.2em] text-primary">Click & Gruda · toolkit</span><p className="mt-1 font-display text-sm font-semibold text-white">Seu painel de trabalho</p></div><span className="flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[9px] font-bold text-emerald-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400"/> pronto para usar</span></div>
+              <div className="grid grid-cols-2 gap-2.5 p-2 sm:gap-3 sm:p-3">{TOOLS.slice(0,4).map((tool,i)=><button key={tool.id} onClick={()=>setActiveTool(tool.id)} className="group rounded-2xl border border-white/[.07] bg-white/[.035] p-3.5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-white/[.07] sm:p-4"><span className={`flex h-9 w-9 items-center justify-center rounded-xl ${i%2?'bg-violet-400/10 text-violet-300':'bg-primary/10 text-primary'}`}><tool.icon className="h-4 w-4"/></span><p className="mt-3 text-xs font-semibold text-white">{tool.title}</p><p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-neutral-500">{tool.chips[0]} · {tool.chips[1]}</p></button>)}</div>
+              <button onClick={()=>explore()} className="mx-2 mb-2 flex w-[calc(100%-1rem)] items-center justify-between rounded-xl border border-white/[.07] bg-gradient-to-r from-white/[.05] to-primary/[.08] px-4 py-3 text-left transition hover:border-primary/30"><span><span className="block text-xs font-semibold text-white">Mais {EXTRA_COUNT} ferramentas para explorar</span><span className="mt-1 block text-[10px] text-neutral-500">Finanças, sublimação, design, marketing e mais</span></span><ArrowUpRight className="h-4 w-4 text-primary"/></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="essenciais" className="scroll-mt-20 border-b border-white/[.06] py-14 sm:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[.2em] text-primary">Comece por aqui</p><h2 className="mt-2 font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Ferramentas essenciais</h2><p className="mt-2 max-w-xl text-sm text-neutral-400">O kit rápido para atender clientes, fechar pedidos e entregar com mais profissionalismo.</p></div><button onClick={()=>explore()} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-neutral-200 transition hover:border-primary/40 hover:text-primary">Ver catálogo completo <ArrowRight className="h-3.5 w-3.5"/></button></div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{TOOLS.map((tool,i)=><button key={tool.id} onClick={()=>setActiveTool(tool.id)} className="group relative flex min-h-[205px] flex-col overflow-hidden rounded-2xl border border-white/[.08] bg-[#12100e] p-5 text-left transition-all hover:-translate-y-1 hover:border-primary/35 hover:bg-[#17130f]"><div className="absolute right-0 top-0 h-28 w-28 rounded-full bg-primary/0 blur-2xl transition group-hover:bg-primary/10"/><div className="relative flex items-start justify-between"><span className={`flex h-11 w-11 items-center justify-center rounded-xl border border-white/[.05] ${i%3===1?'bg-violet-400/10 text-violet-300':'bg-primary/10 text-primary'}`}><tool.icon className="h-5 w-5"/></span><ArrowUpRight className="h-4 w-4 text-neutral-600 transition group-hover:text-primary"/></div><h3 className="relative mt-5 font-display text-base font-semibold text-white">{tool.title}</h3><p className="relative mt-2 line-clamp-2 text-xs leading-relaxed text-neutral-400">{tool.desc}</p><div className="relative mt-auto flex flex-wrap gap-1.5 pt-4">{tool.chips.slice(0,2).map(c=><span key={c} className="rounded-full border border-white/[.07] bg-white/[.03] px-2.5 py-1 text-[9px] text-neutral-400">{c}</span>)}</div></button>)}</div>
+        </div>
+      </section>
+
+      <section className="border-b border-white/[.06] py-12 sm:py-16">
+        <div className="mx-auto grid max-w-7xl items-center gap-7 px-4 sm:px-6 lg:grid-cols-[.85fr_1.15fr]">
+          <div><p className="text-[10px] font-bold uppercase tracking-[.2em] text-amber-300">Estúdio de criação · Premium</p><h2 className="mt-3 font-display text-3xl font-bold leading-tight text-white sm:text-4xl">Apresente sua arte<br/><span className="text-amber-300">em outro nível.</span></h2><p className="mt-3 max-w-lg text-sm leading-relaxed text-neutral-400">Crie mockups 3D de canecas com cenários, iluminação, ajustes precisos da arte e exportação em alta qualidade. O estúdio continua com todos os controles e fluxos atuais.</p><button onClick={()=>setActiveTool('mockup')} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-amber-300 px-5 py-3 text-xs font-bold text-[#1d130d] transition hover:bg-amber-200">Abrir Mockup Studio <ArrowRight className="h-4 w-4"/></button><p className="mt-2 text-[10px] text-neutral-500">Acesso Premium com código</p></div>
+          <div className="overflow-hidden rounded-[24px] border border-white/10 bg-[radial-gradient(ellipse_at_50%_30%,rgba(245,158,11,.12),transparent_65%),#12100e] p-3 sm:p-5"><MockupStudioIllustration/></div>
+        </div>
+      </section>
+
+      <section id="todas-ferramentas" className="scroll-mt-20 py-14 sm:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6"><div className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[.2em] text-primary">{EXTRA_COUNT} utilitários práticos</p><h2 className="mt-2 font-display text-2xl font-bold text-white sm:text-3xl">Encontre sua próxima ferramenta</h2><p className="mt-2 text-sm text-neutral-400">Organizado por área para você chegar mais rápido ao que precisa.</p></div><button onClick={()=>explore()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-[#1d130d] transition hover:brightness-110">Abrir Ferramentas+ <ArrowRight className="h-3.5 w-3.5"/></button></div>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">{CATEGORY_META.map((cat,i)=>{const count=EXTRA_TOOLS.filter(x=>x.category===cat.id).length;const examples=EXTRA_TOOLS.filter(x=>x.category===cat.id).slice(0,2).map(x=>x.title);return <button key={cat.id} onClick={()=>explore(cat.id)} className="group rounded-2xl border border-white/[.08] bg-white/[.025] p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-white/[.05]"><span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{backgroundColor:`${cat.cor}1a`,color:cat.cor}}><cat.icon className="h-4 w-4"/></span><span className="mt-3 flex items-center justify-between gap-1"><span className="text-xs font-semibold text-white">{cat.label}</span><span className="rounded-full bg-white/[.07] px-2 py-0.5 text-[9px] font-bold text-neutral-300">{count}</span></span><span className="mt-1 block truncate text-[9px] text-neutral-500">{examples.join(' · ')}</span></button>})}</div>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-white/[.07] pt-6 text-[11px] text-neutral-500"><span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400"/> Privacidade primeiro</span><span>Sem cadastro</span><span>Sem limite de uso</span><span>Feito para quem trabalha por conta</span></div>
+        </div>
+      </section>
     </div>
   );
 }

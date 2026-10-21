@@ -9,6 +9,7 @@ import { ContadorTool, LoremTool, NarradorTool, DuplicadasTool, SlugTool, UtmToo
 import { PaletaTool, MixerCoresTool, BoxShadowTool, AvatarTool, AspectRatioTool } from './design';
 import { SenhasTool, HashTool, CpfCnpjTool, JsonTool, DadosFalsosTool, CidrTool } from './dev';
 import { PomodoroTool, CronometroTool, TempoRenderTool, VramTool, Unidades3dTool } from './productivity';
+import { ExpandedTool, EspelhadorTool, ChecklistPedidoTool } from './expanded';
 
 import {
   TrendingUp, Percent, Wallet, FileSpreadsheet, CreditCard, Zap, DollarSign, Clock, Calculator,
@@ -22,7 +23,7 @@ import type { LucideIcon } from 'lucide-react';
 
 export type ExtraCategory =
   | 'financas' | 'utilitarios' | 'texto' | 'marketing'
-  | 'design' | 'seguranca' | 'dev' | 'produtividade' | '3d';
+  | 'design' | 'seguranca' | 'dev' | 'produtividade' | '3d' | 'sublimacao';
 
 export const CATEGORY_META: { id: ExtraCategory; label: string; icon: LucideIcon; cor: string }[] = [
   { id: 'financas', label: 'Finanças', icon: DollarSign, cor: '#e8703a' },
@@ -34,6 +35,7 @@ export const CATEGORY_META: { id: ExtraCategory; label: string; icon: LucideIcon
   { id: 'dev', label: 'Dev', icon: Braces, cor: '#f2b56b' },
   { id: 'produtividade', label: 'Produtividade', icon: Timer, cor: '#e8703a' },
   { id: '3d', label: '3D', icon: Box, cor: '#ffab7e' },
+  { id: 'sublimacao', label: 'Sublimação', icon: Ruler, cor: '#a98bfa' },
 ];
 
 export interface ExtraToolDef {
@@ -102,6 +104,49 @@ export const EXTRA_TOOLS: ExtraToolDef[] = [
   { id: 'tempo-render', category: '3d', title: 'Tempo de Render', desc: 'Prazo e custo de renderização por frames e máquinas', icon: Box, Component: TempoRenderTool },
   { id: 'vram', category: '3d', title: 'VRAM de Texturas', desc: 'Consumo de memória de vídeo das suas texturas em segundos', icon: MemoryStick, Component: VramTool },
   { id: 'unidades-3d', category: '3d', title: 'Conversor de Unidades 3D', desc: 'Blender, ZBrush, UE5, Unity e CAD para o mundo real', icon: Ruler, Component: Unidades3dTool },
+
+  // ===== NEGÓCIOS & PRODUÇÃO — novos utilitários =====
+  { id: 'comissao-vendas', category: 'financas', title: 'Calculadora de Comissão', desc: 'Comissão por venda e total do período', icon: DollarSign, Component: ExpandedTool },
+  { id: 'ponto-equilibrio', category: 'financas', title: 'Ponto de Equilíbrio', desc: 'Quantas vendas pagam seus custos fixos', icon: Calculator, Component: ExpandedTool },
+  { id: 'parcelamento', category: 'financas', title: 'Simulador de Parcelamento', desc: 'Parcela, total pago e juros estimados', icon: CreditCard, Component: ExpandedTool },
+  { id: 'margem-lucro', category: 'financas', title: 'Margem & Markup', desc: 'Entenda seu lucro e a margem sobre o preço', icon: TrendingUp, Component: ExpandedTool },
+  { id: 'meta-vendas', category: 'financas', title: 'Meta de Vendas', desc: 'Vendas e contatos necessários para sua meta', icon: TrendingUp, Component: ExpandedTool },
+  { id: 'preco-original', category: 'financas', title: 'Preço antes do Desconto', desc: 'Recalcule preço original e economia da oferta', icon: Percent, Component: ExpandedTool },
+
+  { id: 'dpi-impressao', category: 'sublimacao', title: 'DPI de Impressão', desc: 'Confira a resolução efetiva no tamanho final', icon: Ruler, Component: ExpandedTool },
+  { id: 'conversor-medidas-impressao', category: 'sublimacao', title: 'Medidas para Impressão', desc: 'Converta centímetros, milímetros e polegadas', icon: Ruler, Component: ExpandedTool },
+  { id: 'sangria-impressao', category: 'sublimacao', title: 'Calculadora de Sangria', desc: 'Prepare sangria e margem segura da arte', icon: FileSpreadsheet, Component: ExpandedTool },
+  { id: 'aproveitamento-folha', category: 'sublimacao', title: 'Aproveitamento de Folha', desc: 'Estime quantas peças cabem por folha', icon: Box, Component: ExpandedTool },
+  { id: 'custo-sublimacao', category: 'sublimacao', title: 'Custo por Impressão', desc: 'Some tinta, papel, energia e outros insumos', icon: Calculator, Component: ExpandedTool },
+  { id: 'tempo-prensa', category: 'sublimacao', title: 'Planejador de Prensa', desc: 'Preveja tempo de produção por lote', icon: Clock, Component: ExpandedTool },
+  { id: 'gabarito-caneca', category: 'sublimacao', title: 'Gabarito de Caneca', desc: 'Área segura e resolução sugerida da estampa', icon: Coffee, Component: ExpandedTool },
+  { id: 'espelhador-sublimacao', category: 'sublimacao', title: 'Espelhar Arte para Sublimação', desc: 'Inverta e baixe sua arte para impressão', icon: Ratio, Component: EspelhadorTool },
+
+  { id: 'conversor-cores', category: 'design', title: 'Conversor de Cores', desc: 'Converta cores HEX, RGB e HSL', icon: Palette, Component: ExpandedTool },
+  { id: 'contraste-cores', category: 'design', title: 'Verificador de Contraste', desc: 'Avalie legibilidade de pares de cores (WCAG)', icon: Palette, Component: ExpandedTool },
+  { id: 'gradiente-css', category: 'design', title: 'Gerador de Gradiente CSS', desc: 'Crie gradientes e copie o código CSS', icon: Droplets, Component: ExpandedTool },
+  { id: 'tamanhos-redes', category: 'design', title: 'Tamanhos para Redes', desc: 'Dimensões rápidas para posts, stories e capas', icon: Ratio, Component: ExpandedTool },
+
+  { id: 'resposta-whatsapp', category: 'marketing', title: 'Respostas para WhatsApp', desc: 'Mensagens prontas para etapas do atendimento', icon: Volume2, Component: ExpandedTool },
+  { id: 'descricao-produto', category: 'marketing', title: 'Descrição de Produto', desc: 'Estruture textos claros para catálogo e loja', icon: FileText, Component: ExpandedTool },
+  { id: 'bio-instagram', category: 'marketing', title: 'Bio para Instagram', desc: 'Monte uma bio objetiva com chamada para ação', icon: UserCircle, Component: ExpandedTool },
+  { id: 'gerador-hashtags', category: 'marketing', title: 'Ideias de Hashtags', desc: 'Gere tags organizadas a partir de palavras-chave', icon: Hash, Component: ExpandedTool },
+  { id: 'copy-promocao', category: 'marketing', title: 'Texto de Promoção', desc: 'Monte uma chamada com oferta, prazo e CTA', icon: Percent, Component: ExpandedTool },
+  { id: 'mensagem-pos-venda', category: 'marketing', title: 'Mensagem de Pós-venda', desc: 'Agradeça e peça feedback após a entrega', icon: FileText, Component: ExpandedTool },
+
+  { id: 'maiusculas-minusculas', category: 'texto', title: 'Conversor de Maiúsculas', desc: 'Altere caixa e formato de títulos rapidamente', icon: Type, Component: ExpandedTool },
+  { id: 'limpar-texto', category: 'texto', title: 'Limpar Espaços e Quebras', desc: 'Normalize espaços e remova linhas vazias', icon: FileText, Component: ExpandedTool },
+  { id: 'localizar-substituir', category: 'texto', title: 'Localizar e Substituir', desc: 'Troque termos em textos de forma rápida', icon: FileText, Component: ExpandedTool },
+  { id: 'inverter-texto', category: 'texto', title: 'Inverter Texto', desc: 'Inverta caracteres, palavras ou linhas', icon: Type, Component: ExpandedTool },
+  { id: 'html-para-texto', category: 'texto', title: 'HTML para Texto', desc: 'Extraia o conteúdo textual de trechos HTML', icon: FileText, Component: ExpandedTool },
+
+  { id: 'json-csv', category: 'dev', title: 'Conversor JSON para CSV', desc: 'Exporte dados de objetos JSON como CSV', icon: Braces, Component: ExpandedTool },
+  { id: 'gerador-uuid', category: 'dev', title: 'Gerador de UUID', desc: 'Crie identificadores aleatórios no navegador', icon: Hash, Component: ExpandedTool },
+  { id: 'decodificador-jwt', category: 'dev', title: 'Decodificador JWT', desc: 'Inspecione o payload localmente, sem validar assinatura', icon: Braces, Component: ExpandedTool },
+
+  { id: 'prazo-util', category: 'produtividade', title: 'Calculadora de Dias Úteis', desc: 'Estime prazos comerciais sem contar fins de semana', icon: Clock, Component: ExpandedTool },
+  { id: 'checklist-pedido', category: 'produtividade', title: 'Checklist de Pedido', desc: 'Acompanhe etapas de produção e acabamento', icon: FileSpreadsheet, Component: ChecklistPedidoTool },
+  { id: 'calculadora-idade', category: 'utilitarios', title: 'Calculadora de Idade', desc: 'Calcule idade em anos, meses e dias', icon: Clock, Component: ExpandedTool },
 ];
 
 export function getExtraTool(id: ExtraToolId | null): ExtraToolDef | undefined {

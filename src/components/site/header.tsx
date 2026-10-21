@@ -6,6 +6,7 @@ import {
   Home, QrCode, MessageCircle, FileSpreadsheet, Scale, FileText, Image as ImageIcon, CupSoda, Wrench,
   BookOpen,
 } from 'lucide-react';
+import { EXTRA_TOOLS } from '@/components/tools/extra/registry';
 
 const NAV: { id: ToolId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'inicio', label: 'Início', icon: Home },
@@ -48,6 +49,8 @@ export function Header() {
             <button
               key={id}
               onClick={() => setActiveTool(id)}
+              title={label}
+              aria-pressed={activeTool === id}
               className={`relative flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors sm:px-3.5 ${
                 activeTool === id ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
@@ -60,7 +63,7 @@ export function Header() {
                 />
               )}
               <Icon className="relative z-10 h-3.5 w-3.5" />
-              <span className="relative z-10 hidden md:inline">{label}</span>
+              <span className="relative z-10">{label}</span>
               {id === 'mockup' && (
                 <span
                   className={`relative z-10 hidden rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none sm:inline ${
@@ -77,7 +80,7 @@ export function Header() {
                     activeTool === id ? 'bg-black/25 text-white' : 'bg-primary/15 text-primary'
                   }`}
                 >
-                  +38
+                  +{EXTRA_TOOLS.length}
                 </span>
               )}
             </button>
