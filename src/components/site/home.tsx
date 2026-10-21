@@ -4,11 +4,11 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useToolsStore, type ToolId } from '@/lib/tools-store';
 import { EXTRA_TOOLS, CATEGORY_META } from '@/components/tools/extra/registry';
-import { MugsIllustration, TvIllustration, MockupStudioIllustration } from './illustrations';
+import { MugsIllustration, MockupStudioIllustration } from './illustrations';
 import {
   QrCode, MessageCircle, FileSpreadsheet, Scale, FileText, Image as ImageIcon,
   Coffee, ArrowRight, ArrowDown, Zap, ShieldCheck, Infinity as InfinityIcon,
-  Sparkles, Check, Crown, Download, Tv, Play, Popcorn, Clapperboard, Wrench, Share2, CupSoda,
+  Sparkles, Check, Crown, Download, Wrench, Share2, CupSoda,
   LockKeyhole, Wand2,
 } from 'lucide-react';
 
@@ -57,21 +57,23 @@ const TOOLS: { id: ToolId; icon: React.ComponentType<{ className?: string }>; ti
   },
 ];
 
+const EXTRA_COUNT = EXTRA_TOOLS.length;
+const TOOL_COUNT = TOOLS.length + EXTRA_COUNT;
+
 const MARQUEE = [
   'Mockup 3D de Canecas', 'QR Code Pro', 'Link de WhatsApp', 'Orçamentos', 'Contratos',
   'Editor de PDF', 'Conversor de Imagens', 'Juros Compostos', 'Sorteador', 'Gerador de Senhas',
   'Código de Barras', 'Paleta de Cores', 'Consulta de CEP', 'Pomodoro',
-  'Construtor UTM', '+38 Extras',
+  'Construtor UTM', `+${EXTRA_COUNT} extras`,
 ];
 
 const STATS = [
-  { v: '45+', l: 'ferramentas' },
+  { v: `${TOOL_COUNT}+`, l: 'ferramentas' },
   { v: '9', l: 'categorias' },
   { v: '100%', l: 'grátis' },
   { v: '0', l: 'cadastros' },
 ];
 
-const GENRES = ['Ação', 'Comédia', 'Terror', 'Animação', 'Romance', 'Documentário'];
 
 const scrollTo = (id: string) =>
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -131,7 +133,7 @@ function Hero() {
             transition={{ delay: 0.05 }}
             className="font-display text-balance text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl"
           >
-            45 ferramentas que seu negócio precisa,{' '}
+            {TOOL_COUNT} ferramentas para facilitar seu dia a dia,{' '}
             <span className="text-gradient-brand">em um só lugar</span>
           </motion.h1>
 
@@ -142,7 +144,7 @@ function Hero() {
             className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
           >
             QR Codes avançados, links elegantes para WhatsApp, orçamentos, contratos,
-            edição de PDFs, conversão de imagens <strong className="text-foreground">e mais 38 utilitários bônus</strong> —
+            edição de PDFs, conversão de imagens <strong className="text-foreground">e mais {EXTRA_COUNT} utilitários</strong> —
             rápido, privado e sem pagar nada.
           </motion.p>
 
@@ -164,7 +166,7 @@ function Hero() {
               className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-6 py-3 font-display text-sm font-bold text-primary transition-colors hover:bg-primary/20 active:scale-95"
             >
               <Wrench className="h-4 w-4" />
-              Explorar as +38 extras
+              Explorar as +{EXTRA_COUNT} ferramentas
             </button>
           </motion.div>
 
@@ -256,7 +258,7 @@ function EssentialsSection() {
             onClick={() => scrollTo('todas-ferramentas')}
             className="group inline-flex shrink-0 items-center gap-2 self-start rounded-full border-2 border-[#e8703a] bg-white px-5 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-[#e8703a] transition-colors hover:bg-[#e8703a] hover:text-white sm:self-auto"
           >
-            +38 bônus logo abaixo
+            +{EXTRA_COUNT} ferramentas logo abaixo
             <ArrowDown className="h-3.5 w-3.5 transition-transform group-hover:translate-y-0.5" />
           </button>
         </Reveal>
@@ -333,10 +335,11 @@ function EssentialsSection() {
   );
 }
 
-/* ================= PAINEL +38 FERRAMENTAS (preto sobre branco) ================= */
+/* ================= PAINEL FERRAMENTAS EXTRAS (preto sobre branco) ================= */
 
 function ExtrasPanel() {
   const setActiveTool = useToolsStore((s) => s.setActiveTool);
+  const setExtrasCategory = useToolsStore((s) => s.setExtrasCategory);
 
   const cats = CATEGORY_META.map((c) => {
     const list = EXTRA_TOOLS.filter((t) => t.category === c.id);
@@ -363,16 +366,19 @@ function ExtrasPanel() {
               <span className="text-gradient-brand"> além das 6 essenciais</span>
             </h3>
             <p className="mt-3 max-w-md text-sm leading-relaxed text-[#a89c8e] sm:text-base">
-              Finanças, segurança, texto, design, produtividade e mais: 38 utilitários extras
+              Finanças, segurança, texto, design, produtividade e mais: {EXTRA_COUNT} utilitários extras
               esperando por você — todos grátis, sem cadastro e no mesmo lugar.
             </p>
             <div className="mt-5 flex items-center gap-4 text-xs text-[#a89c8e]">
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> 38 utilitários</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> {EXTRA_COUNT} utilitários</span>
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> 9 categorias</span>
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> R$ 0,00</span>
             </div>
             <button
-              onClick={() => setActiveTool('extras')}
+              onClick={() => {
+                setExtrasCategory(null);
+                setActiveTool('extras');
+              }}
               className="group mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-display text-sm font-bold text-[#1d130d] shadow-[0_10px_30px_-8px_rgba(232,112,58,0.7)] transition-transform hover:scale-[1.04] active:scale-95"
             >
               Abrir todas as ferramentas
@@ -385,7 +391,10 @@ function ExtrasPanel() {
             {cats.map((cat, i) => (
               <motion.button
                 key={cat.id}
-                onClick={() => setActiveTool('extras')}
+                onClick={() => {
+                  setExtrasCategory(cat.id);
+                  setActiveTool('extras');
+                }}
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -603,96 +612,6 @@ function CanecasBanner() {
   );
 }
 
-/* ================= BANNER 2 — TV ONLINE (preto) ================= */
-
-function TvBanner() {
-  return (
-    <section className="relative overflow-hidden bg-[#0a0908] py-16 sm:py-24">
-      <span className="watermark pointer-events-none absolute -bottom-5 left-0 select-none font-display text-[24vw] font-bold leading-none sm:text-[170px]">
-        CINEMA
-      </span>
-      <div className="dot-grid-dark pointer-events-none absolute inset-0" />
-      <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <div className="aurora -left-24 top-10 h-80 w-80 bg-primary/20" />
-        <div className="aurora -right-20 bottom-0 h-64 w-64 bg-primary/15" style={{ animationDelay: '-8s' }} />
-      </div>
-
-      <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2">
-        {/* ilustração */}
-        <Reveal className="relative order-2 lg:order-1">
-          <div className="floaty relative mx-auto max-w-lg [animation-delay:0.8s]">
-            <TvIllustration />
-            <div className="floaty absolute -top-2 right-6 flex items-center gap-1.5 rounded-full bg-[#e8703a] px-3.5 py-2 text-xs font-semibold text-[#1d130d] shadow-lg">
-              <Popcorn className="h-3.5 w-3.5" /> Filmes
-            </div>
-            <div className="floaty absolute bottom-6 left-0 flex items-center gap-1.5 rounded-full bg-[#f3ede4] px-3.5 py-2 text-xs font-semibold text-[#1d130d] shadow-lg [animation-delay:1.4s]">
-              <Clapperboard className="h-3.5 w-3.5 text-[#e8703a]" /> Séries
-            </div>
-            <div className="floaty absolute right-2 bottom-16 flex items-center gap-1.5 rounded-full border border-primary/50 bg-[#171310] px-3.5 py-2 text-xs font-semibold text-primary shadow-lg [animation-delay:2.4s]">
-              <Zap className="h-3.5 w-3.5" /> 24h no ar
-            </div>
-          </div>
-        </Reveal>
-
-        {/* texto */}
-        <Reveal delay={0.08} className="order-1 lg:order-2">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#ef4444]/40 bg-[#ef4444]/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#fca5a5]">
-            <Tv className="h-3.5 w-3.5" />
-            Play Media Hub · streaming
-          </span>
-
-          <h2 className="mt-5 font-display text-4xl font-bold leading-[1.05] tracking-tight text-[#f3ede4] sm:text-5xl">
-            TV ONLINE - FILMES E SÉRIES
-          </h2>
-
-          <p className="text-gradient-brand mt-3 font-display text-xl font-bold uppercase tracking-wide sm:text-2xl">
-            Diversão e entretenimento garantido
-          </p>
-
-          <p className="mt-4 max-w-lg text-base leading-relaxed text-[#a89c8e]">
-            Dê play e relaxe: um catálogo pensado para toda a família, com filmes e séries
-            para todas as idades e gostos. É só escolher, apertar o play e aproveitar.
-          </p>
-
-          <ul className="mt-6 space-y-2.5">
-            {[
-              'Filmes e séries para todos os gostos e idades',
-              'Assista no celular, computador ou na TV',
-              'Catálogo atualizado constantemente',
-              'Entretenimento 24 horas, onde você estiver',
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2.5 text-sm font-medium text-[#f3ede4]">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#e8703a] text-[#1d130d]">
-                  <Check className="h-3 w-3" strokeWidth={3} />
-                </span>
-                {item}
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-6 flex flex-wrap gap-1.5">
-            {GENRES.map((g) => (
-              <span key={g} className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-medium text-[#a89c8e]">
-                {g}
-              </span>
-            ))}
-          </div>
-
-          <a
-            href="https://clickgruda.com.br/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group mt-7 inline-flex items-center gap-2.5 rounded-full bg-[#e8703a] px-8 py-4 font-display text-sm font-bold uppercase tracking-wide text-[#1d130d] shadow-[0_16px_40px_-10px_rgba(232,112,58,0.7)] transition-transform hover:scale-[1.04] active:scale-95"
-          >
-            <Play className="h-4 w-4 fill-current" />
-            Assistir agora
-          </a>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
 /* ================= CTA FINAL (branco) ================= */
 
 function FinalCta() {
@@ -703,7 +622,7 @@ function FinalCta() {
       if (navigator.share) {
         await navigator.share({
           title: 'Click & Gruda Tools',
-          text: '44 ferramentas online grátis, sem cadastro!',
+          text: `${TOOL_COUNT} ferramentas online grátis, sem cadastro!`,
           url: window.location.origin,
         });
       } else {
@@ -724,7 +643,7 @@ function FinalCta() {
           Cansado de caçar ferramenta por aí?
         </h3>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[#7c6f63] sm:text-base">
-          Aqui são 45 ferramentas grátis, sem cadastro e sem pegadinha. Salve o site nos favoritos
+          Aqui são {TOOL_COUNT} ferramentas grátis, sem cadastro e sem pegadinha. Salve o site nos favoritos
           e mande para aquele amigo que trabalha por conta própria — ele vai agradecer.
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
@@ -758,7 +677,6 @@ export function Home() {
       <EssentialsSection />
       <MockupBanner />
       <CanecasBanner />
-      <TvBanner />
       <FinalCta />
     </div>
   );

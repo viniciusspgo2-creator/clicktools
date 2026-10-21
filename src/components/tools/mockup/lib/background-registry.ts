@@ -396,8 +396,9 @@ const SCENE_MAKERS: { id: string; label: string; make: SceneMaker }[] = [
 export const SCENES: { id: string; label: string }[] = SCENE_MAKERS.map(({ id, label }) => ({ id, label }));
 
 /** garante que todos os cenários gerados por código estão registrados */
-export function ensureScenes(): void {
-  for (const s of SCENE_MAKERS) {
+export function ensureScenes(sceneId?: string): void {
+  const makers = sceneId ? SCENE_MAKERS.filter((scene) => scene.id === sceneId) : SCENE_MAKERS;
+  for (const s of makers) {
     if (registry.has(s.id)) continue;
     const w = 1920;
     const h = 1080;

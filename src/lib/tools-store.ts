@@ -15,7 +15,7 @@ export type ToolId =
   | 'extras';
 
 export type ExtraToolId =
-  | 'juros-compostos' | 'desconto' | 'salario-liquido' | 'rescisao'
+  | 'juros-compostos' | 'desconto' | 'salario-liquido' | 'rescisao' | 'precificacao'
   | 'maquininha' | 'energia' | 'cotacao' | 'valor-hora'
   | 'sorteador' | 'regra-de-3' | 'imc-tmb' | 'bhaskara' | 'tempo-download' | 'cep' | 'barcode' | 'base64'
   | 'contador' | 'lorem' | 'narrador' | 'remover-duplicadas' | 'slug' | 'utm'
@@ -27,9 +27,11 @@ export type ExtraToolId =
 interface ToolsState {
   activeTool: ToolId;
   activeExtra: ExtraToolId | null;
+  extrasCategory: string | null;
   qrSeed: string; // texto/URL para pré-preencher o gerador de QR
   setActiveTool: (t: ToolId, qrSeed?: string, opts?: { silent?: boolean }) => void;
   openExtra: (id: ExtraToolId) => void;
+  setExtrasCategory: (category: string | null) => void;
 }
 
 /** grava a troca de ferramenta no histórico do navegador (botão voltar funciona) */
@@ -49,6 +51,7 @@ function pushHistory(tool: ToolId, extra?: string | null) {
 export const useToolsStore = create<ToolsState>((set) => ({
   activeTool: 'inicio',
   activeExtra: null,
+  extrasCategory: null,
   qrSeed: '',
   setActiveTool: (t, qrSeed, opts) => {
     if (t !== 'inicio') trackPage(`/ferramenta/${t}`);
@@ -65,4 +68,5 @@ export const useToolsStore = create<ToolsState>((set) => ({
     set({ activeTool: 'extras', activeExtra: id });
     pushHistory('extras', id);
   },
+  setExtrasCategory: (category) => set({ extrasCategory: category }),
 }));

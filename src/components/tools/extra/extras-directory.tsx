@@ -9,14 +9,18 @@ import { Search, ArrowRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 export function ExtrasDirectory() {
-  const { activeExtra, openExtra } = useToolsStore();
-  const [cat, setCat] = useState<ExtraCategory | 'todas'>('todas');
+  const { activeExtra, openExtra, extrasCategory, setExtrasCategory } = useToolsStore();
+  const [cat, setCat] = useState<ExtraCategory | 'todas'>(() =>
+    CATEGORY_META.some((item) => item.id === extrasCategory) ? extrasCategory as ExtraCategory : 'todas',
+  );
   const [busca, setBusca] = useState('');
 
   const filtradas = EXTRA_TOOLS.filter((t) => {
     const okCat = cat === 'todas' || t.category === cat;
     const q = busca.trim().toLowerCase();
-    const okBusca = !q || t.title.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q);
+    const categoryLabel = CATEGORY_META.find((item) => item.id === t.category)?.label ?? '';
+    const searchable = `${t.title} ${t.desc} ${t.id} ${categoryLabel}`.toLocaleLowerCase('pt-BR');
+    const okBusca = !q || searchable.includes(q);
     return okCat && okBusca;
   });
 
@@ -62,15 +66,21 @@ export function ExtrasDirectory() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={busca} onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar ferramenta…" className="h-10 pl-9"
+            placeholder="Buscar nome, categoria ou função…" aria-label="Buscar ferramentas por nome, categoria ou função" className="h-10 pl-9 pr-9"
           />
+          {busca && <button type="button" onClick={() => setBusca('')} aria-label="Limpar busca" className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground">×</button>}
         </div>
       </div>
+      <p className="-mt-3 mb-4 text-xs text-muted-foreground" aria-live="polite">
+        {filtradas.length} de {EXTRA_TOOLS.length} ferramentas
+        {cat !== 'todas' ? ` · ${CATEGORY_META.find((item) => item.id === cat)?.label}` : ''}
+      </p>
 
       {/* filtro por categoria */}
       <div className="thin-scroll mb-6 flex gap-2 overflow-x-auto pb-2">
         <button
-          onClick={() => setCat('todas')}
+          onClick={() => { setCat('todas'); setExtrasCategory(null); }}
+          aria-pressed={cat === 'todas'}
           className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all active:scale-95 ${
             cat === 'todas' ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-secondary/40 text-muted-foreground hover:text-foreground'
           }`}
@@ -82,7 +92,8 @@ export function ExtrasDirectory() {
           return (
             <button
               key={c.id}
-              onClick={() => setCat(c.id)}
+              onClick={() => { setCat(c.id); setExtrasCategory(c.id); }}
+              aria-pressed={cat === c.id}
               className={`flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all active:scale-95 ${
                 cat === c.id ? 'text-white' : 'border-border bg-secondary/40 text-muted-foreground hover:text-foreground'
               }`}
@@ -132,8 +143,11 @@ export function ExtrasDirectory() {
       </motion.div>
 
       {filtradas.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          Nenhuma ferramenta encontrada para &quot;{busca}&quot; 🤔
+        <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+          <p className="text-sm text-muted-foreground">Nenhuma ferramenta encontrada{busca ? <> para &quot;{busca}&quot;</> : ' nesta categoria'}.</p>
+          <button type="button" onClick={() => { setBusca(''); setCat('todas'); setExtrasCategory(null); }} className="mt-3 rounded-full border border-primary/30 px-4 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/10">
+            Limpar filtros
+          </button>
         </div>
       )}
     </div>

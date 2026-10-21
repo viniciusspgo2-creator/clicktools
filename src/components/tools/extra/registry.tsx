@@ -2,7 +2,7 @@
 
 import type { ExtraToolId, ToolId } from '@/lib/tools-store';
 import {
-  JurosCompostosTool, DescontoTool, SalarioLiquidoTool, RescisaoTool, MaquininhaTool, EnergiaTool, CotacaoTool, ValorHoraTool,
+  JurosCompostosTool, DescontoTool, SalarioLiquidoTool, RescisaoTool, MaquininhaTool, EnergiaTool, CotacaoTool, ValorHoraTool, PrecificacaoTool,
 } from './finance';
 import { SorteadorTool, RegraTresTool, ImcTmbTool, BhaskaraTool, TempoDownloadTool, CepTool, BarcodeTool, Base64Tool } from './utilities';
 import { ContadorTool, LoremTool, NarradorTool, DuplicadasTool, SlugTool, UtmTool } from './text';
@@ -11,7 +11,7 @@ import { SenhasTool, HashTool, CpfCnpjTool, JsonTool, DadosFalsosTool, CidrTool 
 import { PomodoroTool, CronometroTool, TempoRenderTool, VramTool, Unidades3dTool } from './productivity';
 
 import {
-  TrendingUp, Percent, Wallet, FileSpreadsheet, CreditCard, Zap, DollarSign, Clock,
+  TrendingUp, Percent, Wallet, FileSpreadsheet, CreditCard, Zap, DollarSign, Clock, Calculator,
   Dices, Divide, HeartPulse, Radical, Wifi, MapPin, Barcode, FileJson2,
   Type, FileText, Volume2, ListX, Link2, ChartLine,
   Palette, Droplets, Square, UserCircle, Ratio,
@@ -55,6 +55,7 @@ export const EXTRA_TOOLS: ExtraToolDef[] = [
   { id: 'energia', category: 'financas', title: 'Consumo de Energia', desc: 'Custo mensal e anual de qualquer aparelho da casa', icon: Zap, Component: EnergiaTool },
   { id: 'cotacao', category: 'financas', title: 'Cotação ao Vivo', desc: 'Dólar, Euro e Bitcoin para Real com cotação atualizada', icon: DollarSign, Component: CotacaoTool },
   { id: 'valor-hora', category: 'financas', title: 'Valor-Hora Freelancer', desc: 'Quanto cobrar por hora considerando custos e impostos', icon: Clock, Component: ValorHoraTool },
+  { id: 'precificacao', category: 'financas', title: 'Precificador de Produtos e Serviços', desc: 'Calcule custo unitário, taxas e preço de venda com a margem desejada', icon: Calculator, Component: PrecificacaoTool },
 
   // ===== UTILITÁRIOS =====
   { id: 'sorteador', category: 'utilitarios', title: 'Sorteador', desc: 'Números aleatórios ou sorteio justo de nomes com animação', icon: Dices, Component: SorteadorTool },

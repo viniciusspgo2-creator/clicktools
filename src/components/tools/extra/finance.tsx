@@ -9,8 +9,12 @@ import { Slider } from '@/components/ui/slider';
 import { formatBRL } from '@/lib/helpers';
 
 const num = (s: string) => {
-  const v = parseFloat(s.replace(/\./g, '').replace(',', '.'));
-  return isNaN(v) ? 0 : v;
+  const normalized = s.trim().replace(/\s/g, '');
+  const value = normalized.includes(',')
+    ? normalized.replace(/\./g, '').replace(',', '.')
+    : normalized;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
 /* ================= Juros Compostos ================= */
@@ -376,6 +380,78 @@ export function ValorHoraTool() {
         <ResultCard label="Horas no mês" value={`${horasMes.toFixed(0)}h`} tone="neutral" />
         <ResultCard label="Faturamento alvo/mês" value={formatBRL(custoComImposto)} tone="green" />
       </div>
+    </ToolShell>
+  );
+}
+
+/* ================= Precificação por custo e margem ================= */
+export function PrecificacaoTool() {
+  const [material, setMaterial] = useState('');
+  const [maoDeObra, setMaoDeObra] = useState('');
+  const [embalagem, setEmbalagem] = useState('');
+  const [energia, setEnergia] = useState('');
+  const [outros, setOutros] = useState('');
+  const [taxas, setTaxas] = useState('');
+  const [margemAlvo, setMargemAlvo] = useState('30');
+  const [precoPraticado, setPrecoPraticado] = useState('');
+
+  const custos = [material, maoDeObra, embalagem, energia, outros]
+    .map((value) => Math.max(0, num(value)))
+    .reduce((total, value) => total + value, 0);
+  const feeRate = Math.min(99, Math.max(0, num(taxas))) / 100;
+  const marginRate = Math.min(95, Math.max(0, num(margemAlvo))) / 100;
+  const divisor = 1 - feeRate - marginRate;
+  const recomendado = custos > 0 && divisor > 0 ? custos / divisor : 0;
+  const praticado = Math.max(0, num(precoPraticado));
+  const baseVenda = praticado || recomendado;
+  const taxaEmReais = baseVenda * feeRate;
+  const lucro = baseVenda - custos - taxaEmReais;
+  const margemReal = baseVenda > 0 ? (lucro / baseVenda) * 100 : 0;
+
+  return (
+    <ToolShell title="Precificador de Produtos e Serviços" description="Some custos de produção, mão de obra e taxas para encontrar um preço de venda com margem definida">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Materiais e insumos (R$)" id="prec-material" hint="Ex.: caneca, papel, tinta, matéria-prima">
+          <TextInput id="prec-material" inputMode="decimal" placeholder="0,00" value={material} onChange={(e) => setMaterial(e.target.value)} />
+        </Field>
+        <Field label="Mão de obra (R$)" id="prec-mao" hint="Inclua o tempo de produção e acabamento">
+          <TextInput id="prec-mao" inputMode="decimal" placeholder="0,00" value={maoDeObra} onChange={(e) => setMaoDeObra(e.target.value)} />
+        </Field>
+        <Field label="Embalagem (R$)" id="prec-embalagem">
+          <TextInput id="prec-embalagem" inputMode="decimal" placeholder="0,00" value={embalagem} onChange={(e) => setEmbalagem(e.target.value)} />
+        </Field>
+        <Field label="Energia e custos indiretos (R$)" id="prec-energia">
+          <TextInput id="prec-energia" inputMode="decimal" placeholder="0,00" value={energia} onChange={(e) => setEnergia(e.target.value)} />
+        </Field>
+        <Field label="Outros custos por unidade (R$)" id="prec-outros">
+          <TextInput id="prec-outros" inputMode="decimal" placeholder="0,00" value={outros} onChange={(e) => setOutros(e.target.value)} />
+        </Field>
+        <Field label="Taxas sobre a venda (%)" id="prec-taxas" hint="Cartão, marketplace ou comissão">
+          <TextInput id="prec-taxas" inputMode="decimal" placeholder="0" value={taxas} onChange={(e) => setTaxas(e.target.value)} />
+        </Field>
+        <Field label="Margem de lucro desejada (%)" id="prec-margem" hint="Margem calculada sobre o preço de venda">
+          <TextInput id="prec-margem" inputMode="decimal" placeholder="30" value={margemAlvo} onChange={(e) => setMargemAlvo(e.target.value)} />
+        </Field>
+        <Field label="Preço que você já cobra (opcional)" id="prec-praticado" hint="Compare seu preço atual com o recomendado">
+          <TextInput id="prec-praticado" inputMode="decimal" placeholder="Deixe em branco para usar o recomendado" value={precoPraticado} onChange={(e) => setPrecoPraticado(e.target.value)} />
+        </Field>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <ResultCard label="Preço recomendado" value={divisor > 0 ? formatBRL(recomendado) : 'Revise as taxas'} big />
+        <ResultCard label="Custo por unidade" value={formatBRL(custos)} tone="neutral" />
+        <ResultCard label="Taxas estimadas" value={formatBRL(taxaEmReais)} tone="neutral" />
+        <ResultCard label={precoPraticado ? 'Lucro no preço atual' : 'Lucro estimado'} value={formatBRL(lucro)} tone={lucro >= 0 ? 'green' : 'neutral'} />
+      </div>
+      {divisor <= 0 && custos > 0 && (
+        <p role="alert" className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+          A soma da margem desejada e das taxas precisa ser menor que 100% para calcular um preço viável.
+        </p>
+      )}
+      {baseVenda > 0 && divisor > 0 && (
+        <p className="mt-3 rounded-lg border border-border bg-secondary/30 p-3 text-xs text-muted-foreground">
+          Margem estimada neste preço: <strong className="text-foreground">{margemReal.toFixed(1).replace('.', ',')}%</strong>. Informe custos por unidade; custos fixos mensais podem ser rateados em “Energia e custos indiretos”.
+        </p>
+      )}
     </ToolShell>
   );
 }

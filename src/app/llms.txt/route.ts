@@ -11,7 +11,7 @@ const FREE_TOOLS = [
   { id: 'contrato', name: 'Gerador de Contrato', description: 'Contratos com cláusulas prontas para serviço, venda, NDA, freelancer e manutenção — preenche e baixa em PDF.' },
   { id: 'pdf', name: 'Leitor & Editor de PDF', description: 'Organiza páginas, gira, exclui, extrai, mescla PDFs, aplica marca d\u2019água, numeração e edita metadados — 100% no navegador.' },
   { id: 'imagens', name: 'Conversor de Imagens', description: 'Converte até 10 imagens por vez entre JPG, PNG e WEBP, com redimensionamento, controle de qualidade e download em ZIP.' },
-  { id: 'extras', name: 'Ferramentas+', description: 'Mais 38 utilitários gratuitos de finanças (juros compostos, desconto, salário líquido, rescisão, maquininha), texto, design, segurança, produtividade e 3D.' },
+  { id: 'extras', name: 'Ferramentas+', description: 'Mais 39 utilitários gratuitos de finanças (juros compostos, desconto, precificação, salário líquido, rescisão, maquininha), texto, design, segurança, produtividade e 3D.' },
 ] as const;
 
 const PREMIUM_TOOLS = [
@@ -37,7 +37,7 @@ export async function GET() {
 - Perfis oficiais: https://www.instagram.com/clickgruda.digital · https://www.instagram.com/playmedia.hub
 - Produtos associados da mesma marca: Biblioteca de Artes para Canecas (https://clickgruda.vercel.app/) e TV Online (https://clickgruda.com.br/)
 
-## Ferramentas gratuitas (${FREE_TOOLS.length} principais + 38 extras)
+## Ferramentas gratuitas (${FREE_TOOLS.length - 1} principais + 39 extras)
 
 ${FREE_TOOLS.map((t) => `- [${t.name}](${base}/?tool=${t.id}): ${t.description}`).join('\n')}
 

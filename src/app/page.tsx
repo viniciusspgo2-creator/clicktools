@@ -30,7 +30,7 @@ const TOOL_META: Record<Exclude<ToolId, 'inicio'>, { title: string; subtitle: st
   pdf: { title: 'Leitor & Editor de PDF', subtitle: 'Organize páginas, mescle, marque d\u2019água e edite — tudo local' },
   imagens: { title: 'Conversor de Imagens', subtitle: 'Converta até 10 imagens por vez para JPG, PNG ou WEBP' },
   mockup: { title: 'Mockup Studio — Canecas 3D', subtitle: 'PREMIUM · Sua arte em 3D fotorrealista, agora com caneca mágica' },
-  extras: { title: 'Ferramentas+', subtitle: '38 utilitários de finanças, texto, design, segurança e mais' },
+  extras: { title: 'Ferramentas+', subtitle: '39 utilitários de finanças, texto, design, segurança e mais' },
 };
 
 function ToolHeader({ tool }: { tool: Exclude<ToolId, 'inicio'> }) {

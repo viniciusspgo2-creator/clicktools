@@ -113,7 +113,7 @@ export async function openProjectIntoStore(p: StoredProject) {
       bgId = null;
     }
   } else if (bgId?.startsWith('scene-')) {
-    ensureScenes();
+    ensureScenes(bgId);
   } else if (bgId && !getBackgroundImage(bgId)) {
     bgId = null;
   }

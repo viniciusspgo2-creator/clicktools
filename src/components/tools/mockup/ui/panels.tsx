@@ -281,6 +281,20 @@ export function ArtPanel() {
             ]}
             onChange={(v) => patch('art', { fit: v, scale: 1 })}
           />
+          <button
+            type="button"
+            onClick={() => patch('art', {
+              fit: 'cover', scale: 1, repeat: 1, offsetX: 0, offsetY: 0, rotation: 0,
+            })}
+            className="flex w-full items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-left text-[11px] font-bold text-primary transition-colors hover:bg-primary/15"
+            title="Faz a arte cobrir toda a área de impressão selecionada, mantendo a proporção e sem deixar faixas vazias."
+          >
+            <span>Cobrir 100% da área de impressão</span>
+            <Maximize className="h-3.5 w-3.5 shrink-0" />
+          </button>
+          <p className="-mt-1 text-[10px] leading-relaxed text-neutral-500">
+            A arte cobre a área escolhida sem distorção. Para ir do topo à base da caneca, selecione “Altura cheia” em “Tamanho na caneca” e aplique esta opção.
+          </p>
           <div className="flex gap-1.5">
             <MiniButton
               className="flex-1"
@@ -599,32 +613,28 @@ function TransparentSwatch() {
 function ScenesGallery() {
   const patch = useMockupStore((s) => s.patch);
   const current = useMockupStore((s) => s.bg.imageId);
+  const bgType = useMockupStore((s) => s.bg.type);
   const refs = useRef<(HTMLCanvasElement | null)[]>([]);
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    ensureScenes();
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!ready) return;
     SCENES.forEach((s, i) => {
       const c = refs.current[i];
       if (c) drawSceneThumb(c, s.id);
     });
-  }, [ready]);
+  }, []);
 
   return (
     <div>
       <p className="mb-1.5 text-[11px] font-medium text-neutral-400" title="Cenários desenhados pelo próprio estúdio — sem direitos autorais">
         Cenários prontos
       </p>
-      <div className="grid grid-cols-4 gap-1">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {SCENES.map((s, i) => (
           <button
             key={s.id}
-            onClick={() =>
+            type="button"
+            onClick={() => {
+              ensureScenes(s.id);
               patch('bg', {
                 type: 'image',
                 imageId: s.id,
@@ -637,14 +647,19 @@ function ScenesGallery() {
                 imageBlur: 0,
                 imageBright: 1,
               })
-            }
+            }}
             title={s.label}
+            aria-pressed={bgType === 'image' && current === s.id}
             className={cn(
-              'overflow-hidden rounded-lg border transition-all',
-              current === s.id ? 'border-primary ring-1 ring-primary/60' : 'border-white/10 hover:border-white/30',
+              'group overflow-hidden rounded-xl border text-left transition-all hover:-translate-y-0.5 hover:border-primary/50',
+              bgType === 'image' && current === s.id ? 'border-primary ring-1 ring-primary/60' : 'border-white/10',
             )}
           >
-            <canvas ref={(el) => { refs.current[i] = el; }} width={128} height={72} className="block h-auto w-full" />
+            <canvas ref={(el) => { refs.current[i] = el; }} width={256} height={144} className="block aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+            <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[10px] font-semibold text-neutral-300">
+              <span className="truncate">{s.label}</span>
+              {bgType === 'image' && current === s.id && <Check className="h-3 w-3 shrink-0 text-primary" />}
+            </span>
           </button>
         ))}
       </div>
@@ -660,6 +675,10 @@ export function ScenePanel() {
   const { toast } = useToast();
   const [busyBg, setBusyBg] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (bg.type === 'image' && bg.imageId?.startsWith('scene-')) ensureScenes(bg.imageId);
+  }, [bg.type, bg.imageId]);
 
   const handleBgFile = useCallback(
     async (file: File | undefined | null) => {
@@ -706,7 +725,24 @@ export function ScenePanel() {
         }}
       />
 
-      <p className="text-[11px] font-medium text-neutral-400">Fundo</p>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold text-neutral-200">Escolha um cenário</p>
+          <p className="mt-0.5 text-[10px] text-neutral-500">Prévia ilustrada · você pode trocar quando quiser</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => bgInputRef.current?.click()}
+          disabled={busyBg}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-2 text-[10px] font-bold text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+        >
+          {busyBg ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+          Enviar imagem
+        </button>
+      </div>
+      <ScenesGallery />
+
+      <p className="pt-1 text-[11px] font-medium text-neutral-400">Fundo da cena</p>
       <div className="grid grid-cols-3 gap-1">
         {BG_OPTIONS.filter((o) => o.value !== 'transparent').map((o) => (
           <button
@@ -759,20 +795,7 @@ export function ScenePanel() {
 
       {bg.type === 'image' && (
         <>
-          <button
-            onClick={() => bgInputRef.current?.click()}
-            disabled={busyBg}
-            className="flex w-full flex-col items-center gap-1.5 rounded-xl border-2 border-dashed border-white/15 bg-white/[0.02] px-4 py-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
-          >
-            {busyBg ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <ImagePlus className="h-5 w-5 text-primary" />}
-            <span className="text-xs font-semibold text-neutral-200">Enviar foto de fundo</span>
-            <span className="text-center text-[10px] leading-relaxed text-neutral-500">
-              JPG, PNG ou WebP · use foto horizontal 1920×1080 ou maior
-            </span>
-          </button>
-
-          <ScenesGallery />
-
+          <p className="text-[10px] text-neutral-500">Fundo ativo: {SCENES.find((s) => s.id === bg.imageId)?.label ?? 'imagem enviada'}. JPG, PNG ou WebP · até 25 MB.</p>
           <Segmented
             label="Encaixe da foto"
             value={bg.imageFit}
