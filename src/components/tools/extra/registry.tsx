@@ -14,7 +14,7 @@ import { ExpandedTool, EspelhadorTool, ChecklistPedidoTool } from './expanded';
 import {
   TrendingUp, Percent, Wallet, FileSpreadsheet, CreditCard, Zap, DollarSign, Clock, Calculator,
   Dices, Divide, HeartPulse, Radical, Wifi, MapPin, Barcode, FileJson2,
-  Type, FileText, Volume2, ListX, Link2, ChartLine,
+  Type, FileText, Volume2, ListX, Link2, ChartLine, Coffee,
   Palette, Droplets, Square, UserCircle, Ratio,
   KeyRound, Hash, IdCard, Braces, Users, Network,
   Timer, AlarmClock, Box, MemoryStick, Ruler,
