@@ -2,15 +2,47 @@
    Estado central do Mockup Studio — Zustand + undo/redo
    ============================================================ */
 
-'use client';
+"use client";
 
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
-  BODY_MAX_R, FLOAT_LIFT, MUG_FULL_R, MUG_GAP_MIN, PEDESTAL_H,
-  type AreaMode, type FloorType,
-} from '../lib/config';
+  BODY_MAX_R,
+  FLOAT_LIFT,
+  MUG_FULL_R,
+  MUG_GAP_MIN,
+  PEDESTAL_H,
+  type AreaMode,
+  type FloorType,
+} from "../lib/config";
 
+export type MugModel =
+  | "classic"
+  | "square"
+  | "cone"
+  | "beer"
+  | "latte"
+  | "tea"
+  | "long"
+  | "thermal"
+  | "squeeze";
 export interface ArtState {
+  decalImageId?: string | null;
+  decalScale?: number;
+  decalX?: number;
+  decalY?: number;
+  decalRotation?: number;
+  decalOpacity?: number;
+  baseImageId?: string | null;
+  baseRotation?: number;
+  metallic?: boolean;
+  bleed: number;
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  vibrance: number;
+  temperature: number;
+  sharpness: number;
+  opacity: number;
   imageId: string | null;
   name: string;
   width: number; // px naturais
@@ -20,7 +52,7 @@ export interface ArtState {
   offsetY: number; // -1..1
   rotation: number; // -180..180
   mirror: boolean;
-  fit: 'cover' | 'contain' | 'stretch';
+  fit: "cover" | "contain" | "stretch";
   repeat: number; // 1..4
   /** tamanho da área de impressão na caneca (prensa / altura cheia / forno / custom) */
   areaMode: AreaMode;
@@ -35,10 +67,24 @@ export interface ArtState {
 }
 
 export interface MugState {
-  variant: 'white' | 'accent' | 'magic';
+  model: MugModel;
+  baseColor?: string;
+  bodyColor: string;
+  interiorColor: string;
+  handleColor: string;
+  clearcoat: number;
+  roughness: number;
+  reflection: number;
+  faithfulColor: boolean;
+  posX: number;
+  posZ: number;
+  locked: boolean;
+  hidden: boolean;
+  name: string;
+  variant: "white" | "accent" | "magic";
   accentColor: string; // alça e interior (nas mágicas também)
   magicHeat: number; // 0..1 — 0 = fria (preta) · 1 = quente (arte revelada)
-  magicDirection: 'baixo' | 'lateral' | 'radial'; // de onde a revelação começa
+  magicDirection: "baixo" | "lateral" | "radial"; // de onde a revelação começa
   magicDissolve: number; // 0..1 — 0 = linha reta · 1 = dissolução total
   rotationY: number; // graus — gira a caneca (não a câmera)
   tiltX: number; // graus -35..35 (inclina p/ frente/trás)
@@ -48,6 +94,11 @@ export interface MugState {
 }
 
 export interface LightState {
+  keyStrength?: number;
+  fillStrength?: number;
+  rimStrength?: number;
+  ambientStrength?: number;
+  hdriId?: string | null;
   preset: string;
   intensity: number; // multiplicador 0.2..2
   temperature: number; // offset em K aplicado via absoluto? usa valor direto -2000..+2000
@@ -57,7 +108,15 @@ export interface LightState {
 }
 
 export interface BackgroundState {
-  type: 'studio-white' | 'studio-dark' | 'gradient' | 'solid' | 'image' | 'transparent';
+  imageContrast: number;
+  imageVignette: number;
+  type:
+    | "studio-white"
+    | "studio-dark"
+    | "gradient"
+    | "solid"
+    | "image"
+    | "transparent";
   colorA: string;
   colorB: string;
   angle: number; // 0..360
@@ -71,7 +130,7 @@ export interface BackgroundState {
   floatAnim: boolean;
   /* ---- imagem de fundo ---- */
   imageId: string | null;
-  imageFit: 'cover' | 'contain' | 'stretch';
+  imageFit: "cover" | "contain" | "stretch";
   imageZoom: number; // 0.5..3
   imageX: number; // -1..1
   imageY: number; // -1..1
@@ -91,8 +150,24 @@ export interface CameraState {
 
 /** caneca acompanhante para cenas com várias canecas (máx. 3) */
 export interface CompanionMug {
+  model?: MugModel;
+  baseColor?: string;
+  bodyColor?: string;
+  interiorColor?: string;
+  handleColor?: string;
+  clearcoat?: number;
+  roughness?: number;
+  reflection?: number;
+  faithfulColor?: boolean;
+  name?: string;
+  tiltX?: number;
+  tiltZ?: number;
+  posY?: number;
+  locked?: boolean;
+  hidden?: boolean;
+  art?: ArtState;
   id: string;
-  variant: 'white' | 'accent' | 'magic';
+  variant: "white" | "accent" | "magic";
   accentColor: string;
   magicHeat: number; // 0..1 (só variante mágica)
   showArt: boolean; // usa a mesma arte da caneca principal
@@ -105,7 +180,7 @@ export interface CompanionMug {
 /** pós-processamento — grading, bloom, vinheta e granulado */
 export interface FxState {
   enabled: boolean;
-  lut: 'none' | 'vivo' | 'quente' | 'frio' | 'cinema' | 'pb';
+  lut: "none" | "vivo" | "quente" | "frio" | "cinema" | "pb";
   exposure: number; // 0.5..1.8
   contrast: number; // -0.5..0.5
   saturation: number; // -1..1
@@ -118,18 +193,18 @@ export interface FxState {
 export interface WatermarkState {
   enabled: boolean;
   text: string;
-  position: 'tl' | 'tr' | 'bl' | 'br';
+  position: "tl" | "tr" | "bl" | "br";
   opacity: number; // 0.1..1
   size: number; // fração da largura 0.02..0.06
 }
 
-export type VideoAnim = 'giro' | 'orbita' | 'zoom' | 'revelacao';
+export type VideoAnim = "giro" | "orbita" | "zoom" | "revelacao";
 
 export interface VideoState {
   anim: VideoAnim;
   duration: number; // 3..10 s
   fps: 24 | 30;
-  res: 'sq1080' | 'hd' | 'vertical' | 'wide';
+  res: "sq1080" | "hd" | "vertical" | "wide";
 }
 
 export interface GifState {
@@ -144,7 +219,7 @@ export interface ExportState {
   customW: number;
   customH: number;
   scale: 1 | 2 | 3 | 4;
-  format: 'png' | 'jpeg' | 'webp';
+  format: "png" | "jpeg" | "webp";
   quality: number; // 0.5..1
   transparent: boolean;
 }
@@ -163,11 +238,44 @@ type Snapshot = {
   companions: CompanionMug[];
   fx: FxState;
   camera: CameraState;
+  layerOrder: string[];
+  projectName: string;
+  watermark: WatermarkState;
 };
 
-export type PatchSlice = 'art' | 'mug' | 'light' | 'bg' | 'camera' | 'fx' | 'watermark' | 'video' | 'gif';
+export type PatchSlice =
+  | "art"
+  | "mug"
+  | "light"
+  | "bg"
+  | "camera"
+  | "fx"
+  | "watermark"
+  | "video"
+  | "gif";
 
 interface MockupStore {
+  selectedIds: string[];
+  layerOrder: string[];
+  tool: "select" | "move" | "rotate" | "scale" | "art" | "pan";
+  snapEnabled: boolean;
+  compareArt: boolean;
+  zoom: number;
+  select: (id: string, additive?: boolean) => void;
+  setTool: (tool: MockupStore["tool"]) => void;
+  setSnap: (v: boolean) => void;
+  setCompare: (v: boolean) => void;
+  setZoom: (v: number) => void;
+  patchObject: (id: string, partial: Partial<MugState>) => void;
+  patchObjectArt: (id: string, partial: Partial<ArtState>) => void;
+  duplicateSelected: () => void;
+  deleteSelected: () => void;
+  transformSelected: (axis: "posX" | "posY" | "posZ", delta: number) => void;
+  alignSelected: (kind: "left" | "center" | "right" | "distribute") => void;
+  reorderLayer: (id: string, direction: -1 | 1) => void;
+  compose: (
+    kind: "solo" | "pair" | "trio" | "row" | "fan" | "stack" | "gift",
+  ) => void;
   projectName: string;
   art: ArtState;
   mug: MugState;
@@ -198,33 +306,66 @@ interface MockupStore {
   future: Snapshot[];
   // ações
   setProjectName: (n: string) => void;
-  patch: <K extends PatchSlice>(slice: K, partial: Partial<MockupStore[K]>) => void;
-  setArtImage: (meta: { imageId: string; name: string; width: number; height: number }) => void;
+  patch: <K extends PatchSlice>(
+    slice: K,
+    partial: Partial<MockupStore[K]>,
+  ) => void;
+  setArtImage: (meta: {
+    imageId: string;
+    name: string;
+    width: number;
+    height: number;
+  }) => void;
   clearArt: () => void;
   notifyArtApplied: () => void;
   rotateMug: (deg: number) => void;
-  applyCameraPreset: (p: { pos: [number, number, number]; target: [number, number, number] }) => void;
+  applyCameraPreset: (p: {
+    pos: [number, number, number];
+    target: [number, number, number];
+  }) => void;
   requestFocus: () => void;
   setExportOpen: (v: boolean) => void;
   setExport: (partial: Partial<ExportState>) => void;
   addCompanion: () => void;
   patchCompanion: (id: string, partial: Partial<CompanionMug>) => void;
   removeCompanion: (id: string) => void;
-  arrangeScene: (kind: 'duo' | 'trio' | 'quarto' | 'vitrine' | 'solo') => void;
+  arrangeScene: (kind: "duo" | "trio" | "quarto" | "vitrine" | "solo") => void;
   spreadEvenly: () => void;
   frameAll: () => void;
   setBgAdjustMode: (v: boolean) => void;
   setShowGuides: (v: boolean) => void;
   setProjectsOpen: (v: boolean) => void;
-  hydrate: (s: { projectName?: string; art?: Partial<ArtState>; mug?: Partial<MugState>; light?: Partial<LightState>; bg?: Partial<BackgroundState>; camera?: Partial<CameraState>; exportSettings?: Partial<ExportState>; companions?: CompanionMug[]; fx?: Partial<FxState>; watermark?: Partial<WatermarkState>; video?: Partial<VideoState>; gif?: Partial<GifState> }) => void;
+  hydrate: (s: {
+    projectName?: string;
+    art?: Partial<ArtState>;
+    mug?: Partial<MugState>;
+    light?: Partial<LightState>;
+    bg?: Partial<BackgroundState>;
+    camera?: Partial<CameraState>;
+    exportSettings?: Partial<ExportState>;
+    companions?: CompanionMug[];
+    layerOrder?: string[];
+    fx?: Partial<FxState>;
+    watermark?: Partial<WatermarkState>;
+    video?: Partial<VideoState>;
+    gif?: Partial<GifState>;
+  }) => void;
   undo: () => void;
   redo: () => void;
   resetAll: () => void;
 }
 
 const initialArt: ArtState = {
+  bleed: 0,
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  vibrance: 0,
+  temperature: 0,
+  sharpness: 0,
+  opacity: 1,
   imageId: null,
-  name: '',
+  name: "",
   width: 0,
   height: 0,
   scale: 1,
@@ -232,25 +373,38 @@ const initialArt: ArtState = {
   offsetY: 0,
   rotation: 0,
   mirror: false,
-  fit: 'cover',
+  fit: "cover",
   repeat: 1,
-  areaMode: 'padrao',
+  areaMode: "forno",
   areaW: 20.7,
   areaH: 8.7,
   areaY: 0,
-  text: '',
-  textColor: '#1d130d',
+  text: "",
+  textColor: "#1d130d",
   textSize: 0.09,
   textY: 0.15,
 };
 
 const initialMug: MugState = {
-  variant: 'white',
-  accentColor: '#1d130d',
+  model: "classic",
+  bodyColor: "#ffffff",
+  interiorColor: "#ffffff",
+  handleColor: "#ffffff",
+  clearcoat: 1,
+  roughness: 0.16,
+  reflection: 0.8,
+  faithfulColor: true,
+  posX: 0,
+  posZ: 0,
+  locked: false,
+  hidden: false,
+  name: "Caneca 01",
+  variant: "white",
+  accentColor: "#1d130d",
   magicHeat: 0.85,
-  magicDirection: 'baixo',
+  magicDirection: "baixo",
   magicDissolve: 0.35,
-  rotationY: 0,
+  rotationY: 55,
   tiltX: 0,
   tiltZ: 0,
   scale: 1,
@@ -258,7 +412,7 @@ const initialMug: MugState = {
 };
 
 const initialLight: LightState = {
-  preset: 'suave',
+  preset: "suave",
   intensity: 1,
   temperature: 0,
   rotation: 0,
@@ -267,17 +421,19 @@ const initialLight: LightState = {
 };
 
 const initialBg: BackgroundState = {
-  type: 'studio-white',
-  colorA: '#e8703a',
-  colorB: '#161210',
+  imageContrast: 0,
+  imageVignette: 0,
+  type: "studio-white",
+  colorA: "#e8703a",
+  colorB: "#161210",
   angle: 90,
   contactShadow: true,
   castShadow: true,
-  floor: 'continuo',
+  floor: "continuo",
   glow: false,
   floatAnim: false,
   imageId: null,
-  imageFit: 'cover',
+  imageFit: "cover",
   imageZoom: 1,
   imageX: 0,
   imageY: 0,
@@ -296,7 +452,7 @@ const initialCamera: CameraState = {
 
 const initialFx: FxState = {
   enabled: false,
-  lut: 'none',
+  lut: "none",
   exposure: 1,
   contrast: 0,
   saturation: 0,
@@ -308,21 +464,21 @@ const initialFx: FxState = {
 
 const initialWatermark: WatermarkState = {
   enabled: false,
-  text: 'Feito no Mockup Studio · Click & Gruda',
-  position: 'br',
+  text: "Feito no Mockup Studio · Click & Gruda",
+  position: "br",
   opacity: 0.7,
   size: 0.028,
 };
 
 const initialVideo: VideoState = {
-  anim: 'giro',
+  anim: "giro",
   duration: 5,
   fps: 30,
-  res: 'sq1080',
+  res: "sq1080",
 };
 
 const initialGif: GifState = {
-  anim: 'giro',
+  anim: "giro",
   duration: 4,
   fps: 15,
   width: 480,
@@ -340,7 +496,11 @@ function handleDirDeg(rotationY: number): number {
 }
 
 /** raio efetivo de uma caneca NA DIREÇÃO do outro objeto (a alça ocupa um setor ±55°) */
-function effRadius(rotationY: number, scale: number, angleToDeg: number): number {
+function effRadius(
+  rotationY: number,
+  scale: number,
+  angleToDeg: number,
+): number {
   const hd = handleDirDeg(rotationY);
   const d = Math.abs(((angleToDeg - hd + 540) % 360) - 180); // 0..180
   const rBody = BODY_MAX_R * scale;
@@ -352,7 +512,11 @@ function minDistBetween(
   b: { rotationY: number; scale: number; posX: number; posZ: number },
 ): number {
   const angA = (Math.atan2(b.posZ - a.posZ, b.posX - a.posX) * 180) / Math.PI;
-  return effRadius(a.rotationY, a.scale, angA) + effRadius(b.rotationY, b.scale, angA + 180) + MUG_GAP_MIN;
+  return (
+    effRadius(a.rotationY, a.scale, angA) +
+    effRadius(b.rotationY, b.scale, angA + 180) +
+    MUG_GAP_MIN
+  );
 }
 
 interface Posed {
@@ -380,13 +544,14 @@ function resolveOverlaps(
       const c = arr[i];
       // vs caneca principal
       const dist = Math.hypot(c.posX, c.posZ);
-      const need = minDistBetween(
-        { ...hero, posX: 0, posZ: 0 },
-        c as Posed,
-      );
+      const need = minDistBetween({ ...hero, posX: 0, posZ: 0 }, c as Posed);
       if (dist < need - 0.01) {
         const a = dist > 0.001 ? Math.atan2(c.posZ, c.posX) : Math.PI / 2;
-        arr[i] = { ...c, posX: round2(Math.cos(a) * need), posZ: round2(Math.sin(a) * need) };
+        arr[i] = {
+          ...c,
+          posX: round2(Math.cos(a) * need),
+          posZ: round2(Math.sin(a) * need),
+        };
         touched = true;
       }
       // vs outras acompanhantes
@@ -395,7 +560,10 @@ function resolveOverlaps(
         const dd = Math.hypot(o.posX - arr[i].posX, o.posZ - arr[i].posZ);
         const need2 = minDistBetween(arr[i] as Posed, o as Posed);
         if (dd < need2 - 0.01) {
-          const a = dd > 0.001 ? Math.atan2(o.posZ - arr[i].posZ, o.posX - arr[i].posX) : 0.7;
+          const a =
+            dd > 0.001
+              ? Math.atan2(o.posZ - arr[i].posZ, o.posX - arr[i].posX)
+              : 0.7;
           const push = (need2 - dd) / 2 + 0.06;
           arr[i] = {
             ...arr[i],
@@ -418,8 +586,8 @@ function resolveOverlaps(
 
   const limited = arr.map((c) => ({
     ...c,
-    posX: clamp(c.posX, -18, 18),
-    posZ: clamp(c.posZ, -14, 14),
+    posX: clamp(c.posX, -150, 150),
+    posZ: clamp(c.posZ, -150, 150),
   }));
   return { list: limited, moved };
 }
@@ -428,8 +596,8 @@ let companionSeq = 0;
 export function makeCompanion(partial?: Partial<CompanionMug>): CompanionMug {
   return {
     id: `comp_${Date.now()}_${++companionSeq}`,
-    variant: 'accent',
-    accentColor: '#e8703a',
+    variant: "accent",
+    accentColor: "#e8703a",
     magicHeat: 0.85,
     showArt: true,
     rotationY: -25,
@@ -444,30 +612,63 @@ export function makeCompanion(partial?: Partial<CompanionMug>): CompanionMug {
  * Arranjos prontos — posições calculadas para NUNCA encostar nem
  * atravessar em qualquer rotação (alças apontam para fora do grupo).
  */
-export const ARRANGEMENTS: Record<string, ReturnType<typeof makeCompanion>[]> = {
-  duo: [makeCompanion({ posX: 10.8, posZ: 0.6, rotationY: 90, scale: 0.98 })],
-  trio: [
-    makeCompanion({ posX: -10.8, posZ: 0.8, rotationY: -90, scale: 0.94 }),
-    makeCompanion({ posX: 10.8, posZ: 0.8, rotationY: 90, scale: 0.94, variant: 'white' }),
-  ],
-  quarto: [
-    makeCompanion({ posX: -10.6, posZ: 3.4, rotationY: -115, scale: 0.92 }),
-    makeCompanion({ posX: 10.6, posZ: 3.4, rotationY: 115, scale: 0.92, variant: 'white' }),
-    makeCompanion({ posX: 0, posZ: -12.4, rotationY: 0, scale: 0.9, variant: 'magic', accentColor: '#8b2f1d' }),
-  ],
-  vitrine: [
-    makeCompanion({ posX: -12.2, posZ: 2.2, rotationY: -125, scale: 0.9 }),
-    makeCompanion({ posX: 12.2, posZ: 2.2, rotationY: 125, scale: 0.9, variant: 'white' }),
-    makeCompanion({ posX: 0, posZ: -12.8, rotationY: 0, scale: 0.86, variant: 'magic', accentColor: '#1f4d3f' }),
-  ],
-};
+export const ARRANGEMENTS: Record<string, ReturnType<typeof makeCompanion>[]> =
+  {
+    duo: [makeCompanion({ posX: 10.8, posZ: 0.6, rotationY: 90, scale: 0.98 })],
+    trio: [
+      makeCompanion({ posX: -10.8, posZ: 0.8, rotationY: -90, scale: 0.94 }),
+      makeCompanion({
+        posX: 10.8,
+        posZ: 0.8,
+        rotationY: 90,
+        scale: 0.94,
+        variant: "white",
+      }),
+    ],
+    quarto: [
+      makeCompanion({ posX: -10.6, posZ: 3.4, rotationY: -115, scale: 0.92 }),
+      makeCompanion({
+        posX: 10.6,
+        posZ: 3.4,
+        rotationY: 115,
+        scale: 0.92,
+        variant: "white",
+      }),
+      makeCompanion({
+        posX: 0,
+        posZ: -12.4,
+        rotationY: 0,
+        scale: 0.9,
+        variant: "magic",
+        accentColor: "#8b2f1d",
+      }),
+    ],
+    vitrine: [
+      makeCompanion({ posX: -12.2, posZ: 2.2, rotationY: -125, scale: 0.9 }),
+      makeCompanion({
+        posX: 12.2,
+        posZ: 2.2,
+        rotationY: 125,
+        scale: 0.9,
+        variant: "white",
+      }),
+      makeCompanion({
+        posX: 0,
+        posZ: -12.8,
+        rotationY: 0,
+        scale: 0.86,
+        variant: "magic",
+        accentColor: "#1f4d3f",
+      }),
+    ],
+  };
 
 const initialExport: ExportState = {
-  ratioId: 'sq',
+  ratioId: "sq",
   customW: 1080,
   customH: 1080,
-  scale: 2,
-  format: 'png',
+  scale: 1,
+  format: "png",
   quality: 0.92,
   transparent: false,
 };
@@ -476,7 +677,18 @@ const HISTORY_LIMIT = 60;
 let commitTimer: ReturnType<typeof setTimeout> | null = null;
 
 function snap(s: MockupStore): Snapshot {
-  return { art: s.art, mug: s.mug, light: s.light, bg: s.bg, companions: s.companions, fx: s.fx, camera: s.camera };
+  return {
+    art: s.art,
+    mug: s.mug,
+    light: s.light,
+    bg: s.bg,
+    companions: s.companions,
+    fx: s.fx,
+    camera: s.camera,
+    layerOrder: s.layerOrder,
+    projectName: s.projectName,
+    watermark: s.watermark,
+  };
 }
 
 export const useMockupStore = create<MockupStore>((set, get) => {
@@ -489,9 +701,9 @@ export const useMockupStore = create<MockupStore>((set, get) => {
   };
 
   /** guarda snapshot ANTES da rajada (uma vez) */
-  const guardHistory = () => {
+  const guardHistory = (force = false) => {
     const s = get();
-    if (!commitTimer) {
+    if (force || !commitTimer) {
       const past = [...s.past, snap(s)].slice(-HISTORY_LIMIT);
       set({ past, future: [] } as Partial<MockupStore>);
     }
@@ -499,7 +711,229 @@ export const useMockupStore = create<MockupStore>((set, get) => {
   };
 
   return {
-    projectName: 'Mockup sem título',
+    selectedIds: ["hero"],
+    layerOrder: ["hero"],
+    tool: "select",
+    snapEnabled: true,
+    compareArt: false,
+    zoom: 100,
+    select: (id, additive = false) =>
+      set((s) => ({
+        selectedIds: additive
+          ? s.selectedIds.includes(id)
+            ? s.selectedIds.filter((x) => x !== id)
+            : [...s.selectedIds, id]
+          : [id],
+      })),
+    setTool: (tool) => set({ tool }),
+    setSnap: (snapEnabled) => set({ snapEnabled }),
+    setCompare: (compareArt) => set({ compareArt }),
+    setZoom: (zoom) => set({ zoom: Math.min(300, Math.max(25, zoom)) }),
+    patchObject: (id, partial) => {
+      const st = get();
+      const obj =
+        id === "hero" ? st.mug : st.companions.find((c) => c.id === id);
+      if (
+        !obj ||
+        (obj.locked && !("locked" in partial) && !("hidden" in partial))
+      )
+        return;
+      guardHistory();
+      if (id === "hero") set({ mug: { ...st.mug, ...partial } });
+      else
+        set({
+          companions: st.companions.map((c) =>
+            c.id === id ? { ...c, ...partial } : c,
+          ),
+        });
+    },
+    patchObjectArt: (id, partial) => {
+      const st = get();
+      const object =
+        id === "hero" ? st.mug : st.companions.find((c) => c.id === id);
+      if (object?.locked) return;
+      guardHistory();
+      if (id === "hero") set({ art: { ...st.art, ...partial } });
+      else
+        set({
+          companions: st.companions.map((c) =>
+            c.id === id
+              ? { ...c, art: { ...(c.art ?? st.art), ...partial } }
+              : c,
+          ),
+        });
+    },
+    duplicateSelected: () => {
+      guardHistory(true);
+      const st = get();
+      let list = [...st.companions];
+      const ids: string[] = [];
+      for (const id of st.selectedIds) {
+        if (list.length >= 7) break;
+        const src =
+          id === "hero"
+            ? { ...st.mug, art: st.art, showArt: true }
+            : list.find((c) => c.id === id);
+        if (!src || src.locked) continue;
+        // A conservative spacing includes the handle and every existing object.
+        let x = (src.posX ?? 0) + 15 * src.scale,
+          z = src.posZ ?? 0;
+        const occupied = [st.mug, ...list];
+        while (
+          occupied.some(
+            (o) =>
+              Math.hypot((o.posX ?? 0) - x, (o.posZ ?? 0) - z) <
+              14 * Math.max(o.scale, src.scale),
+          )
+        )
+          x += 15;
+        const c = makeCompanion({
+          ...src,
+          id: undefined,
+          name: `${src.name ?? "Caneca"} cópia`,
+          posX: x,
+          posZ: z,
+          art: { ...(src.art ?? st.art) },
+          locked: false,
+        });
+        if (!c.id) c.id = `comp_${Date.now()}_${++companionSeq}`;
+        list.push(c);
+        ids.push(c.id);
+      }
+      set({
+        companions: list,
+        selectedIds: ids,
+        layerOrder: [...st.layerOrder, ...ids],
+        fitNonce: st.fitNonce + 1,
+      });
+    },
+    deleteSelected: () => {
+      guardHistory(true);
+      const st = get();
+      const removed = st.selectedIds.filter((id) =>
+        id === "hero"
+          ? !st.mug.locked
+          : !st.companions.find((c) => c.id === id)?.locked,
+      );
+      set({
+        mug: removed.includes("hero") ? { ...st.mug, hidden: true } : st.mug,
+        companions: st.companions.filter((c) => !removed.includes(c.id)),
+        selectedIds: [],
+        layerOrder: st.layerOrder.filter(
+          (id) => id === "hero" || !removed.includes(id),
+        ),
+      });
+    },
+    transformSelected: (axis, delta) => {
+      for (const id of get().selectedIds) {
+        const st = get();
+        const o =
+          id === "hero" ? st.mug : st.companions.find((c) => c.id === id);
+        if (o) get().patchObject(id, { [axis]: (o[axis] ?? 0) + delta });
+      }
+    },
+    alignSelected: (kind) => {
+      const st = get();
+      const list = st.selectedIds
+        .map((id) => ({
+          id,
+          o: id === "hero" ? st.mug : st.companions.find((c) => c.id === id),
+        }))
+        .filter((x) => x.o && !x.o.locked);
+      if (list.length < 2) return;
+      const xs = list.map((x) => x.o!.posX ?? 0);
+      const min = Math.min(...xs),
+        max = Math.max(...xs);
+      list.sort((a, b) => (a.o!.posX ?? 0) - (b.o!.posX ?? 0));
+      list.forEach((x, i) =>
+        get().patchObject(x.id, {
+          posX:
+            kind === "left"
+              ? min
+              : kind === "right"
+                ? max
+                : kind === "center"
+                  ? (min + max) / 2
+                  : min + ((max - min) * i) / (list.length - 1),
+        }),
+      );
+    },
+    reorderLayer: (id, direction) => {
+      guardHistory(true);
+      const st = get();
+      const order = [...st.layerOrder];
+      const i = order.indexOf(id),
+        j = i + direction;
+      if (i < 0 || j < 0 || j >= order.length) return;
+      [order[i], order[j]] = [order[j], order[i]];
+      // Layers correspond to physical depth; opaque meshes still obey real occlusion.
+      const a = order[i],
+        b = order[j];
+      const getZ = (k: string) =>
+        k === "hero"
+          ? st.mug.posZ
+          : (st.companions.find((c) => c.id === k)?.posZ ?? 0);
+      const za = getZ(a),
+        zb = getZ(b);
+      get().patchObject(a, { posZ: Math.max(za, zb) + 0.5 });
+      get().patchObject(b, { posZ: Math.min(za, zb) - 0.5 });
+      set({ layerOrder: order });
+    },
+    compose: (kind) => {
+      guardHistory(true);
+      const st = get();
+      const n =
+        kind === "solo"
+          ? 1
+          : kind === "pair" || kind === "stack" || kind === "gift"
+            ? 2
+            : kind === "row"
+              ? 4
+              : 3;
+      const step = 15;
+      const hero = {
+        ...st.mug,
+        posX: (-(n - 1) * step) / 2,
+        posY: 0,
+        posZ: 0,
+        tiltX: 0,
+        tiltZ: 0,
+        rotationY: -40,
+        hidden: false,
+      };
+      const list = Array.from({ length: n - 1 }, (_, i) =>
+        makeCompanion({
+          ...hero,
+          posX: hero.posX + (i + 1) * step,
+          name: `Caneca ${i + 2}`,
+          art: { ...st.art },
+          rotationY: kind === "fan" ? (i + 1) * 55 - 55 : 40,
+        }),
+      );
+      if (kind === "stack") {
+        hero.posX = 0;
+        list[0].posX = 0;
+        list[0].posY = 9.55 * hero.scale;
+      }
+      if (kind === "gift") {
+        hero.posX = -7.5;
+        list[0].posX = 7.5;
+        list[0].posZ = -4;
+      }
+      if (kind === "fan") {
+        hero.posZ = 3;
+        list[0].posZ = -3;
+        list[1].posZ = 3;
+      }
+      set({
+        mug: hero,
+        companions: list,
+        selectedIds: ["hero"],
+        layerOrder: ["hero", ...list.map((c) => c.id)],
+        fitNonce: st.fitNonce + 1,
+      });
+    },
+    projectName: "Meu mockup",
     art: initialArt,
     mug: initialMug,
     light: initialLight,
@@ -523,26 +957,20 @@ export const useMockupStore = create<MockupStore>((set, get) => {
     past: [],
     future: [],
 
-    setProjectName: (n) => set({ projectName: n }),
+    setProjectName: (n) => {
+      guardHistory();
+      set({ projectName: n });
+    },
 
     patch: (slice, partial) => {
       guardHistory();
       const current = get()[slice] as unknown as Record<string, unknown>;
       const next = { ...current, ...(partial as Record<string, unknown>) };
       set({ [slice]: next } as unknown as Partial<MockupStore>);
-
-      // ao girar/escalar a caneca principal, garante que nenhuma acompanhante fique sobreposta
-      if (slice === 'mug' && ('rotationY' in partial || 'scale' in partial)) {
-        const st = get();
-        if (st.companions.length) {
-          const res = resolveOverlaps(st.companions, { rotationY: st.mug.rotationY, scale: st.mug.scale });
-          if (res.moved) set({ companions: res.list, collisionNonce: st.collisionNonce + 1 });
-        }
-      }
     },
 
     setArtImage: (meta) => {
-      get().patch('art', {
+      get().patch("art", {
         imageId: meta.imageId,
         name: meta.name,
         width: meta.width,
@@ -555,87 +983,73 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         repeat: 1,
         // toda arte inserida PREENCHE a área inteira (topo a base, como o
         // modelo de referência) — sem espaço branco; ajustável nos controles
-        fit: 'cover',
+        fit: "cover",
       });
       set((s) => ({ artAppliedNonce: s.artAppliedNonce + 1 }));
     },
     clearArt: () => {
-      get().patch('art', { imageId: null, name: '', width: 0, height: 0 });
+      get().patch("art", { imageId: null, name: "", width: 0, height: 0 });
     },
 
-    notifyArtApplied: () => set((s) => ({ artAppliedNonce: s.artAppliedNonce + 1 })),
+    notifyArtApplied: () =>
+      set((s) => ({ artAppliedNonce: s.artAppliedNonce + 1 })),
 
     rotateMug: (deg) => {
       const r = get().mug.rotationY;
-      get().patch('mug', { rotationY: ((r + deg) % 360 + 360) % 360 });
+      get().patch("mug", { rotationY: (((r + deg) % 360) + 360) % 360 });
     },
 
     applyCameraPreset: (p) =>
-      set((s) => ({ presetRequest: { pos: p.pos, target: p.target, nonce: s.presetRequest ? s.presetRequest.nonce + 1 : 1 } })),
+      set((s) => ({
+        presetRequest: {
+          pos: p.pos,
+          target: p.target,
+          nonce: s.presetRequest ? s.presetRequest.nonce + 1 : 1,
+        },
+      })),
 
     requestFocus: () => set((s) => ({ focusNonce: s.focusNonce + 1 })),
 
     setExportOpen: (v) => set({ exportOpen: v }),
 
-    setExport: (partial) => set((s) => ({ exportSettings: { ...s.exportSettings, ...partial } })),
+    setExport: (partial) =>
+      set((s) => ({ exportSettings: { ...s.exportSettings, ...partial } })),
 
     addCompanion: () => {
-      guardHistory();
-      const list = get().companions;
-      if (list.length >= 3) return;
-      const n = list.length;
-      // spots folgados (nunca encostam) — alça apontando para fora do grupo
-      const spots: { posX: number; posZ: number; rotationY: number }[] = [
-        { posX: 10.8, posZ: 0.6, rotationY: 90 },
-        { posX: -10.8, posZ: 0.8, rotationY: -90 },
-        { posX: 0, posZ: -12.4, rotationY: 0 },
-      ];
-      const spot = spots[n] ?? spots[0];
-      const res = resolveOverlaps(
-        [...list, makeCompanion({ ...spot, scale: n === 2 ? 0.9 : 0.96 })],
-        { rotationY: get().mug.rotationY, scale: get().mug.scale },
-      );
-      set({ companions: res.list, collisionNonce: res.moved ? get().collisionNonce + 1 : get().collisionNonce });
+      const st = get();
+      st.select("hero");
+      st.duplicateSelected();
     },
-
-    patchCompanion: (id, partial) => {
-      guardHistory();
-      // liberdade total: a pessoa posiciona onde quiser — só impedimos
-      // que uma caneca fique literalmente DENTRO da outra
-      const list = get().companions.map((c) => (c.id === id ? { ...c, ...partial } : c));
-      const touchesPose = 'posX' in partial || 'posZ' in partial || 'scale' in partial || 'rotationY' in partial;
-      if (touchesPose) {
-        const st = get();
-        const res = resolveOverlaps(list, { rotationY: st.mug.rotationY, scale: st.mug.scale });
-        const requested = list.find((c) => c.id === id);
-        const final = res.list.find((c) => c.id === id);
-        const adjusted =
-          requested && final &&
-          (Math.abs(requested.posX - final.posX) > 0.02 || Math.abs(requested.posZ - final.posZ) > 0.02);
-        set({
-          companions: res.list,
-          collisionNonce: adjusted ? st.collisionNonce + 1 : st.collisionNonce,
-        });
-      } else {
-        set({ companions: list });
-      }
-    },
+    patchCompanion: (id, partial) => get().patchObject(id, partial),
 
     removeCompanion: (id) => {
       guardHistory();
-      set({ companions: get().companions.filter((c) => c.id !== id) });
+      set({
+        companions: get().companions.filter((c) => c.id !== id),
+        layerOrder: get().layerOrder.filter((x) => x !== id),
+      });
     },
 
     arrangeScene: (kind) => {
       guardHistory();
-      if (kind === 'solo') {
+      if (kind === "solo") {
         set({ companions: [] });
         return;
       }
       const st = get();
-      const fresh = ARRANGEMENTS[kind].map((c) => ({ ...c, id: `comp_${Date.now()}_${++companionSeq}` }));
-      const res = resolveOverlaps(fresh, { rotationY: st.mug.rotationY, scale: st.mug.scale });
-      set({ companions: res.list });
+      set({ mug: { ...st.mug, posX: 0, posZ: 0, posY: 0, hidden: false } });
+      const fresh = ARRANGEMENTS[kind].map((c) => ({
+        ...c,
+        id: `comp_${Date.now()}_${++companionSeq}`,
+      }));
+      const res = resolveOverlaps(fresh, {
+        rotationY: st.mug.rotationY,
+        scale: st.mug.scale,
+      });
+      set({
+        companions: res.list,
+        layerOrder: ["hero", ...res.list.map((c) => c.id)],
+      });
     },
 
     /** distribui as acompanhantes ao redor da principal, sem encostar */
@@ -651,17 +1065,28 @@ export const useMockupStore = create<MockupStore>((set, get) => {
       };
       const angles = angleSets[list.length] ?? angleSets[3];
       const maxScale = Math.max(...list.map((c) => c.scale), st.mug.scale);
-      const radius = Math.max(10.8, BODY_MAX_R * maxScale * 2 + MUG_GAP_MIN + 0.6);
+      const radius = Math.max(
+        10.8,
+        BODY_MAX_R * maxScale * 2 + MUG_GAP_MIN + 0.6,
+      );
       const next = list.map((c, i) => {
         const a = (angles[i % angles.length] * Math.PI) / 180;
         const posX = round2(Math.cos(a) * radius);
         const posZ = round2(Math.sin(a) * radius);
         // alça aponta para fora: (sin ry, -cos ry) = direção radial
-        const rotationY = Math.round(((Math.atan2(posX, -posZ) * 180) / Math.PI + 360) % 360);
+        const rotationY = Math.round(
+          ((Math.atan2(posX, -posZ) * 180) / Math.PI + 360) % 360,
+        );
         return { ...c, posX, posZ, rotationY };
       });
-      const res = resolveOverlaps(next, { rotationY: st.mug.rotationY, scale: st.mug.scale });
-      set({ companions: res.list });
+      const res = resolveOverlaps(next, {
+        rotationY: st.mug.rotationY,
+        scale: st.mug.scale,
+      });
+      set({
+        companions: res.list,
+        layerOrder: ["hero", ...res.list.map((c) => c.id)],
+      });
     },
 
     /** pede à câmera que enquadre o grupo inteiro */
@@ -677,12 +1102,16 @@ export const useMockupStore = create<MockupStore>((set, get) => {
       const companions = s.companions
         ? s.companions.map((c) => ({
             ...c,
-            posX: clamp(Number.isFinite(c.posX) ? c.posX : 10.8, -18, 18),
-            posZ: clamp(Number.isFinite(c.posZ) ? c.posZ : 0.6, -14, 14),
-            scale: clamp(Number.isFinite(c.scale) ? c.scale : 0.95, 0.65, 1.35),
+            posX: clamp(Number.isFinite(c.posX) ? c.posX : 10.8, -150, 150),
+            posZ: clamp(Number.isFinite(c.posZ) ? c.posZ : 0.6, -150, 150),
+            scale: clamp(Number.isFinite(c.scale) ? c.scale : 0.95, 0.2, 3),
           }))
         : st.companions;
       const mug = { ...st.mug, ...s.mug };
+      const ids = ["hero", ...companions.map((c) => c.id)];
+      const ordered = Array.isArray(s.layerOrder)
+        ? s.layerOrder.filter((id) => ids.includes(id))
+        : [];
       set({
         projectName: s.projectName ?? st.projectName,
         art: { ...st.art, ...s.art },
@@ -691,7 +1120,9 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         bg: { ...st.bg, ...s.bg },
         camera: { ...st.camera, ...s.camera },
         exportSettings: { ...st.exportSettings, ...s.exportSettings },
-        companions: resolveOverlaps(companions, mug).list,
+        companions,
+        layerOrder: [...new Set([...ordered, ...ids])],
+        selectedIds: ["hero"],
         fx: { ...st.fx, ...s.fx },
         watermark: { ...st.watermark, ...s.watermark },
         video: { ...st.video, ...s.video },
@@ -718,6 +1149,9 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         companions: prev.companions,
         fx: prev.fx,
         camera: prev.camera,
+        layerOrder: prev.layerOrder,
+        projectName: prev.projectName,
+        watermark: prev.watermark,
       });
     },
 
@@ -739,6 +1173,9 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         companions: next.companions,
         fx: next.fx,
         camera: next.camera,
+        layerOrder: next.layerOrder,
+        projectName: next.projectName,
+        watermark: next.watermark,
       });
     },
 
@@ -754,6 +1191,8 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         fx: { ...initialFx },
         camera: { ...initialCamera },
         companions: [],
+        selectedIds: ["hero"],
+        layerOrder: ["hero"],
         bgAdjustMode: false,
       });
     },

@@ -5,21 +5,33 @@
    GIF: gifenc com paleta adaptativa por frame.
    ============================================================ */
 
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
-import { GIFEncoder, quantize, applyPalette } from 'gifenc';
-import * as THREE from 'three';
+import { Muxer, ArrayBufferTarget } from "mp4-muxer";
+import { GIFEncoder, quantize, applyPalette } from "gifenc";
+import * as THREE from "three";
 import {
-  beginFrames, captureFrame, checkH264Support, detectWebCodecs, endFrames, ExportError, fitCamera,
-  renderFrame, sceneCenter, setMugOverride, type FrameSession,
-} from './frame-capture';
-import { mugsGroup } from '../scene/studio-refs';
-import { useMockupStore, type VideoAnim } from '../state/store';
+  beginFrames,
+  captureFrame,
+  checkH264Support,
+  detectWebCodecs,
+  endFrames,
+  ExportError,
+  fitCamera,
+  renderFrame,
+  sceneCenter,
+  setMugOverride,
+  type FrameSession,
+} from "./frame-capture";
+import { mugsGroup } from "../scene/studio-refs";
+import { useMockupStore, type VideoAnim } from "../state/store";
 
-export const VIDEO_RESOLUTIONS: Record<string, { w: number; h: number; label: string }> = {
-  sq1080: { w: 1080, h: 1080, label: 'Quadrado 1080' },
-  hd: { w: 1280, h: 720, label: 'HD 720p' },
-  vertical: { w: 1080, h: 1920, label: 'Story 1080×1920' },
-  wide: { w: 1920, h: 1080, label: 'Wide 1080p' },
+export const VIDEO_RESOLUTIONS: Record<
+  string,
+  { w: number; h: number; label: string }
+> = {
+  sq1080: { w: 1080, h: 1080, label: "Quadrado 1080" },
+  hd: { w: 1280, h: 720, label: "HD 720p" },
+  vertical: { w: 1080, h: 1920, label: "Story 1080×1920" },
+  wide: { w: 1920, h: 1080, label: "Wide 1080p" },
 };
 
 export interface AnimOpts {
@@ -31,7 +43,8 @@ export interface AnimOpts {
 
 /* ---------------- caminho de câmera ---------------- */
 
-const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+const easeInOut = (t: number) =>
+  t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
 /* ---------------- mesa giratória (turntable) ---------------- */
 
@@ -50,7 +63,7 @@ interface Turntable {
 }
 
 function beginTurntable(scene: THREE.Scene): Turntable {
-  const obj = mugsGroup(scene)?.getObjectByName('mug-float') ?? null;
+  const obj = mugsGroup(scene)?.getObjectByName("mug-float") ?? null;
   return { obj, rot0: obj?.rotation.y ?? 0 };
 }
 
@@ -75,7 +88,9 @@ function waitForContext(gl: THREE.WebGLRenderer): Promise<void> {
       done = true;
       resolve();
     };
-    gl.domElement.addEventListener('webglcontextrestored', finish, { once: true });
+    gl.domElement.addEventListener("webglcontextrestored", finish, {
+      once: true,
+    });
     setTimeout(finish, 4000);
   });
 }
@@ -110,18 +125,25 @@ function applyCameraPath(
   const offset = baseOffset.clone();
   const dist = baseOffset.length();
 
-  if (anim === 'giro') {
+  if (anim === "giro") {
     // câmera fixa no enquadramento original — a caneca gira (turntable)
     cam.position.copy(center).add(offset);
-  } else if (anim === 'orbita') {
+  } else if (anim === "orbita") {
     const a = Math.sin(t * Math.PI * 2) * THREE.MathUtils.degToRad(46);
     offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), a);
     const bob = Math.sin(t * Math.PI * 4) * dist * 0.045;
-    cam.position.copy(center).add(offset).add(new THREE.Vector3(0, bob, 0));
-  } else if (anim === 'zoom') {
+    cam.position
+      .copy(center)
+      .add(offset)
+      .add(new THREE.Vector3(0, bob, 0));
+  } else if (anim === "zoom") {
     const k = 1.28 - 0.34 * easeInOut(t);
     const a = Math.sin(t * Math.PI * 2) * THREE.MathUtils.degToRad(10);
-    const off = offset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), a).normalize().multiplyScalar(dist * k);
+    const off = offset
+      .clone()
+      .applyAxisAngle(new THREE.Vector3(0, 1, 0), a)
+      .normalize()
+      .multiplyScalar(dist * k);
     cam.position.copy(center).add(off);
   } else {
     // revelacao — câmera parada, calor 0→1 com curva suave
@@ -140,35 +162,51 @@ export interface VideoResult {
   mimeType: string;
   width: number;
   height: number;
-  engine: 'webcodecs' | 'mediarecorder';
+  engine: "webcodecs" | "mediarecorder";
 }
 
-export async function exportVideo(resolution: string, animOpts: AnimOpts): Promise<VideoResult> {
+export async function exportVideo(
+  resolution: string,
+  animOpts: AnimOpts,
+): Promise<VideoResult> {
   const res = VIDEO_RESOLUTIONS[resolution] ?? VIDEO_RESOLUTIONS.sq1080;
   const supported = await checkH264Support(res.w, res.h);
   if (supported) return exportVideoWebCodecs(res.w, res.h, animOpts);
-  if (typeof MediaRecorder !== 'undefined') return exportVideoMediaRecorder(res.w, res.h, animOpts);
+  if (typeof MediaRecorder !== "undefined")
+    return exportVideoMediaRecorder(res.w, res.h, animOpts);
   throw new ExportError(
-    'Seu navegador não suporta exportar vídeo. Use o Chrome ou Edge atualizados — ou exporte um GIF.',
+    "Seu navegador não suporta exportar vídeo. Use o Chrome ou Edge atualizados — ou exporte um GIF.",
   );
 }
 
-async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps, onProgress }: AnimOpts): Promise<VideoResult> {
+async function exportVideoWebCodecs(
+  w: number,
+  h: number,
+  { anim, duration, fps, onProgress }: AnimOpts,
+): Promise<VideoResult> {
   // supersampling 1,5× (não 2×): vídeo em movimento esconde o detalhe e a
   // memória de GPU poupada evita perda de contexto WebGL em máquinas fracas
   const session = beginFrames(w, h, { transparent: false, ssCap: 1.5 });
   try {
     const base = fitCamera(session);
     const center = sceneCenter(session.scene);
-    const isMagic = useMockupStore.getState().mug.variant === 'magic';
-    if (anim === 'revelacao' && !isMagic) {
-      throw new ExportError('A animação de revelação só funciona na caneca mágica. Escolha outro movimento.');
+    const isMagic = useMockupStore.getState().mug.variant === "magic";
+    if (anim === "revelacao" && !isMagic) {
+      throw new ExportError(
+        "A animação de revelação só funciona na caneca mágica. Escolha outro movimento.",
+      );
     }
 
     // suporte a codec — já checado por checkH264Support; reconfirma o codec string
-    let codec = 'avc1.640028';
-    for (const c of ['avc1.640028', 'avc1.4d0028', 'avc1.42E01E']) {
-      const r = await VideoEncoder.isConfigSupported({ codec: c, width: w, height: h, framerate: fps, bitrate: 10_000_000 });
+    let codec = "avc1.640028";
+    for (const c of ["avc1.640028", "avc1.4d0028", "avc1.42E01E"]) {
+      const r = await VideoEncoder.isConfigSupported({
+        codec: c,
+        width: w,
+        height: h,
+        framerate: fps,
+        bitrate: 10_000_000,
+      });
       if (r.supported) {
         codec = c;
         break;
@@ -178,12 +216,14 @@ async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps,
     const pixels = w * h;
     // bitrate generoso: produto parado girando tem fundo limpo — o encoder
     // gasta os bits na caneca; 0,26·px·fps ≈ 9,8 Mbps em 1080²@30
-    const bitrate = Math.round(Math.min(24_000_000, Math.max(6_000_000, pixels * fps * 0.26)));
+    const bitrate = Math.round(
+      Math.min(24_000_000, Math.max(6_000_000, pixels * fps * 0.26)),
+    );
     const target = new ArrayBufferTarget();
     const muxer = new Muxer({
       target,
-      video: { codec: 'avc', width: w, height: h, frameRate: fps },
-      fastStart: 'in-memory',
+      video: { codec: "avc", width: w, height: h, frameRate: fps },
+      fastStart: "in-memory",
     });
 
     let encError: Error | null = null;
@@ -199,14 +239,16 @@ async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps,
     // offset original (imutável) — evita a rotação composta do bug antigo
     const baseOffset = new THREE.Vector3().subVectors(base.position, center);
     // giro = mesa giratória: a caneca gira, a câmera fica parada
-    const tt = anim === 'giro' ? beginTurntable(session.scene) : null;
+    const tt = anim === "giro" ? beginTurntable(session.scene) : null;
     try {
       for (let i = 0; i < total; i++) {
         if (encError) throw encError;
         await ensureContext(session);
         const t = i / (total - 1); // 0..1 inclusive (loop suave no giro: vê a frente no início e fim)
         if (tt) applyTurntable(tt, t * Math.PI * 2);
-        applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
+        applyCameraPath(anim, t, base, baseOffset, center, (v) =>
+          setMugOverride(session, { magicHeat: v }),
+        );
         renderFrame(session, base);
 
         const frame = new VideoFrame(session.gl.domElement, {
@@ -231,15 +273,18 @@ async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps,
     if (encError) throw encError;
     muxer.finalize();
 
-    const blob = new Blob([target.buffer as ArrayBuffer], { type: 'video/mp4' });
-    if (!blob.size) throw new ExportError('O vídeo saiu vazio. Tente uma resolução menor.');
+    const blob = new Blob([target.buffer as ArrayBuffer], {
+      type: "video/mp4",
+    });
+    if (!blob.size)
+      throw new ExportError("O vídeo saiu vazio. Tente uma resolução menor.");
     return {
       blob,
       filename: `mockup-caneca-${anim}-${h}p-${Date.now()}.mp4`,
-      mimeType: 'video/mp4',
+      mimeType: "video/mp4",
       width: w,
       height: h,
-      engine: 'webcodecs',
+      engine: "webcodecs",
     };
   } finally {
     endFrames(session);
@@ -247,34 +292,47 @@ async function exportVideoWebCodecs(w: number, h: number, { anim, duration, fps,
 }
 
 /** fallback universal: animação capturada via MediaRecorder */
-async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, fps, onProgress }: AnimOpts): Promise<VideoResult> {
+async function exportVideoMediaRecorder(
+  w: number,
+  h: number,
+  { anim, duration, fps, onProgress }: AnimOpts,
+): Promise<VideoResult> {
   // sem supersampling: a gravação é em tempo real — o render precisa ser leve
   // para manter a cadência uniforme (rotação suave).
-  const session = beginFrames(w, h, { transparent: false, noSupersample: true });
+  const session = beginFrames(w, h, {
+    transparent: false,
+    noSupersample: true,
+  });
   try {
     const canvas = session.gl.domElement as HTMLCanvasElement & {
       captureStream: (fps: number) => MediaStream;
     };
-    if (typeof canvas.captureStream !== 'function') {
-      throw new ExportError('Seu navegador não suporta gravação de vídeo. Use Chrome, Edge ou Safari recentes.');
+    if (typeof canvas.captureStream !== "function") {
+      throw new ExportError(
+        "Seu navegador não suporta gravação de vídeo. Use Chrome, Edge ou Safari recentes.",
+      );
     }
     const mimes = [
-      'video/mp4;codecs=avc1.42E01E',
-      'video/mp4',
-      'video/webm;codecs=vp9',
-      'video/webm;codecs=vp8',
-      'video/webm',
+      "video/mp4;codecs=avc1.42E01E",
+      "video/mp4",
+      "video/webm;codecs=vp9",
+      "video/webm;codecs=vp8",
+      "video/webm",
     ];
-    const mimeType = mimes.find((m) => MediaRecorder.isTypeSupported(m)) ?? '';
+    const mimeType = mimes.find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
     // captureStream(0) + requestFrame: gravamos EXATAMENTE os frames que
     // renderizamos — o loop do r3f não interfere mais na gravação.
     // Se o navegador não tiver requestFrame, caímos no modo automático.
     let stream = canvas.captureStream(0);
-    let track = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void };
-    const manual = typeof track?.requestFrame === 'function';
+    let track = stream.getVideoTracks()[0] as MediaStreamTrack & {
+      requestFrame?: () => void;
+    };
+    const manual = typeof track?.requestFrame === "function";
     if (!manual) {
       stream = canvas.captureStream(fps);
-      track = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void };
+      track = stream.getVideoTracks()[0] as MediaStreamTrack & {
+        requestFrame?: () => void;
+      };
     }
     const rec = new MediaRecorder(stream, {
       mimeType: mimeType || undefined,
@@ -288,9 +346,10 @@ async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, 
     const base = fitCamera(session);
     const center = sceneCenter(session.scene);
     const baseOffset = new THREE.Vector3().subVectors(base.position, center);
-    const tt = anim === 'giro' ? beginTurntable(session.scene) : null;
+    const tt = anim === "giro" ? beginTurntable(session.scene) : null;
     const done = new Promise<Blob>((resolve) => {
-      rec.onstop = () => resolve(new Blob(chunks, { type: mimeType || 'video/webm' }));
+      rec.onstop = () =>
+        resolve(new Blob(chunks, { type: mimeType || "video/webm" }));
     });
 
     rec.start(200);
@@ -305,7 +364,9 @@ async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, 
         await ensureContext(session);
         const t = i / (total - 1);
         if (tt) applyTurntable(tt, t * Math.PI * 2);
-        applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
+        applyCameraPath(anim, t, base, baseOffset, center, (v) =>
+          setMugOverride(session, { magicHeat: v }),
+        );
         renderFrame(session, base);
         track.requestFrame?.();
         onProgress?.((i + 1) / total);
@@ -321,14 +382,14 @@ async function exportVideoMediaRecorder(w: number, h: number, { anim, duration, 
     }
     rec.stop();
     const blob = await done;
-    const ext = (mimeType || 'video/webm').includes('mp4') ? 'mp4' : 'webm';
+    const ext = (mimeType || "video/webm").includes("mp4") ? "mp4" : "webm";
     return {
       blob,
       filename: `mockup-caneca-${anim}-${h}p-${Date.now()}.${ext}`,
-      mimeType: mimeType || 'video/webm',
+      mimeType: mimeType || "video/webm",
       width: w,
       height: h,
-      engine: 'mediarecorder',
+      engine: "mediarecorder",
     };
   } finally {
     endFrames(session);
@@ -344,11 +405,16 @@ export interface GifResult {
   height: number;
 }
 
-export async function exportGif(width: number, animOpts: AnimOpts): Promise<GifResult> {
+export async function exportGif(
+  width: number,
+  animOpts: AnimOpts,
+): Promise<GifResult> {
   const { anim, duration, fps, onProgress } = animOpts;
-  const isMagic = useMockupStore.getState().mug.variant === 'magic';
-  if (anim === 'revelacao' && !isMagic) {
-    throw new ExportError('A animação de revelação só funciona na caneca mágica. Escolha outro movimento.');
+  const isMagic = useMockupStore.getState().mug.variant === "magic";
+  if (anim === "revelacao" && !isMagic) {
+    throw new ExportError(
+      "A animação de revelação só funciona na caneca mágica. Escolha outro movimento.",
+    );
   }
 
   // supersampling 2× para GIF mais nítido
@@ -361,20 +427,28 @@ export async function exportGif(width: number, animOpts: AnimOpts): Promise<GifR
     const gif = GIFEncoder();
     const total = Math.max(4, Math.round(duration * fps));
     const baseOffset = new THREE.Vector3().subVectors(base.position, center);
-    const tt = anim === 'giro' ? beginTurntable(session.scene) : null;
+    const tt = anim === "giro" ? beginTurntable(session.scene) : null;
 
     try {
       for (let i = 0; i < total; i++) {
         await ensureContext(session);
         const t = i / total; // loop perfeito: último frame ≠ primeiro
         if (tt) applyTurntable(tt, t * Math.PI * 2);
-        applyCameraPath(anim, t, base, baseOffset, center, (v) => setMugOverride(session, { magicHeat: v }));
+        applyCameraPath(anim, t, base, baseOffset, center, (v) =>
+          setMugOverride(session, { magicHeat: v }),
+        );
         renderFrame(session, base);
         const small = await captureFrame(session, width, width);
-        const { data } = small.getContext('2d')!.getImageData(0, 0, width, width);
+        const { data } = small
+          .getContext("2d")!
+          .getImageData(0, 0, width, width);
         const palette = quantize(data, 256);
         const index = applyPalette(data, palette);
-        gif.writeFrame(index, width, width, { palette, delay: Math.round(1000 / fps), repeat: 0 });
+        gif.writeFrame(index, width, width, {
+          palette,
+          delay: Math.round(1000 / fps),
+          repeat: 0,
+        });
         onProgress?.((i + 1) / total);
         // deixa a UI respirar
         if (i % 3 === 2) await new Promise((r) => setTimeout(r, 0));
@@ -383,8 +457,13 @@ export async function exportGif(width: number, animOpts: AnimOpts): Promise<GifR
       endTurntable(tt);
     }
     gif.finish();
-    const blob = new Blob([gif.bytes() as BlobPart], { type: 'image/gif' });
-    return { blob, filename: `mockup-caneca-${anim}-${width}px-${Date.now()}.gif`, width, height: width };
+    const blob = new Blob([gif.bytes() as BlobPart], { type: "image/gif" });
+    return {
+      blob,
+      filename: `mockup-caneca-${anim}-${width}px-${Date.now()}.gif`,
+      width,
+      height: width,
+    };
   } finally {
     endFrames(session);
   }

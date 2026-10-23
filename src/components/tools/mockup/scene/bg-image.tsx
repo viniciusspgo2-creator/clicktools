@@ -7,13 +7,14 @@
    coerentes. Layer própria: não aparece em reflexos do piso.
    ============================================================ */
 
-'use client';
+"use client";
 
-import { useEffect, useMemo } from 'react';
-import * as THREE from 'three';
-import { useFrame, useThree } from '@react-three/fiber';
-import { useMockupStore } from '../state/store';
-import { getBackgroundImage } from '../lib/background-registry';
+import { useEffect, useMemo } from "react";
+import * as THREE from "three";
+import { useFrame, useThree } from "@react-three/fiber";
+import { useMockupStore } from "../state/store";
+import { studioRefs } from "./studio-refs";
+import { getBackgroundImage } from "../lib/background-registry";
 
 const vert = /* glsl */ `
   varying vec2 vUv;
@@ -34,6 +35,8 @@ const frag = /* glsl */ `
   uniform float uMirror;
   uniform float uBlur;
   uniform float uBright;
+  uniform float uContrast;
+  uniform float uVignette;
   uniform vec2 uTexel;
   varying vec2 vUv;
 
@@ -41,12 +44,9 @@ const frag = /* glsl */ `
     // p: -0.5..0.5 no quadro com x pré-escalado (espaço quadrado)
     float ia = uImgAspect;
     float fa = uFrameAspect;
-    if (uFit == 2) {
-      return vec2(p.x / fa * ia, p.y) / uZoom + 0.5 + uOffset;
-    }
-    float k = (uFit == 0) ? min(fa / ia, 1.0) : max(fa / ia, 1.0);
-    k /= uZoom;
-    return p / k + 0.5 + uOffset;
+    if(uFit==2)return vec2(p.x/fa,p.y)/uZoom+0.5+uOffset;
+    float scale=(uFit==0)?max(fa/ia,1.0):min(fa/ia,1.0);
+    return vec2(p.x/(ia*scale),p.y/scale)/uZoom+0.5+uOffset;
   }
 
   void main() {
@@ -74,7 +74,10 @@ const frag = /* glsl */ `
       col = texture2D(uMap, toUv(p)).rgb;
     }
 
-    gl_FragColor = vec4(col * uBright, 1.0);
+    col=(col-0.18)*(1.0+uContrast)+0.18;
+    col*=1.0-uVignette*smoothstep(0.18,0.72,length(vUv-0.5));
+    gl_FragColor = vec4(max(col * uBright,0.0), 1.0);
+    #include <colorspace_fragment>
   }
 `;
 
@@ -82,8 +85,11 @@ const _dir = new THREE.Vector3();
 const _quat = new THREE.Quaternion();
 
 /** alinha o quad do fundo com a câmera que vai renderizar o frame */
-export function alignBackdrop(scene: THREE.Scene, cam: THREE.PerspectiveCamera): void {
-  const mesh = scene.getObjectByName('bg-image') as THREE.Mesh | null;
+export function alignBackdrop(
+  scene: THREE.Scene,
+  cam: THREE.PerspectiveCamera,
+): void {
+  const mesh = scene.getObjectByName("bg-image") as THREE.Mesh | null;
   if (!mesh || !mesh.visible) return;
   cam.getWorldDirection(_dir);
   cam.getWorldQuaternion(_quat);
@@ -105,7 +111,13 @@ export function ImageBackdrop() {
 
   const texture = useMemo(() => {
     if (!entry) return null;
-    const t = new THREE.Texture(entry.source as CanvasImageSource);
+    // ImageBitmap ignores WebGL's flipY flag. Normalize every source to a
+    // canvas so uploads, saved projects and bundled photos share orientation.
+    const canvas = document.createElement("canvas");
+    canvas.width = entry.width;
+    canvas.height = entry.height;
+    canvas.getContext("2d")!.drawImage(entry.source, 0, 0);
+    const t = new THREE.CanvasTexture(canvas);
     t.colorSpace = THREE.SRGBColorSpace;
     t.wrapS = THREE.ClampToEdgeWrapping;
     t.wrapT = THREE.ClampToEdgeWrapping;
@@ -114,7 +126,6 @@ export function ImageBackdrop() {
     t.generateMipmaps = false;
     t.needsUpdate = true;
     return t;
-     
   }, [bg.imageId]);
 
   useEffect(() => () => texture?.dispose(), [texture]);
@@ -137,6 +148,8 @@ export function ImageBackdrop() {
           uMirror: { value: 0 },
           uBlur: { value: 0 },
           uBright: { value: 1 },
+          uContrast: { value: 0 },
+          uVignette: { value: 0 },
           uTexel: { value: new THREE.Vector2(1 / 1920, 1 / 1080) },
         },
       }),
@@ -145,7 +158,7 @@ export function ImageBackdrop() {
 
   const mesh = useMemo(() => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
-    m.name = 'bg-image';
+    m.name = "bg-image";
     m.renderOrder = -999;
     m.frustumCulled = false;
     m.layers.set(1);
@@ -175,19 +188,29 @@ export function ImageBackdrop() {
     // eslint-disable-next-line react-hooks/immutability -- material é um objeto three.js imutável por design
     u.uMap.value = texture;
     u.uImgAspect.value = entry ? entry.width / entry.height : 16 / 9;
-    (u.uTexel.value as THREE.Vector2).set(1 / (entry?.width ?? 1920), 1 / (entry?.height ?? 1080));
-    u.uFit.value = bg.imageFit === 'cover' ? 0 : bg.imageFit === 'contain' ? 1 : 2;
+    (u.uTexel.value as THREE.Vector2).set(
+      1 / (entry?.width ?? 1920),
+      1 / (entry?.height ?? 1080),
+    );
+    u.uFit.value =
+      bg.imageFit === "cover" ? 0 : bg.imageFit === "contain" ? 1 : 2;
     u.uZoom.value = bg.imageZoom;
-    (u.uOffset.value as THREE.Vector2).set(-bg.imageX * 0.45, -bg.imageY * 0.45);
+    (u.uOffset.value as THREE.Vector2).set(
+      -bg.imageX * 0.45,
+      -bg.imageY * 0.45,
+    );
     u.uRot.value = (bg.imageRot * Math.PI) / 180;
     u.uMirror.value = bg.imageMirror ? 1 : 0;
     u.uBlur.value = bg.imageBlur;
     u.uBright.value = bg.imageBright;
+    u.uContrast.value = bg.imageContrast ?? 0;
+    u.uVignette.value = bg.imageVignette ?? 0;
   }, [material, texture, entry, bg]);
 
   useFrame(() => {
     // eslint-disable-next-line react-hooks/immutability -- mesh é um objeto three.js
-    mesh.visible = !!texture;
+    mesh.visible =
+      !!texture && bg.type === "image" && !studioRefs.exportTransparent;
     if (mesh.visible) alignBackdrop(scene, camera);
   });
 

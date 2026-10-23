@@ -1,3 +1,5 @@
+> Guia anterior preservado como registro do comportamento recebido. Para a versão atual, consulte [GUIA_ATUAL.md](mockup-studio/GUIA_ATUAL.md), [CHANGELOG](../CHANGELOG.md) e [limites conhecidos](../PROXIMA_VERSAO.md).
+
 # Mockup Studio 3D — Guia completo
 
 Estúdio de mockups de canecas para sublimação, 100% no navegador (nada é enviado

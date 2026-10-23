@@ -15,13 +15,50 @@
      faixa interior  (interior da caneca)
    ============================================================ */
 
-import * as THREE from 'three';
+import * as THREE from "three";
 import {
-  CANVAS_W_PREVIEW, CIRC_CM, ZONE_CM, STRIP_CM, TEX_TOTAL_CM,
-  resolvePrintArea, type PrintArea,
-} from './config';
-import type { ArtState, MugState } from '../state/store';
-import { getArtImage } from './art-registry';
+  CANVAS_W_PREVIEW,
+  CIRC_CM,
+  ZONE_CM,
+  STRIP_CM,
+  TEX_TOTAL_CM,
+  MODEL_METRICS,
+  resolvePrintArea,
+  type PrintArea,
+} from "./config";
+import type { ArtState, MugState } from "../state/store";
+import { getArtImage } from "./art-registry";
+import { adjustPixels } from "./art-adjustments";
+
+const adjustedCache = new Map<string, HTMLCanvasElement>();
+function adjustedSource(
+  art: ArtState,
+  entry: NonNullable<ReturnType<typeof getArtImage>>,
+): CanvasImageSource {
+  const values = [
+    art.brightness,
+    art.contrast,
+    art.saturation,
+    art.vibrance,
+    art.temperature,
+    art.sharpness,
+  ];
+  if (!values.some(Boolean)) return entry.source;
+  const key = entry.id + JSON.stringify(values);
+  const cached = adjustedCache.get(key);
+  if (cached) return cached;
+  const c = document.createElement("canvas");
+  c.width = entry.width;
+  c.height = entry.height;
+  const ctx = c.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(entry.source, 0, 0, c.width, c.height);
+  const pixels = ctx.getImageData(0, 0, c.width, c.height);
+  adjustPixels(pixels.data, c.width, c.height, art);
+  ctx.putImageData(pixels, 0, 0);
+  if (adjustedCache.size > 4) adjustedCache.clear();
+  adjustedCache.set(key, c);
+  return c;
+}
 
 /* ------------ ruído estável da revelação térmica (cache por tamanho) ------------ */
 
@@ -63,11 +100,15 @@ function magicNoise(w: number, h: number): Uint8Array {
  * Revelação térmica da caneca mágica: mistura cada pixel da folha entre a
  * arte revelada e o revestimento preto conforme calor × campo de gradiente + ruído.
  */
-function applyMagicReveal(canvas: HTMLCanvasElement, rect: ArtRect, mug: MugState) {
+function applyMagicReveal(
+  canvas: HTMLCanvasElement,
+  rect: ArtRect,
+  mug: MugState,
+) {
   if (mug.magicHeat >= 0.995) return;
   const W = rect.w;
   const printH = rect.h;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext("2d")!;
   const heat = Math.max(0, mug.magicHeat);
   const dis = Math.max(0, Math.min(1, mug.magicDissolve));
   const dir = mug.magicDirection;
@@ -84,9 +125,9 @@ function applyMagicReveal(canvas: HTMLCanvasElement, rect: ArtRect, mug: MugStat
     const gy = y / printH;
     for (let x = 0; x < W; x++) {
       let g: number;
-      if (dir === 'baixo') {
+      if (dir === "baixo") {
         g = 1 - gy; // y=0 é o TOPO da caneca (flipY) — revela de baixo para cima
-      } else if (dir === 'lateral') {
+      } else if (dir === "lateral") {
         g = x / W;
       } else {
         g = Math.hypot(x - Cx, y - Cy) / Nr;
@@ -106,11 +147,23 @@ function applyMagicReveal(canvas: HTMLCanvasElement, rect: ArtRect, mug: MugStat
 }
 
 /** retângulo (px do canvas) onde a arte é impressa */
-export interface ArtRect { x: number; y: number; w: number; h: number }
+export interface ArtRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 /** Altura do canvas para uma largura (a volta de 360°) — independe da área ativa */
-export function canvasHeightFor(width: number, _area?: PrintArea): number {
-  return Math.round((width / CIRC_CM) * TEX_TOTAL_CM);
+export function canvasHeightFor(
+  width: number,
+  _area?: PrintArea,
+  model = "classic",
+): number {
+  const metrics = MODEL_METRICS[model] ?? MODEL_METRICS.classic;
+  return Math.round(
+    (width * (TEX_TOTAL_CM / 9.5) * metrics.height) / metrics.circumference,
+  );
 }
 
 /**
@@ -136,15 +189,23 @@ export function artRectFor(W: number, H: number, a: PrintArea): ArtRect {
  * Desenha a camada de texto do usuário (legenda/slogan) sobre a área.
  * W = largura do arco de impressão em px; printH = altura da área em px.
  */
-function drawArtText(ctx: CanvasRenderingContext2D, W: number, printH: number, art: ArtState) {
-  const text = (art.text ?? '').trim();
+function drawArtText(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  printH: number,
+  art: ArtState,
+) {
+  const text = (art.text ?? "").trim();
   if (!text) return;
-  const px = Math.max(8, printH * Math.min(0.24, Math.max(0.04, art.textSize ?? 0.09)));
+  const px = Math.max(
+    8,
+    printH * Math.min(0.24, Math.max(0.04, art.textSize ?? 0.09)),
+  );
   ctx.save();
   ctx.font = `800 ${px}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = art.textColor || '#1d130d';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = art.textColor || "#1d130d";
   const x = W / 2;
   const y = printH * (0.55 + Math.max(-1, Math.min(1, art.textY ?? 0)) * 0.42);
   ctx.fillText(text, x, y);
@@ -175,19 +236,19 @@ export function drawArtIntoArea(
 
   if (entry) {
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    ctx.imageSmoothingQuality = "high";
 
-    const img = entry.source;
+    const img = adjustedSource(art, entry);
     const iw = entry.width;
     const ih = entry.height;
     const repeat = Math.max(1, Math.round(art.repeat));
     const slotW = W / repeat;
 
     let dw: number, dh: number;
-    if (art.fit === 'stretch') {
+    if (art.fit === "stretch") {
       dw = slotW;
       dh = printH;
-    } else if (art.fit === 'cover') {
+    } else if (art.fit === "cover") {
       const s = Math.max(slotW / iw, printH / ih);
       dw = iw * s;
       dh = ih * s;
@@ -196,8 +257,9 @@ export function drawArtIntoArea(
       dw = iw * s;
       dh = ih * s;
     }
-    dw *= art.scale;
-    dh *= art.scale;
+    const bleed = 1 + (Math.max(0, art.bleed ?? 0) * 2) / 8.7;
+    dw *= art.scale * bleed;
+    dh *= art.scale * bleed;
 
     const wrap = Math.max(0, wrapW ?? W); // volta completa em px (0 = sem cópias)
     const phase = art.offsetX * W; // desloca em volta da caneca (com wrap)
@@ -209,6 +271,7 @@ export function drawArtIntoArea(
       // em zoom extremo (arte maior que a volta) a principal domina
       for (const xo of wrap > 0 ? [-wrap, wrap, 0] : [0]) {
         ctx.save();
+        ctx.globalAlpha = art.opacity ?? 1;
         ctx.translate(cx + xo, cy);
         ctx.rotate((art.rotation * Math.PI) / 180);
         ctx.scale(art.mirror ? -1 : 1, 1);
@@ -219,6 +282,22 @@ export function drawArtIntoArea(
   }
 
   drawArtText(ctx, W, printH, art);
+  const decal = getArtImage(art.decalImageId ?? null);
+  if (decal) {
+    const w = W * (art.decalScale ?? 0.25),
+      h = (w * decal.height) / decal.width;
+    for (const offset of wrapW ? [-wrapW, 0, wrapW] : [0]) {
+      ctx.save();
+      ctx.globalAlpha = art.decalOpacity ?? 1;
+      ctx.translate(
+        W * (0.5 + (art.decalX ?? 0) * 0.5) + offset,
+        printH * (0.5 + (art.decalY ?? 0) * 0.5),
+      );
+      ctx.rotate(((art.decalRotation ?? 0) * Math.PI) / 180);
+      ctx.drawImage(decal.source, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    }
+  }
 }
 
 /**
@@ -241,16 +320,23 @@ export function renderArtCanvas(
   const rect = artRectFor(W, H, a);
   const zoneBottom = Math.round(ZONE_CM * ppcY);
   const extBottom = Math.round((ZONE_CM + STRIP_CM) * ppcY);
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext("2d")!;
 
-  const isMagic = mug.variant === 'magic';
-  const ext = isMagic ? '#141110' : '#ffffff';
-  const interior = mug.variant === 'white' ? '#ffffff' : mug.accentColor;
+  const isMagic = mug.variant === "magic";
+  const ext = isMagic ? "#141110" : (mug.bodyColor ?? "#ffffff");
+  const interior =
+    mug.variant === "accent" || mug.variant === "magic"
+      ? mug.interiorColor !== "#ffffff"
+        ? mug.interiorColor
+        : mug.accentColor
+      : (mug.interiorColor ?? "#ffffff");
 
   // cor-base em TODA a parede + faixa exterior; interior numa faixa à parte
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = ext;
   ctx.fillRect(0, 0, W, extBottom);
+  ctx.fillStyle = mug.baseColor ?? ext;
+  ctx.fillRect(0, zoneBottom, W, extBottom - zoneBottom);
   ctx.fillStyle = interior;
   ctx.fillRect(0, extBottom, W, H - extBottom);
 
@@ -269,7 +355,10 @@ export function renderArtCanvas(
 }
 
 /** Cria a CanvasTexture com flags corretas de cor/filtragem */
-export function makeArtTexture(canvas: HTMLCanvasElement, maxAniso: number): THREE.CanvasTexture {
+export function makeArtTexture(
+  canvas: HTMLCanvasElement,
+  maxAniso: number,
+): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping; // costura da textura fica atrás (vão da alça)
@@ -293,10 +382,11 @@ export function computeDpi(art: ArtState, area?: PrintArea): number | null {
   const iw = entry.naturalWidth;
   const ih = entry.naturalHeight;
   let printedPx: number;
-  if (art.fit === 'stretch') printedPx = slotW;
-  else if (art.fit === 'cover') printedPx = Math.max(slotW, (iw * printH) / ih);
+  if (art.fit === "stretch") printedPx = slotW;
+  else if (art.fit === "cover") printedPx = Math.max(slotW, (iw * printH) / ih);
   else printedPx = Math.min(slotW, (iw * printH) / ih);
-  const printedCm = Math.min(a.arcCm, printedPx * (a.arcCm / arcPx)) * art.scale;
+  const printedCm =
+    Math.min(a.arcCm, printedPx * (a.arcCm / arcPx)) * art.scale;
   if (printedCm <= 0.01) return null;
   return iw / (printedCm / 2.54);
 }
@@ -307,7 +397,7 @@ export function computeDpi(art: ArtState, area?: PrintArea): number | null {
  */
 export function computeFitScale(
   art: ArtState,
-  target: 'height' | 'width',
+  target: "height" | "width",
   area?: PrintArea,
 ): number | null {
   const entry = getArtImage(art.imageId);
@@ -319,14 +409,36 @@ export function computeFitScale(
   const iw = entry.width;
   const ih = entry.height;
   if (iw <= 0 || ih <= 0) return null;
-  if (art.fit === 'stretch') return 1; // esticado já preenche os dois eixos
-  const s = art.fit === 'cover'
-    ? Math.max(slotW / iw, printH / ih)
-    : Math.min(slotW / iw, printH / ih);
+  if (art.fit === "stretch") return 1; // esticado já preenche os dois eixos
+  const s =
+    art.fit === "cover"
+      ? Math.max(slotW / iw, printH / ih)
+      : Math.min(slotW / iw, printH / ih);
   const dwBase = iw * s;
   const dhBase = ih * s;
-  const k = target === 'height' ? printH / dhBase : slotW / dwBase;
+  const k = target === "height" ? printH / dhBase : slotW / dwBase;
   // A escala é um valor absoluto. Multiplicar pela escala atual faz o botão
   // aplicar o ajuste em cascata (ex.: 200% vira 400%) em vez de encaixar a arte.
   return Math.max(0.1, Math.min(3, k));
+}
+
+/** Artwork alpha becomes a separate metalness mask; ceramic areas remain dielectric. */
+export function renderMetalMask(canvas: HTMLCanvasElement, art: ArtState) {
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const rect = artRectFor(canvas.width, canvas.height, resolvePrintArea(art));
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(rect.x, rect.y, rect.w, rect.h);
+  ctx.clip();
+  ctx.translate(rect.x, rect.y);
+  drawArtIntoArea(ctx, rect.w, rect.h, art, canvas.width);
+  ctx.restore();
+  ctx.globalCompositeOperation = "source-in";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = "destination-over";
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = "source-over";
 }

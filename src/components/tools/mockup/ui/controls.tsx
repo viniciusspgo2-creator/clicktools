@@ -3,12 +3,12 @@
    duplo clique, cores, segmentados, toggles, seções acordeão.
    ============================================================ */
 
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { ChevronDown, RotateCcw } from 'lucide-react';
-import { Slider } from '@/components/ui/slider';
-import { cn } from '@/lib/utils';
+import { useState } from "react";
+import { ChevronDown, RotateCcw } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
 
 /* ---------------- Seção acordeão ---------------- */
 
@@ -32,8 +32,15 @@ export function Section({
         aria-expanded={open}
       >
         <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-        <span className="flex-1 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-300">{title}</span>
-        <ChevronDown className={cn('h-3.5 w-3.5 text-neutral-500 transition-transform duration-200', open && 'rotate-180')} />
+        <span className="flex-1 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-300">
+          {title}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-neutral-500 transition-transform duration-200",
+            open && "rotate-180",
+          )}
+        />
       </button>
       {open && <div className="space-y-3.5 px-3 pb-4 pt-1">{children}</div>}
     </div>
@@ -64,11 +71,19 @@ export function SliderRow({
   disabled?: boolean;
 }) {
   return (
-    <div className={cn('group/sl', disabled && 'pointer-events-none opacity-40')}>
+    <div
+      className={cn("group/sl", disabled && "pointer-events-none opacity-40")}
+    >
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <button
-          onDoubleClick={() => defaultValue !== undefined && onChange(defaultValue)}
-          title={defaultValue !== undefined ? 'Duplo clique para restaurar' : undefined}
+          onDoubleClick={() =>
+            defaultValue !== undefined && onChange(defaultValue)
+          }
+          title={
+            defaultValue !== undefined
+              ? "Duplo clique para restaurar"
+              : undefined
+          }
           className="text-[11px] font-medium text-neutral-400 transition-colors hover:text-neutral-200"
         >
           {label}
@@ -77,6 +92,7 @@ export function SliderRow({
           )}
         </button>
         <input
+          aria-label={label}
           type="number"
           value={Math.round(value * 100) / 100}
           min={min}
@@ -98,7 +114,9 @@ export function SliderRow({
         disabled={disabled}
         className="*[&_[data-slot=slider-range]]:bg-primary [&_[data-slot=slider-thumb]]:border-primary"
       />
-      {format && <p className="mt-1 text-[10px] text-neutral-500">{format(value)}</p>}
+      {format && (
+        <p className="mt-1 text-[10px] text-neutral-500">{format(value)}</p>
+      )}
     </div>
   );
 }
@@ -126,10 +144,13 @@ export function ColorRow({
           }}
           className="w-20 rounded-md border border-white/10 bg-black/40 px-1.5 py-0.5 text-[11px] uppercase text-neutral-200 outline-none focus:border-primary/60"
         />
-        <label className="relative h-7 w-9 cursor-pointer overflow-hidden rounded-md border border-white/15" style={{ backgroundColor: value }}>
+        <label
+          className="relative h-7 w-9 cursor-pointer overflow-hidden rounded-md border border-white/15"
+          style={{ backgroundColor: value }}
+        >
           <input
             type="color"
-            value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#ffffff'}
+            value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "#ffffff"}
             onChange={(e) => onChange(e.target.value)}
             className="absolute inset-0 cursor-pointer opacity-0"
             aria-label={label}
@@ -155,15 +176,21 @@ export function Segmented<T extends string>({
 }) {
   return (
     <div>
-      {label && <p className="mb-1.5 text-[11px] font-medium text-neutral-400">{label}</p>}
+      {label && (
+        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+          {label}
+        </p>
+      )}
       <div className="flex gap-1 rounded-lg border border-white/10 bg-black/30 p-1">
         {options.map((o) => (
           <button
             key={o.value}
             onClick={() => onChange(o.value)}
             className={cn(
-              'flex-1 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-all',
-              value === o.value ? 'bg-primary text-[#1d130d] shadow-sm' : 'text-neutral-400 hover:bg-white/5 hover:text-neutral-200',
+              "flex-1 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-all",
+              value === o.value
+                ? "bg-primary text-[#1d130d] shadow-sm"
+                : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200",
             )}
           >
             {o.label}
@@ -186,20 +213,24 @@ export function ToggleRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <button onClick={() => onChange(!checked)} className="flex w-full items-center justify-between gap-2 py-0.5">
+    <button
+      role="switch"
+      aria-label={label}
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center justify-between gap-2 py-0.5"
+    >
       <span className="text-[11px] font-medium text-neutral-400">{label}</span>
       <span
         className={cn(
-          'relative h-5 w-9 shrink-0 rounded-full transition-colors',
-          checked ? 'bg-primary' : 'bg-white/15',
+          "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+          checked ? "bg-primary" : "bg-white/15",
         )}
-        role="switch"
-        aria-checked={checked}
       >
         <span
           className={cn(
-            'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
-            checked ? 'translate-x-[18px]' : 'translate-x-0.5',
+            "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
+            checked ? "translate-x-4" : "translate-x-0",
           )}
         />
       </span>
@@ -236,10 +267,10 @@ export function MiniButton({
       onPointerLeave={onPointerLeave}
       title={title}
       className={cn(
-        'rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-all active:scale-95',
+        "rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-all active:scale-95",
         active
-          ? 'border-primary/60 bg-primary/15 text-primary'
-          : 'border-white/10 bg-white/[0.03] text-neutral-300 hover:border-white/25 hover:text-white',
+          ? "border-primary/60 bg-primary/15 text-primary"
+          : "border-white/10 bg-white/[0.03] text-neutral-300 hover:border-white/25 hover:text-white",
         className,
       )}
     >
@@ -264,7 +295,7 @@ export function PrimaryButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-[#1d130d] shadow-[0_8px_24px_-8px_rgba(232,112,58,0.7)] transition-transform hover:scale-[1.02] active:scale-95 disabled:pointer-events-none disabled:opacity-50',
+        "inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-display text-xs font-bold uppercase tracking-wide text-[#1d130d] shadow-[0_8px_24px_-8px_rgba(232,112,58,0.7)] transition-transform hover:scale-[1.02] active:scale-95 disabled:pointer-events-none disabled:opacity-50",
         className,
       )}
     >

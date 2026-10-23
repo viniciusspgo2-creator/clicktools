@@ -3,30 +3,86 @@
    + diálogo de exportação de imagem.
    ============================================================ */
 
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ImagePlus, CupSoda, Mountain, Lightbulb, Camera, Sparkles, Download, Loader2,
-  Trash2, Wand2, RotateCw, FlipHorizontal2, Crosshair, Check, TriangleAlert, Flame, Snowflake,
-  Play, Square, Grid3X3, Maximize, Move, Eye,
-} from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
-import { useMockupStore, type VideoState } from '../state/store';
-import { loadArtFile, makeSampleArt, getArtImage } from '../lib/art-registry';
-import { computeDpi, computeFitScale } from '../lib/art-canvas';
-import { loadBgFile, ensureScenes, SCENES, drawSceneThumb } from '../lib/background-registry';
+  ImagePlus,
+  CupSoda,
+  Mountain,
+  Lightbulb,
+  Camera,
+  Sparkles,
+  Download,
+  Loader2,
+  Trash2,
+  Wand2,
+  RotateCw,
+  FlipHorizontal2,
+  Crosshair,
+  Check,
+  TriangleAlert,
+  Flame,
+  Snowflake,
+  Play,
+  Square,
+  Grid3X3,
+  Maximize,
+  Move,
+  Eye,
+} from "lucide-react";
 import {
-  AREA_PRESETS, BACKGROUND_LABELS, CAMERA_PRESETS, EXPORT_RATIOS, FLOOR_OPTIONS, LIGHT_PRESETS, MAX_EXPORT_PX,
-  resolvePrintArea, type AreaMode, type BackgroundType,
-} from '../lib/config';
-import { ColorRow, MiniButton, PrimaryButton, Section, Segmented, SliderRow, ToggleRow } from './controls';
-import { downloadBlob, exportImage, ExportError } from '../exporters/image-exporter';
-import { exportVideo, exportGif, VIDEO_RESOLUTIONS } from '../exporters/video-exporter';
-import { exportBatch, batchVariantsFor } from '../exporters/batch-exporter';
-import { exportTemplate } from '../exporters/template-exporter';
-import { cn } from '@/lib/utils';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { useMockupStore, type VideoState } from "../state/store";
+import { loadArtFile, makeSampleArt, getArtImage } from "../lib/art-registry";
+import { computeDpi, computeFitScale } from "../lib/art-canvas";
+import {
+  loadBgFile,
+  ensureScenes,
+  SCENES,
+  drawSceneThumb,
+} from "../lib/background-registry";
+import {
+  AREA_PRESETS,
+  BACKGROUND_LABELS,
+  CAMERA_PRESETS,
+  EXPORT_RATIOS,
+  FLOOR_OPTIONS,
+  LIGHT_PRESETS,
+  MAX_EXPORT_PX,
+  resolvePrintArea,
+  type AreaMode,
+  type BackgroundType,
+} from "../lib/config";
+import {
+  ColorRow,
+  MiniButton,
+  PrimaryButton,
+  Section,
+  Segmented,
+  SliderRow,
+  ToggleRow,
+} from "./controls";
+import {
+  downloadBlob,
+  exportImage,
+  ExportError,
+} from "../exporters/image-exporter";
+import {
+  exportVideo,
+  exportGif,
+  VIDEO_RESOLUTIONS,
+} from "../exporters/video-exporter";
+import { exportBatch, batchVariantsFor } from "../exporters/batch-exporter";
+import { exportTemplate } from "../exporters/template-exporter";
+import { cn } from "@/lib/utils";
+import { getStudioPlan } from "../lib/entitlements";
 
 /* ---------------- uploader ---------------- */
 
@@ -44,14 +100,24 @@ function useArtUploader() {
       setBusy(true);
       try {
         const entry = await loadArtFile(file);
-        setArtImage({ imageId: entry.id, name: entry.name, width: entry.naturalWidth, height: entry.naturalHeight });
+        useMockupStore
+          .getState()
+          .patchObjectArt(useMockupStore.getState().selectedIds[0] ?? "hero", {
+            imageId: entry.id,
+            name: entry.name,
+            width: entry.naturalWidth,
+            height: entry.naturalHeight,
+          });
         notifyArtApplied();
-        toast({ title: 'Arte aplicada!', description: `${file.name} envolvendo a caneca.` });
+        toast({
+          title: "Arte aplicada!",
+          description: `${file.name} envolvendo a caneca.`,
+        });
       } catch (e) {
         toast({
-          title: 'Não deu para usar essa arte',
-          description: e instanceof Error ? e.message : 'Arquivo inválido.',
-          variant: 'destructive',
+          title: "Não deu para usar essa arte",
+          description: e instanceof Error ? e.message : "Arquivo inválido.",
+          variant: "destructive",
         });
       } finally {
         setBusy(false);
@@ -60,15 +126,29 @@ function useArtUploader() {
     [setArtImage, notifyArtApplied, toast],
   );
 
-  return { inputRef, handleFiles, busy, openFilePicker: () => inputRef.current?.click() };
+  return {
+    inputRef,
+    handleFiles,
+    busy,
+    openFilePicker: () => inputRef.current?.click(),
+  };
 }
 
 /* ---------------- Arte ---------------- */
 
 export function ArtPanel() {
-  const art = useMockupStore((s) => s.art);
-  const patch = useMockupStore((s) => s.patch);
-  const clearArt = useMockupStore((s) => s.clearArt);
+  const selectedId = useMockupStore((s) => s.selectedIds[0] ?? "hero");
+  const art = useMockupStore((s) =>
+    selectedId === "hero"
+      ? s.art
+      : (s.companions.find((c) => c.id === selectedId)?.art ?? s.art),
+  );
+  const patch = (
+    _slice: "art",
+    p: Partial<import("../state/store").ArtState>,
+  ) => useMockupStore.getState().patchObjectArt(selectedId, p);
+  const clearArt = () =>
+    patch("art", { imageId: null, name: "", width: 0, height: 0 });
   const notifyArtApplied = useMockupStore((s) => s.notifyArtApplied);
   const { inputRef, handleFiles, busy, openFilePicker } = useArtUploader();
   const hasArt = !!art.imageId;
@@ -85,7 +165,7 @@ export function ArtPanel() {
         className="hidden"
         onChange={(e) => {
           handleFiles(e.target.files);
-          e.target.value = '';
+          e.target.value = "";
         }}
       />
 
@@ -95,17 +175,26 @@ export function ArtPanel() {
           disabled={busy}
           className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-white/15 bg-white/[0.02] px-4 py-6 transition-colors hover:border-primary/50 hover:bg-primary/5"
         >
-          {busy ? <Loader2 className="h-6 w-6 animate-spin text-primary" /> : <ImagePlus className="h-6 w-6 text-primary" />}
-          <span className="text-xs font-semibold text-neutral-200">Enviar arte</span>
+          {busy ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (
+            <ImagePlus className="h-6 w-6 text-primary" />
+          )}
+          <span className="text-xs font-semibold text-neutral-200">
+            Enviar arte
+          </span>
           <span className="text-center text-[10px] leading-relaxed text-neutral-500">
-            PNG, JPG, WebP, SVG ou AVIF · clique, arraste aqui ou cole com Ctrl+V
+            PNG, JPG, WebP, SVG ou AVIF · clique, arraste aqui ou cole com
+            Ctrl+V
           </span>
         </button>
       ) : (
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[11px] font-semibold text-neutral-100">{art.name}</p>
+              <p className="truncate text-[11px] font-semibold text-neutral-100">
+                {art.name}
+              </p>
               <p className="text-[10px] text-neutral-500">
                 {art.width} × {art.height} px
               </p>
@@ -113,14 +202,18 @@ export function ArtPanel() {
             <MiniButton onClick={openFilePicker} className="shrink-0">
               Trocar
             </MiniButton>
-            <MiniButton onClick={clearArt} className="shrink-0 hover:!border-red-500/50 hover:!text-red-400">
+            <MiniButton
+              onClick={clearArt}
+              className="shrink-0 hover:!border-red-500/50 hover:!text-red-400"
+            >
               <Trash2 className="h-3 w-3" />
             </MiniButton>
           </div>
           <div className="mt-2 flex items-center gap-1.5">
             {dpi === null ? null : dpi >= 300 ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                <Check className="h-3 w-3" /> {Math.round(dpi)} DPI · excelente para sublimação
+                <Check className="h-3 w-3" /> {Math.round(dpi)} DPI · excelente
+                para sublimação
               </span>
             ) : dpi >= 150 ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-400">
@@ -128,7 +221,8 @@ export function ArtPanel() {
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-400">
-                <TriangleAlert className="h-3 w-3" /> {Math.round(dpi)} DPI · abaixo de 150, pode sair borrado
+                <TriangleAlert className="h-3 w-3" /> {Math.round(dpi)} DPI ·
+                abaixo de 150, pode sair borrado
               </span>
             )}
           </div>
@@ -139,12 +233,18 @@ export function ArtPanel() {
         onClick={() => {
           const s = makeSampleArt();
           const { setArtImage, notifyArtApplied } = useMockupStore.getState();
-          setArtImage({ imageId: s.id, name: s.name, width: s.naturalWidth, height: s.naturalHeight });
+          setArtImage({
+            imageId: s.id,
+            name: s.name,
+            width: s.naturalWidth,
+            height: s.naturalHeight,
+          });
           notifyArtApplied();
         }}
         className="w-full"
       >
-        <Wand2 className="mr-1 inline h-3 w-3 text-primary" /> Usar arte de exemplo
+        <Wand2 className="mr-1 inline h-3 w-3 text-primary" /> Usar arte de
+        exemplo
       </MiniButton>
 
       {/* tamanho da área de impressão na caneca */}
@@ -161,12 +261,12 @@ export function ArtPanel() {
               key={p.id}
               type="button"
               title={p.desc}
-              onClick={() => patch('art', { areaMode: p.id as AreaMode })}
+              onClick={() => patch("art", { areaMode: p.id as AreaMode })}
               className={cn(
-                'rounded-lg border px-1.5 py-1.5 text-[10px] font-bold transition-all',
-                (art.areaMode ?? 'padrao') === p.id
-                  ? 'border-primary/60 bg-primary/15 text-primary'
-                  : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+                "rounded-lg border px-1.5 py-1.5 text-[10px] font-bold transition-all",
+                (art.areaMode ?? "padrao") === p.id
+                  ? "border-primary/60 bg-primary/15 text-primary"
+                  : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
               )}
             >
               {p.label}
@@ -174,18 +274,27 @@ export function ArtPanel() {
           ))}
         </div>
 
-        {(art.areaMode ?? 'padrao') === 'custom' && (
+        {(art.areaMode ?? "padrao") === "custom" && (
           <div className="mt-2 space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <p className="mb-1 text-[10px] text-neutral-500">Largura (cm)</p>
+                <p className="mb-1 text-[10px] text-neutral-500">
+                  Largura (cm)
+                </p>
                 <input
                   type="number"
                   min={8}
                   max={23.4}
                   step={0.1}
                   value={art.areaW}
-                  onChange={(e) => patch('art', { areaW: Math.min(23.4, Math.max(8, +e.target.value || 20.7)) })}
+                  onChange={(e) =>
+                    patch("art", {
+                      areaW: Math.min(
+                        23.4,
+                        Math.max(8, +e.target.value || 20.7),
+                      ),
+                    })
+                  }
                   className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
                 />
               </div>
@@ -197,7 +306,11 @@ export function ArtPanel() {
                   max={9.1}
                   step={0.1}
                   value={art.areaH}
-                  onChange={(e) => patch('art', { areaH: Math.min(9.1, Math.max(3, +e.target.value || 8.7)) })}
+                  onChange={(e) =>
+                    patch("art", {
+                      areaH: Math.min(9.1, Math.max(3, +e.target.value || 8.7)),
+                    })
+                  }
                   className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
                 />
               </div>
@@ -205,7 +318,10 @@ export function ArtPanel() {
             <div>
               <p className="mb-1 flex justify-between text-[10px] text-neutral-500">
                 <span>Posição vertical da área</span>
-                <span className="text-neutral-300">{(art.areaY ?? 0) > 0 ? '+' : ''}{(art.areaY ?? 0).toFixed(1).replace('.', ',')} cm</span>
+                <span className="text-neutral-300">
+                  {(art.areaY ?? 0) > 0 ? "+" : ""}
+                  {(art.areaY ?? 0).toFixed(1).replace(".", ",")} cm
+                </span>
               </p>
               <input
                 type="range"
@@ -213,12 +329,12 @@ export function ArtPanel() {
                 max={4}
                 step={0.05}
                 value={art.areaY ?? 0}
-                onChange={(e) => patch('art', { areaY: +e.target.value })}
+                onChange={(e) => patch("art", { areaY: +e.target.value })}
                 className="w-full accent-orange-500"
               />
             </div>
             <MiniButton
-              onClick={() => patch('art', { areaMode: 'alta' as AreaMode })}
+              onClick={() => patch("art", { areaMode: "alta" as AreaMode })}
               className="w-full"
             >
               Cobrir a caneca de cima a baixo
@@ -227,33 +343,46 @@ export function ArtPanel() {
         )}
 
         <p className="mt-2 text-[10px] leading-relaxed text-neutral-500">
-          Área ativa: <strong className="text-neutral-300">{area.arcCm.toFixed(1).replace('.', ',')} × {area.heightCm.toFixed(1).replace('.', ',')} cm</strong>
-          {(art.areaMode ?? 'padrao') === 'forno' && ' · envolve a caneca toda até a alça'}
-          {(art.areaMode ?? 'padrao') === 'alta' && ' · vai do pé até a borda, sem espaço em branco'}
+          Área ativa:{" "}
+          <strong className="text-neutral-300">
+            {area.arcCm.toFixed(1).replace(".", ",")} ×{" "}
+            {area.heightCm.toFixed(1).replace(".", ",")} cm
+          </strong>
+          {(art.areaMode ?? "padrao") === "forno" &&
+            " · envolve a caneca toda até a alça"}
+          {(art.areaMode ?? "padrao") === "alta" &&
+            " · vai do pé até a borda, sem espaço em branco"}
         </p>
       </div>
 
       {/* texto escrito direto na caneca (sai também na folha de sublimação) */}
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400" title="Escreva uma frase ou nome — vai para a caneca e para a folha de sublimação">
+        <p
+          className="mb-1.5 text-[11px] font-medium text-neutral-400"
+          title="Escreva uma frase ou nome — vai para a caneca e para a folha de sublimação"
+        >
           Texto na caneca (opcional)
         </p>
         <input
           value={art.text}
           maxLength={40}
-          onChange={(e) => patch('art', { text: e.target.value })}
+          onChange={(e) => patch("art", { text: e.target.value })}
           placeholder="Ex.: Feliz Aniversário! "
           className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
         />
         {art.text.trim() && (
           <div className="mt-2 space-y-2">
-            <ColorRow label="Cor do texto" value={art.textColor} onChange={(v) => patch('art', { textColor: v })} />
+            <ColorRow
+              label="Cor do texto"
+              value={art.textColor}
+              onChange={(v) => patch("art", { textColor: v })}
+            />
             <SliderRow
               label="Tamanho do texto"
               value={art.textSize * 100}
               min={4}
               max={24}
-              onChange={(v) => patch('art', { textSize: v / 100 })}
+              onChange={(v) => patch("art", { textSize: v / 100 })}
               defaultValue={9}
               format={(v) => `${Math.round(v)}% da altura`}
             />
@@ -262,7 +391,7 @@ export function ArtPanel() {
               value={art.textY * 100}
               min={-100}
               max={100}
-              onChange={(v) => patch('art', { textY: v / 100 })}
+              onChange={(v) => patch("art", { textY: v / 100 })}
               defaultValue={15}
             />
           </div>
@@ -275,17 +404,24 @@ export function ArtPanel() {
             label="Ajuste à área"
             value={art.fit}
             options={[
-              { value: 'cover', label: 'Preencher' },
-              { value: 'contain', label: 'Conter' },
-              { value: 'stretch', label: 'Esticar' },
+              { value: "cover", label: "Preencher" },
+              { value: "contain", label: "Conter" },
+              { value: "stretch", label: "Esticar" },
             ]}
-            onChange={(v) => patch('art', { fit: v, scale: 1 })}
+            onChange={(v) => patch("art", { fit: v, scale: 1 })}
           />
           <button
             type="button"
-            onClick={() => patch('art', {
-              fit: 'cover', scale: 1, repeat: 1, offsetX: 0, offsetY: 0, rotation: 0,
-            })}
+            onClick={() =>
+              patch("art", {
+                fit: "cover",
+                scale: 1,
+                repeat: 1,
+                offsetX: 0,
+                offsetY: 0,
+                rotation: 0,
+              })
+            }
             className="flex w-full items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-left text-[11px] font-bold text-primary transition-colors hover:bg-primary/15"
             title="Faz a arte cobrir toda a área de impressão selecionada, mantendo a proporção e sem deixar faixas vazias."
           >
@@ -293,15 +429,17 @@ export function ArtPanel() {
             <Maximize className="h-3.5 w-3.5 shrink-0" />
           </button>
           <p className="-mt-1 text-[10px] leading-relaxed text-neutral-500">
-            A arte cobre a área escolhida sem distorção. Para ir do topo à base da caneca, selecione “Altura cheia” em “Tamanho na caneca” e aplique esta opção.
+            A arte cobre a área escolhida sem distorção. Para ir do topo à base
+            da caneca, selecione “Altura cheia” em “Tamanho na caneca” e aplique
+            esta opção.
           </p>
           <div className="flex gap-1.5">
             <MiniButton
               className="flex-1"
               title="Aumenta/diminui a arte para ocupar exatamente a altura toda da área"
               onClick={() => {
-                const k = computeFitScale(art, 'height', area);
-                if (k) patch('art', { scale: Math.round(k * 100) / 100 });
+                const k = computeFitScale(art, "height", area);
+                if (k) patch("art", { scale: Math.round(k * 100) / 100 });
               }}
             >
               Preencher altura
@@ -310,31 +448,68 @@ export function ArtPanel() {
               className="flex-1"
               title="Aumenta/diminui a arte para ocupar exatamente a largura toda da área"
               onClick={() => {
-                const k = computeFitScale(art, 'width', area);
-                if (k) patch('art', { scale: Math.round(k * 100) / 100 });
+                const k = computeFitScale(art, "width", area);
+                if (k) patch("art", { scale: Math.round(k * 100) / 100 });
               }}
             >
               Preencher largura
             </MiniButton>
           </div>
-          <SliderRow label="Tamanho" value={art.scale * 100} min={10} max={300} onChange={(v) => patch('art', { scale: v / 100 })} defaultValue={100} format={(v) => `${Math.round(v)}%`} />
+          <SliderRow
+            label="Tamanho"
+            value={art.scale * 100}
+            min={10}
+            max={300}
+            onChange={(v) => patch("art", { scale: v / 100 })}
+            defaultValue={100}
+            format={(v) => `${Math.round(v)}%`}
+          />
           <SliderRow
             label="Posição em volta (frente ← → trás)"
             value={art.offsetX * 100}
             min={-100}
             max={100}
-            onChange={(v) => patch('art', { offsetX: v / 100 })}
+            onChange={(v) => patch("art", { offsetX: v / 100 })}
             defaultValue={0}
           />
-          <SliderRow label="Altura" value={art.offsetY * 100} min={-100} max={100} onChange={(v) => patch('art', { offsetY: v / 100 })} defaultValue={0} />
-          <SliderRow label="Rotação" value={art.rotation} min={-180} max={180} onChange={(v) => patch('art', { rotation: v })} defaultValue={0} format={(v) => `${Math.round(v)}°`} />
-          <SliderRow label="Repetir lateralmente" value={art.repeat} min={1} max={4} onChange={(v) => patch('art', { repeat: Math.round(v) })} defaultValue={1} format={(v) => `${Math.round(v)}× na volta`} />
+          <SliderRow
+            label="Altura"
+            value={art.offsetY * 100}
+            min={-100}
+            max={100}
+            onChange={(v) => patch("art", { offsetY: v / 100 })}
+            defaultValue={0}
+          />
+          <SliderRow
+            label="Rotação"
+            value={art.rotation}
+            min={-180}
+            max={180}
+            onChange={(v) => patch("art", { rotation: v })}
+            defaultValue={0}
+            format={(v) => `${Math.round(v)}°`}
+          />
+          <SliderRow
+            label="Repetir lateralmente"
+            value={art.repeat}
+            min={1}
+            max={4}
+            onChange={(v) => patch("art", { repeat: Math.round(v) })}
+            defaultValue={1}
+            format={(v) => `${Math.round(v)}× na volta`}
+          />
           <div className="flex gap-1.5">
-            <MiniButton onClick={() => patch('art', { mirror: !art.mirror })} active={art.mirror} className="flex-1">
+            <MiniButton
+              onClick={() => patch("art", { mirror: !art.mirror })}
+              active={art.mirror}
+              className="flex-1"
+            >
               <FlipHorizontal2 className="mr-1 inline h-3 w-3" /> Espelhar
             </MiniButton>
             <MiniButton
-              onClick={() => patch('art', { offsetX: 0, offsetY: 0, rotation: 0, scale: 1 })}
+              onClick={() =>
+                patch("art", { offsetX: 0, offsetY: 0, rotation: 0, scale: 1 })
+              }
               className="flex-1"
             >
               <Crosshair className="mr-1 inline h-3 w-3" /> Centralizar
@@ -349,19 +524,55 @@ export function ArtPanel() {
 /* ---------------- Caneca ---------------- */
 
 /** presets de inclinação/perspectiva da caneca */
-const TILT_PRESETS: { id: string; label: string; tiltX: number; tiltZ: number; title: string }[] = [
-  { id: 'frontal', label: 'Frontal', tiltX: 0, tiltZ: 0, title: 'Caneca reta, de frente' },
-  { id: 'esq', label: 'Inclinada ←', tiltX: 5, tiltZ: 16, title: 'Inclinada para a esquerda' },
-  { id: 'dir', label: 'Inclinada →', tiltX: 5, tiltZ: -16, title: 'Inclinada para a direita' },
-  { id: 'cima', label: 'Vista de cima', tiltX: 22, tiltZ: 0, title: 'Topo da caneca virado para a câmera' },
-  { id: 'baixo', label: 'Vista de baixo', tiltX: -14, tiltZ: 0, title: 'Base da caneca virada para a câmera' },
+const TILT_PRESETS: {
+  id: string;
+  label: string;
+  tiltX: number;
+  tiltZ: number;
+  title: string;
+}[] = [
+  {
+    id: "frontal",
+    label: "Frontal",
+    tiltX: 0,
+    tiltZ: 0,
+    title: "Caneca reta, de frente",
+  },
+  {
+    id: "esq",
+    label: "Inclinada ←",
+    tiltX: 5,
+    tiltZ: 16,
+    title: "Inclinada para a esquerda",
+  },
+  {
+    id: "dir",
+    label: "Inclinada →",
+    tiltX: 5,
+    tiltZ: -16,
+    title: "Inclinada para a direita",
+  },
+  {
+    id: "cima",
+    label: "Vista de cima",
+    tiltX: 22,
+    tiltZ: 0,
+    title: "Topo da caneca virado para a câmera",
+  },
+  {
+    id: "baixo",
+    label: "Vista de baixo",
+    tiltX: -14,
+    tiltZ: 0,
+    title: "Base da caneca virada para a câmera",
+  },
 ];
 
 export function MugPanel() {
   const mug = useMockupStore((s) => s.mug);
   const patch = useMockupStore((s) => s.patch);
   const rotateMug = useMockupStore((s) => s.rotateMug);
-  const isMagic = mug.variant === 'magic';
+  const isMagic = mug.variant === "magic";
   const [playing, setPlaying] = useState(false);
   const rafRef = useRef<number | null>(null);
   const holdHeatRef = useRef<number | null>(null);
@@ -390,7 +601,7 @@ export function MugPanel() {
     const tick = (now: number) => {
       const k = Math.min(1, (now - t0) / dur);
       const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-      useMockupStore.getState().patch('mug', { magicHeat: 0.02 + e * 0.98 });
+      useMockupStore.getState().patch("mug", { magicHeat: 0.02 + e * 0.98 });
       if (k < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
@@ -403,7 +614,7 @@ export function MugPanel() {
 
   const holdCold = () => {
     if (holdHeatRef.current === null) holdHeatRef.current = mug.magicHeat;
-    patch('mug', { magicHeat: 0 });
+    patch("mug", { magicHeat: 0 });
   };
   const releaseCold = () => {
     if (previewTimer.current) {
@@ -411,7 +622,7 @@ export function MugPanel() {
       previewTimer.current = null;
     }
     if (holdHeatRef.current !== null) {
-      patch('mug', { magicHeat: holdHeatRef.current });
+      patch("mug", { magicHeat: holdHeatRef.current });
       holdHeatRef.current = null;
     }
   };
@@ -420,9 +631,9 @@ export function MugPanel() {
     if (holdHeatRef.current !== null) return; // já segurando
     const held = mug.magicHeat;
     holdHeatRef.current = held;
-    patch('mug', { magicHeat: 0 });
+    patch("mug", { magicHeat: 0 });
     previewTimer.current = setTimeout(() => {
-      patch('mug', { magicHeat: held });
+      patch("mug", { magicHeat: held });
       holdHeatRef.current = null;
       previewTimer.current = null;
     }, 1200);
@@ -434,17 +645,21 @@ export function MugPanel() {
         label="Modelo — porcelana 11 oz (325 ml)"
         value={mug.variant}
         options={[
-          { value: 'white', label: 'Branca' },
-          { value: 'accent', label: 'Colorida' },
-          { value: 'magic', label: 'Mágica' },
+          { value: "white", label: "Branca" },
+          { value: "accent", label: "Colorida" },
+          { value: "magic", label: "Mágica" },
         ]}
         onChange={(v) => {
           stopPlay();
-          patch('mug', { variant: v });
+          patch("mug", { variant: v });
         }}
       />
-      {mug.variant !== 'white' && (
-        <ColorRow label="Cor da alça e interior" value={mug.accentColor} onChange={(v) => patch('mug', { accentColor: v })} />
+      {mug.variant !== "white" && (
+        <ColorRow
+          label="Cor da alça e interior"
+          value={mug.accentColor}
+          onChange={(v) => patch("mug", { accentColor: v })}
+        />
       )}
       {isMagic && (
         <>
@@ -453,9 +668,15 @@ export function MugPanel() {
             value={mug.magicHeat * 100}
             min={0}
             max={100}
-            onChange={(v) => patch('mug', { magicHeat: v / 100 })}
+            onChange={(v) => patch("mug", { magicHeat: v / 100 })}
             defaultValue={85}
-            format={(v) => (v <= 2 ? 'fria — tudo preto' : v >= 98 ? 'quente — arte revelada' : `${Math.round(v)}% revelado`)}
+            format={(v) =>
+              v <= 2
+                ? "fria — tudo preto"
+                : v >= 98
+                  ? "quente — arte revelada"
+                  : `${Math.round(v)}% revelado`
+            }
           />
           <div className="flex gap-1.5">
             {playing ? (
@@ -463,14 +684,21 @@ export function MugPanel() {
                 <Square className="mr-1 inline h-3 w-3" /> Parar
               </MiniButton>
             ) : (
-              <MiniButton onClick={startPlay} className="flex-1" >
-                <Play className="mr-1 inline h-3 w-3 text-primary" /> Ver revelação
+              <MiniButton onClick={startPlay} className="flex-1">
+                <Play className="mr-1 inline h-3 w-3 text-primary" /> Ver
+                revelação
               </MiniButton>
             )}
-            <MiniButton onClick={() => patch('mug', { magicHeat: 1 })} className="flex-1">
+            <MiniButton
+              onClick={() => patch("mug", { magicHeat: 1 })}
+              className="flex-1"
+            >
               <Flame className="mr-1 inline h-3 w-3 text-amber-400" /> Quente
             </MiniButton>
-            <MiniButton onClick={() => patch('mug', { magicHeat: 0 })} className="flex-1">
+            <MiniButton
+              onClick={() => patch("mug", { magicHeat: 0 })}
+              className="flex-1"
+            >
               <Snowflake className="mr-1 inline h-3 w-3 text-sky-300" /> Fria
             </MiniButton>
           </div>
@@ -488,20 +716,22 @@ export function MugPanel() {
             label="Direção da revelação"
             value={mug.magicDirection}
             options={[
-              { value: 'baixo', label: 'De baixo p/ cima' },
-              { value: 'lateral', label: 'Lateral' },
-              { value: 'radial', label: 'Do centro' },
+              { value: "baixo", label: "De baixo p/ cima" },
+              { value: "lateral", label: "Lateral" },
+              { value: "radial", label: "Do centro" },
             ]}
-            onChange={(v) => patch('mug', { magicDirection: v })}
+            onChange={(v) => patch("mug", { magicDirection: v })}
           />
           <SliderRow
             label="Borda da revelação"
             value={mug.magicDissolve * 100}
             min={0}
             max={100}
-            onChange={(v) => patch('mug', { magicDissolve: v / 100 })}
+            onChange={(v) => patch("mug", { magicDissolve: v / 100 })}
             defaultValue={35}
-            format={(v) => (v <= 2 ? 'linha reta' : `${Math.round(v)}% de dissolução`)}
+            format={(v) =>
+              v <= 2 ? "linha reta" : `${Math.round(v)}% de dissolução`
+            }
           />
         </>
       )}
@@ -510,7 +740,7 @@ export function MugPanel() {
         value={mug.rotationY}
         min={0}
         max={360}
-        onChange={(v) => patch('mug', { rotationY: v })}
+        onChange={(v) => patch("mug", { rotationY: v })}
         defaultValue={0}
         format={(v) => `${Math.round(v)}°`}
       />
@@ -525,7 +755,10 @@ export function MugPanel() {
 
       {/* perspectivas prontas */}
       <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400" title="Inclinações prontas da caneca na cena">
+        <p
+          className="mb-1.5 text-[11px] font-medium text-neutral-400"
+          title="Inclinações prontas da caneca na cena"
+        >
           Perspectiva da caneca
         </p>
         <div className="grid grid-cols-3 gap-1">
@@ -538,12 +771,12 @@ export function MugPanel() {
                 key={p.id}
                 type="button"
                 title={p.title}
-                onClick={() => patch('mug', { tiltX: p.tiltX, tiltZ: p.tiltZ })}
+                onClick={() => patch("mug", { tiltX: p.tiltX, tiltZ: p.tiltZ })}
                 className={cn(
-                  'rounded-lg border px-1 py-2 text-[10px] font-bold transition-all',
+                  "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
                   active
-                    ? 'border-primary/60 bg-primary/15 text-primary'
-                    : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+                    ? "border-primary/60 bg-primary/15 text-primary"
+                    : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
                 )}
               >
                 {p.label}
@@ -557,7 +790,7 @@ export function MugPanel() {
         value={mug.tiltX}
         min={-35}
         max={35}
-        onChange={(v) => patch('mug', { tiltX: v })}
+        onChange={(v) => patch("mug", { tiltX: v })}
         defaultValue={0}
         format={(v) => `${Math.round(v)}°`}
       />
@@ -566,16 +799,33 @@ export function MugPanel() {
         value={mug.tiltZ ?? 0}
         min={-30}
         max={30}
-        onChange={(v) => patch('mug', { tiltZ: v })}
+        onChange={(v) => patch("mug", { tiltZ: v })}
         defaultValue={0}
         format={(v) => `${Math.round(v)}°`}
       />
-      <SliderRow label="Tamanho na cena" value={mug.scale * 100} min={60} max={140} onChange={(v) => patch('mug', { scale: v / 100 })} defaultValue={100} format={(v) => `${Math.round(v)}%`} />
-      <SliderRow label="Altura na cena" value={mug.posY * 10} min={-8} max={20} onChange={(v) => patch('mug', { posY: v / 10 })} defaultValue={0} format={(v) => `${(v / 10).toFixed(1)} cm`} />
+      <SliderRow
+        label="Tamanho na cena"
+        value={mug.scale * 100}
+        min={60}
+        max={140}
+        onChange={(v) => patch("mug", { scale: v / 100 })}
+        defaultValue={100}
+        format={(v) => `${Math.round(v)}%`}
+      />
+      <SliderRow
+        label="Altura na cena"
+        value={mug.posY * 10}
+        min={-8}
+        max={20}
+        onChange={(v) => patch("mug", { posY: v / 10 })}
+        defaultValue={0}
+        format={(v) => `${(v / 10).toFixed(1)} cm`}
+      />
       {isMagic && (
         <p className="text-[10px] leading-relaxed text-neutral-500">
-          A revelação também sai na exportação — crie imagens &quot;antes e depois&quot; exportando
-          com a caneca fria e depois quente, ou vídeo em Movimento &quot;Revelação&quot;.
+          A revelação também sai na exportação — crie imagens &quot;antes e
+          depois&quot; exportando com a caneca fria e depois quente, ou vídeo em
+          Movimento &quot;Revelação&quot;.
         </p>
       )}
     </Section>
@@ -585,12 +835,20 @@ export function MugPanel() {
 /* ---------------- Cena (fundo e chão) ---------------- */
 
 const BG_OPTIONS: { value: BackgroundType; label: string; title: string }[] = [
-  { value: 'studio-white', label: 'Branco', title: 'Fundo branco puro (padrão)' },
-  { value: 'studio-dark', label: 'Escuro', title: 'Estúdio escuro premium' },
-  { value: 'gradient', label: 'Gradiente', title: 'Duas cores em degradê' },
-  { value: 'solid', label: 'Cor', title: 'Uma cor sólida' },
-  { value: 'image', label: 'Imagem', title: 'Use uma foto sua como fundo' },
-  { value: 'transparent', label: 'Sem fundo', title: 'Transparente — exporta PNG/WebP com alfa' },
+  {
+    value: "studio-white",
+    label: "Branco",
+    title: "Fundo branco puro (padrão)",
+  },
+  { value: "studio-dark", label: "Escuro", title: "Estúdio escuro premium" },
+  { value: "gradient", label: "Gradiente", title: "Duas cores em degradê" },
+  { value: "solid", label: "Cor", title: "Uma cor sólida" },
+  { value: "image", label: "Imagem", title: "Use uma foto sua como fundo" },
+  {
+    value: "transparent",
+    label: "Sem fundo",
+    title: "Transparente — exporta PNG/WebP com alfa",
+  },
 ];
 
 /** ícone de transparência (xadrez) desenhado em CSS puro */
@@ -601,9 +859,9 @@ function TransparentSwatch() {
       className="inline-block h-3 w-3 shrink-0 rounded-[3px] border border-white/40"
       style={{
         backgroundImage:
-          'linear-gradient(45deg, #9ca3af 25%, transparent 25%, transparent 75%, #9ca3af 75%), linear-gradient(45deg, #9ca3af 25%, #efefef 25%, #efefef 75%, #9ca3af 75%)',
-        backgroundSize: '8px 8px',
-        backgroundPosition: '0 0, 4px 4px',
+          "linear-gradient(45deg, #9ca3af 25%, transparent 25%, transparent 75%, #9ca3af 75%), linear-gradient(45deg, #9ca3af 25%, #efefef 25%, #efefef 75%, #9ca3af 75%)",
+        backgroundSize: "8px 8px",
+        backgroundPosition: "0 0, 4px 4px",
       }}
     />
   );
@@ -625,7 +883,10 @@ function ScenesGallery() {
 
   return (
     <div>
-      <p className="mb-1.5 text-[11px] font-medium text-neutral-400" title="Cenários desenhados pelo próprio estúdio — sem direitos autorais">
+      <p
+        className="mb-1.5 text-[11px] font-medium text-neutral-400"
+        title="Cenários desenhados pelo próprio estúdio — sem direitos autorais"
+      >
         Cenários prontos
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -635,10 +896,10 @@ function ScenesGallery() {
             type="button"
             onClick={() => {
               ensureScenes(s.id);
-              patch('bg', {
-                type: 'image',
+              patch("bg", {
+                type: "image",
                 imageId: s.id,
-                imageFit: 'cover',
+                imageFit: "cover",
                 imageZoom: 1,
                 imageX: 0,
                 imageY: 0,
@@ -646,19 +907,30 @@ function ScenesGallery() {
                 imageMirror: false,
                 imageBlur: 0,
                 imageBright: 1,
-              })
+              });
             }}
             title={s.label}
-            aria-pressed={bgType === 'image' && current === s.id}
+            aria-pressed={bgType === "image" && current === s.id}
             className={cn(
-              'group overflow-hidden rounded-xl border text-left transition-all hover:-translate-y-0.5 hover:border-primary/50',
-              bgType === 'image' && current === s.id ? 'border-primary ring-1 ring-primary/60' : 'border-white/10',
+              "group overflow-hidden rounded-xl border text-left transition-all hover:-translate-y-0.5 hover:border-primary/50",
+              bgType === "image" && current === s.id
+                ? "border-primary ring-1 ring-primary/60"
+                : "border-white/10",
             )}
           >
-            <canvas ref={(el) => { refs.current[i] = el; }} width={256} height={144} className="block aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+            <canvas
+              ref={(el) => {
+                refs.current[i] = el;
+              }}
+              width={256}
+              height={144}
+              className="block aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            />
             <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[10px] font-semibold text-neutral-300">
               <span className="truncate">{s.label}</span>
-              {bgType === 'image' && current === s.id && <Check className="h-3 w-3 shrink-0 text-primary" />}
+              {bgType === "image" && current === s.id && (
+                <Check className="h-3 w-3 shrink-0 text-primary" />
+              )}
             </span>
           </button>
         ))}
@@ -677,7 +949,8 @@ export function ScenePanel() {
   const bgInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (bg.type === 'image' && bg.imageId?.startsWith('scene-')) ensureScenes(bg.imageId);
+    if (bg.type === "image" && bg.imageId?.startsWith("scene-"))
+      ensureScenes(bg.imageId);
   }, [bg.type, bg.imageId]);
 
   const handleBgFile = useCallback(
@@ -686,10 +959,10 @@ export function ScenePanel() {
       setBusyBg(true);
       try {
         const entry = await loadBgFile(file);
-        patch('bg', {
-          type: 'image',
+        patch("bg", {
+          type: "image",
           imageId: entry.id,
-          imageFit: 'cover',
+          imageFit: "cover",
           imageZoom: 1,
           imageX: 0,
           imageY: 0,
@@ -698,12 +971,15 @@ export function ScenePanel() {
           imageBlur: 0,
           imageBright: 1,
         });
-        toast({ title: 'Fundo aplicado!', description: `${file.name} agora é o cenário da cena.` });
+        toast({
+          title: "Fundo aplicado!",
+          description: `${file.name} agora é o cenário da cena.`,
+        });
       } catch (e) {
         toast({
-          title: 'Não deu para usar essa imagem',
-          description: e instanceof Error ? e.message : 'Tente outro arquivo.',
-          variant: 'destructive',
+          title: "Não deu para usar essa imagem",
+          description: e instanceof Error ? e.message : "Tente outro arquivo.",
+          variant: "destructive",
         });
       } finally {
         setBusyBg(false);
@@ -721,14 +997,18 @@ export function ScenePanel() {
         className="hidden"
         onChange={(e) => {
           handleBgFile(e.target.files?.[0]);
-          e.target.value = '';
+          e.target.value = "";
         }}
       />
 
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-semibold text-neutral-200">Escolha um cenário</p>
-          <p className="mt-0.5 text-[10px] text-neutral-500">Prévia ilustrada · você pode trocar quando quiser</p>
+          <p className="text-xs font-semibold text-neutral-200">
+            Escolha um cenário
+          </p>
+          <p className="mt-0.5 text-[10px] text-neutral-500">
+            Prévia ilustrada · você pode trocar quando quiser
+          </p>
         </div>
         <button
           type="button"
@@ -736,25 +1016,31 @@ export function ScenePanel() {
           disabled={busyBg}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-2 text-[10px] font-bold text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
         >
-          {busyBg ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+          {busyBg ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ImagePlus className="h-3.5 w-3.5" />
+          )}
           Enviar imagem
         </button>
       </div>
       <ScenesGallery />
 
-      <p className="pt-1 text-[11px] font-medium text-neutral-400">Fundo da cena</p>
+      <p className="pt-1 text-[11px] font-medium text-neutral-400">
+        Fundo da cena
+      </p>
       <div className="grid grid-cols-3 gap-1">
-        {BG_OPTIONS.filter((o) => o.value !== 'transparent').map((o) => (
+        {BG_OPTIONS.filter((o) => o.value !== "transparent").map((o) => (
           <button
             key={o.value}
             type="button"
             title={o.title}
-            onClick={() => patch('bg', { type: o.value })}
+            onClick={() => patch("bg", { type: o.value })}
             className={cn(
-              'rounded-lg border px-1 py-2 text-[10px] font-bold transition-all',
+              "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
               bg.type === o.value
-                ? 'border-primary/60 bg-primary/15 text-primary'
-                : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+                ? "border-primary/60 bg-primary/15 text-primary"
+                : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
             )}
           >
             {o.label}
@@ -765,53 +1051,84 @@ export function ScenePanel() {
       <button
         type="button"
         title="A caneca fica sobre transparência (xadrez). Exporte em PNG/WebP para manter o fundo invisível."
-        onClick={() => patch('bg', { type: 'transparent' })}
+        onClick={() => patch("bg", { type: "transparent" })}
         className={cn(
-          'flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left transition-all',
-          bg.type === 'transparent'
-            ? 'border-primary/70 bg-primary/15 text-primary'
-            : 'border-white/15 bg-white/[0.03] text-neutral-300 hover:border-white/30 hover:text-white',
+          "flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left transition-all",
+          bg.type === "transparent"
+            ? "border-primary/70 bg-primary/15 text-primary"
+            : "border-white/15 bg-white/[0.03] text-neutral-300 hover:border-white/30 hover:text-white",
         )}
       >
         <TransparentSwatch />
         <span className="flex-1 text-[11px] font-bold">Fundo transparente</span>
-        {bg.type === 'transparent' && <Check className="h-3.5 w-3.5" />}
+        {bg.type === "transparent" && <Check className="h-3.5 w-3.5" />}
       </button>
-      {bg.type === 'transparent' && (
+      {bg.type === "transparent" && (
         <p className="rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-2 text-[10px] leading-relaxed text-neutral-300">
-          O fundo some de verdade (veja o xadrez atrás da caneca). Na exportação, marque
-          <strong className="text-primary"> “Sem fundo (PNG transparente)”</strong> e escolha PNG ou WebP — a
-          caneca fica pronta para montar em qualquer lugar, com a sombra suave preservada.
+          O fundo some de verdade (veja o xadrez atrás da caneca). Na
+          exportação, marque
+          <strong className="text-primary">
+            {" "}
+            “Sem fundo (PNG transparente)”
+          </strong>{" "}
+          e escolha PNG ou WebP — a caneca fica pronta para montar em qualquer
+          lugar, com a sombra suave preservada.
         </p>
       )}
-      {bg.type === 'gradient' && (
+      {bg.type === "gradient" && (
         <>
-          <ColorRow label="Cor 1 (topo)" value={bg.colorA} onChange={(v) => patch('bg', { colorA: v })} />
-          <ColorRow label="Cor 2 (base)" value={bg.colorB} onChange={(v) => patch('bg', { colorB: v })} />
-          <SliderRow label="Ângulo" value={bg.angle} min={0} max={360} onChange={(v) => patch('bg', { angle: v })} defaultValue={90} format={(v) => `${Math.round(v)}°`} />
+          <ColorRow
+            label="Cor 1 (topo)"
+            value={bg.colorA}
+            onChange={(v) => patch("bg", { colorA: v })}
+          />
+          <ColorRow
+            label="Cor 2 (base)"
+            value={bg.colorB}
+            onChange={(v) => patch("bg", { colorB: v })}
+          />
+          <SliderRow
+            label="Ângulo"
+            value={bg.angle}
+            min={0}
+            max={360}
+            onChange={(v) => patch("bg", { angle: v })}
+            defaultValue={90}
+            format={(v) => `${Math.round(v)}°`}
+          />
         </>
       )}
-      {bg.type === 'solid' && <ColorRow label="Cor do fundo" value={bg.colorB} onChange={(v) => patch('bg', { colorB: v })} />}
+      {bg.type === "solid" && (
+        <ColorRow
+          label="Cor do fundo"
+          value={bg.colorB}
+          onChange={(v) => patch("bg", { colorB: v })}
+        />
+      )}
 
-      {bg.type === 'image' && (
+      {bg.type === "image" && (
         <>
-          <p className="text-[10px] text-neutral-500">Fundo ativo: {SCENES.find((s) => s.id === bg.imageId)?.label ?? 'imagem enviada'}. JPG, PNG ou WebP · até 25 MB.</p>
+          <p className="text-[10px] text-neutral-500">
+            Fundo ativo:{" "}
+            {SCENES.find((s) => s.id === bg.imageId)?.label ?? "imagem enviada"}
+            . JPG, PNG ou WebP · até 25 MB.
+          </p>
           <Segmented
             label="Encaixe da foto"
             value={bg.imageFit}
             options={[
-              { value: 'cover', label: 'Cobrir' },
-              { value: 'contain', label: 'Conter' },
-              { value: 'stretch', label: 'Esticar' },
+              { value: "cover", label: "Cobrir" },
+              { value: "contain", label: "Conter" },
+              { value: "stretch", label: "Esticar" },
             ]}
-            onChange={(v) => patch('bg', { imageFit: v })}
+            onChange={(v) => patch("bg", { imageFit: v })}
           />
           <SliderRow
             label="Zoom"
             value={bg.imageZoom * 100}
             min={50}
             max={300}
-            onChange={(v) => patch('bg', { imageZoom: v / 100 })}
+            onChange={(v) => patch("bg", { imageZoom: v / 100 })}
             defaultValue={100}
             format={(v) => `${(v / 100).toFixed(1)}×`}
           />
@@ -820,7 +1137,7 @@ export function ScenePanel() {
             value={bg.imageX * 100}
             min={-100}
             max={100}
-            onChange={(v) => patch('bg', { imageX: v / 100 })}
+            onChange={(v) => patch("bg", { imageX: v / 100 })}
             defaultValue={0}
           />
           <SliderRow
@@ -828,7 +1145,7 @@ export function ScenePanel() {
             value={bg.imageY * 100}
             min={-100}
             max={100}
-            onChange={(v) => patch('bg', { imageY: v / 100 })}
+            onChange={(v) => patch("bg", { imageY: v / 100 })}
             defaultValue={0}
           />
           <SliderRow
@@ -836,16 +1153,22 @@ export function ScenePanel() {
             value={bg.imageRot}
             min={-180}
             max={180}
-            onChange={(v) => patch('bg', { imageRot: v })}
+            onChange={(v) => patch("bg", { imageRot: v })}
             defaultValue={0}
             format={(v) => `${Math.round(v)}°`}
           />
           <div className="flex gap-1.5">
-            <MiniButton onClick={() => patch('bg', { imageMirror: !bg.imageMirror })} active={bg.imageMirror} className="flex-1">
+            <MiniButton
+              onClick={() => patch("bg", { imageMirror: !bg.imageMirror })}
+              active={bg.imageMirror}
+              className="flex-1"
+            >
               <FlipHorizontal2 className="mr-1 inline h-3 w-3" /> Espelhar
             </MiniButton>
             <MiniButton
-              onClick={() => patch('bg', { imageX: 0, imageY: 0, imageZoom: 1, imageRot: 0 })}
+              onClick={() =>
+                patch("bg", { imageX: 0, imageY: 0, imageZoom: 1, imageRot: 0 })
+              }
               className="flex-1"
             >
               <Crosshair className="mr-1 inline h-3 w-3" /> Centralizar
@@ -857,44 +1180,60 @@ export function ScenePanel() {
             min={0}
             max={20}
             step={0.5}
-            onChange={(v) => patch('bg', { imageBlur: v })}
+            onChange={(v) => patch("bg", { imageBlur: v })}
             defaultValue={0}
-            format={(v) => (v <= 0.2 ? 'sem desfoque' : `${v.toFixed(1)} px`)}
+            format={(v) => (v <= 0.2 ? "sem desfoque" : `${v.toFixed(1)} px`)}
           />
           <SliderRow
             label="Clarear / escurecer"
             value={bg.imageBright * 100}
             min={50}
             max={160}
-            onChange={(v) => patch('bg', { imageBright: v / 100 })}
+            onChange={(v) => patch("bg", { imageBright: v / 100 })}
             defaultValue={100}
-            format={(v) => (v === 100 ? 'normal' : v > 100 ? `+${Math.round(v - 100)}% claro` : `${Math.round(100 - v)}% escuro`)}
+            format={(v) =>
+              v === 100
+                ? "normal"
+                : v > 100
+                  ? `+${Math.round(v - 100)}% claro`
+                  : `${Math.round(100 - v)}% escuro`
+            }
           />
           <ToggleRow
             label="Combinar luz com o fundo"
             checked={bg.matchLight}
-            onChange={(v) => patch('bg', { matchLight: v })}
+            onChange={(v) => patch("bg", { matchLight: v })}
           />
           <p className="text-[10px] leading-relaxed text-neutral-500">
-            Tinge levemente a iluminação com a cor média da foto — a caneca fica “dentro” do cenário.
+            Tinge levemente a iluminação com a cor média da foto — a caneca fica
+            “dentro” do cenário.
           </p>
-          <MiniButton onClick={() => setBgAdjustMode(!bgAdjustMode)} active={bgAdjustMode} className="w-full">
+          <MiniButton
+            onClick={() => setBgAdjustMode(!bgAdjustMode)}
+            active={bgAdjustMode}
+            className="w-full"
+          >
             <Move className="mr-1 inline h-3 w-3" /> Ajustar fundo no 3D
           </MiniButton>
           {bgAdjustMode && (
             <p className="text-[10px] leading-relaxed text-primary">
-              Modo ativo: arraste direto na cena para posicionar (guia de centro com encaixe magnético). Duplo clique recentra.
+              Modo ativo: arraste direto na cena para posicionar (guia de centro
+              com encaixe magnético). Duplo clique recentra.
             </p>
           )}
         </>
       )}
-      {bg.type === 'transparent' && (
+      {bg.type === "transparent" && (
         <p className="text-[10px] leading-relaxed text-neutral-500">
-          Fundo invisível para exportar PNG/WebP com alfa — a sombra continua sobre a transparência.
+          Fundo invisível para exportar PNG/WebP com alfa — a sombra continua
+          sobre a transparência.
         </p>
       )}
 
-      <p className="pt-1 text-[11px] font-medium text-neutral-400" title="Como a base da cena aparece embaixo da caneca">
+      <p
+        className="pt-1 text-[11px] font-medium text-neutral-400"
+        title="Como a base da cena aparece embaixo da caneca"
+      >
         Base / chão
       </p>
       <div className="grid grid-cols-3 gap-1">
@@ -903,54 +1242,65 @@ export function ScenePanel() {
             key={o.value}
             type="button"
             title={o.title}
-            onClick={() => patch('bg', { floor: o.value })}
+            onClick={() => patch("bg", { floor: o.value })}
             className={cn(
-              'rounded-lg border px-1 py-2 text-[10px] font-bold transition-all',
-              (bg.floor ?? 'continuo') === o.value
-                ? 'border-primary/60 bg-primary/15 text-primary'
-                : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+              "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
+              (bg.floor ?? "continuo") === o.value
+                ? "border-primary/60 bg-primary/15 text-primary"
+                : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
             )}
           >
             {o.label}
           </button>
         ))}
       </div>
-      {(bg.floor ?? 'continuo') === 'base-redonda' && (
+      {(bg.floor ?? "continuo") === "base-redonda" && (
         <p className="text-[10px] leading-relaxed text-neutral-500">
-          Prato redondo de cerâmica clara sob a caneca — look de loja de produtos artesanais.
+          Prato redondo de cerâmica clara sob a caneca — look de loja de
+          produtos artesanais.
         </p>
       )}
-      {(bg.floor ?? 'continuo') === 'base-quadrada' && (
+      {(bg.floor ?? "continuo") === "base-quadrada" && (
         <p className="text-[10px] leading-relaxed text-neutral-500">
-          Placa quadrada com cantos arredondados — o clássico dos mockups premium.
+          Placa quadrada com cantos arredondados — o clássico dos mockups
+          premium.
         </p>
       )}
-      {(bg.floor ?? 'continuo') === 'pedestal' && (
+      {(bg.floor ?? "continuo") === "pedestal" && (
         <p className="text-[10px] leading-relaxed text-neutral-500">
           Pódium escuro elevado — destaque de vitrine.
         </p>
       )}
-      {(bg.floor ?? 'continuo') === 'flutuante' && (
+      {(bg.floor ?? "continuo") === "flutuante" && (
         <ToggleRow
           label="Flutuar suavemente"
           checked={bg.floatAnim}
-          onChange={(v) => patch('bg', { floatAnim: v })}
+          onChange={(v) => patch("bg", { floatAnim: v })}
         />
       )}
-      {(bg.floor ?? 'continuo') === 'flutuante' && (
+      {(bg.floor ?? "continuo") === "flutuante" && (
         <p className="text-[10px] leading-relaxed text-neutral-500">
-          Sem chão: a sombra vira um borrão suave no ar — quanto mais alta a caneca, mais difusa. As exportações saem paradas.
+          Sem chão: a sombra vira um borrão suave no ar — quanto mais alta a
+          caneca, mais difusa. As exportações saem paradas.
         </p>
       )}
-      {(bg.type === 'studio-dark' || bg.type === 'solid') && (
+      {(bg.type === "studio-dark" || bg.type === "solid") && (
         <ToggleRow
           label="Brilho suave atrás da caneca"
           checked={bg.glow ?? false}
-          onChange={(v) => patch('bg', { glow: v })}
+          onChange={(v) => patch("bg", { glow: v })}
         />
       )}
-      <ToggleRow label="Sombra de contato" checked={bg.contactShadow} onChange={(v) => patch('bg', { contactShadow: v })} />
-      <ToggleRow label="Sombra projetada" checked={bg.castShadow} onChange={(v) => patch('bg', { castShadow: v })} />
+      <ToggleRow
+        label="Sombra de contato"
+        checked={bg.contactShadow}
+        onChange={(v) => patch("bg", { contactShadow: v })}
+      />
+      <ToggleRow
+        label="Sombra projetada"
+        checked={bg.castShadow}
+        onChange={(v) => patch("bg", { castShadow: v })}
+      />
     </Section>
   );
 }
@@ -967,23 +1317,69 @@ export function LightPanel() {
         {LIGHT_PRESETS.map((p) => (
           <button
             key={p.id}
-            onClick={() => patch('light', { preset: p.id })}
+            onClick={() => patch("light", { preset: p.id })}
             className={cn(
-              'rounded-lg border px-2 py-2 text-[10px] font-bold transition-all',
+              "rounded-lg border px-2 py-2 text-[10px] font-bold transition-all",
               light.preset === p.id
-                ? 'border-primary/60 bg-primary/15 text-primary'
-                : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+                ? "border-primary/60 bg-primary/15 text-primary"
+                : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
             )}
           >
             {p.label}
           </button>
         ))}
       </div>
-      <SliderRow label="Intensidade geral" value={light.intensity * 100} min={20} max={200} onChange={(v) => patch('light', { intensity: v / 100 })} defaultValue={100} format={(v) => `${Math.round(v)}%`} />
-      <SliderRow label="Cor da luz" value={light.temperature} min={-2500} max={2500} onChange={(v) => patch('light', { temperature: v })} defaultValue={0} format={(v) => (v === 0 ? 'neutra' : v > 0 ? `+${Math.round(v)} K (mais quente)` : `${Math.round(v)} K (mais fria)`)} />
-      <SliderRow label="Girar o estúdio" value={light.rotation} min={0} max={360} onChange={(v) => patch('light', { rotation: v })} defaultValue={0} format={(v) => `${Math.round(v)}°`} />
-      <SliderRow label="Suavidade das sombras" value={light.softness * 100} min={0} max={100} onChange={(v) => patch('light', { softness: v / 100 })} defaultValue={50} format={(v) => `${Math.round(v)}%`} />
-      <SliderRow label="Reflexos do estúdio" value={light.envIntensity * 100} min={0} max={200} onChange={(v) => patch('light', { envIntensity: v / 100 })} defaultValue={100} format={(v) => `${Math.round(v)}%`} />
+      <SliderRow
+        label="Intensidade geral"
+        value={light.intensity * 100}
+        min={20}
+        max={200}
+        onChange={(v) => patch("light", { intensity: v / 100 })}
+        defaultValue={100}
+        format={(v) => `${Math.round(v)}%`}
+      />
+      <SliderRow
+        label="Cor da luz"
+        value={light.temperature}
+        min={-2500}
+        max={2500}
+        onChange={(v) => patch("light", { temperature: v })}
+        defaultValue={0}
+        format={(v) =>
+          v === 0
+            ? "neutra"
+            : v > 0
+              ? `+${Math.round(v)} K (mais quente)`
+              : `${Math.round(v)} K (mais fria)`
+        }
+      />
+      <SliderRow
+        label="Girar o estúdio"
+        value={light.rotation}
+        min={0}
+        max={360}
+        onChange={(v) => patch("light", { rotation: v })}
+        defaultValue={0}
+        format={(v) => `${Math.round(v)}°`}
+      />
+      <SliderRow
+        label="Suavidade das sombras"
+        value={light.softness * 100}
+        min={0}
+        max={100}
+        onChange={(v) => patch("light", { softness: v / 100 })}
+        defaultValue={50}
+        format={(v) => `${Math.round(v)}%`}
+      />
+      <SliderRow
+        label="Reflexos do estúdio"
+        value={light.envIntensity * 100}
+        min={0}
+        max={200}
+        onChange={(v) => patch("light", { envIntensity: v / 100 })}
+        defaultValue={100}
+        format={(v) => `${Math.round(v)}%`}
+      />
     </Section>
   );
 }
@@ -1001,7 +1397,7 @@ export function CameraPanel() {
   const setShowGuides = useMockupStore((s) => s.setShowGuides);
 
   const toggleFullscreen = () => {
-    const el = document.getElementById('mockup-root');
+    const el = document.getElementById("mockup-root");
     if (!document.fullscreenElement) el?.requestFullscreen?.();
     else document.exitFullscreen?.();
   };
@@ -1013,31 +1409,60 @@ export function CameraPanel() {
         value={camera.lens}
         min={24}
         max={100}
-        onChange={(v) => patch('camera', { lens: v })}
+        onChange={(v) => patch("camera", { lens: v })}
         defaultValue={50}
         format={(v) => `${Math.round(v)} mm equivalente`}
       />
       <div className="grid grid-cols-3 gap-1">
         {CAMERA_PRESETS.map((p) => (
-          <MiniButton key={p.id} onClick={() => applyPreset(p)} className="!px-1 !text-[10px]" title={`Ver a caneca de: ${p.label}`}>
+          <MiniButton
+            key={p.id}
+            onClick={() => applyPreset(p)}
+            className="!px-1 !text-[10px]"
+            title={`Ver a caneca de: ${p.label}`}
+          >
             {p.label}
           </MiniButton>
         ))}
       </div>
       <div className="flex gap-1.5">
-        <MiniButton onClick={requestFocus} className="flex-1" title="Aproxima a câmera da caneca">
+        <MiniButton
+          onClick={requestFocus}
+          className="flex-1"
+          title="Aproxima a câmera da caneca"
+        >
           <Crosshair className="mr-1 inline h-3 w-3" /> Focar (F)
         </MiniButton>
-        <MiniButton onClick={() => rotateMug(180)} className="flex-1" title="Mostra o lado de trás da caneca">
+        <MiniButton
+          onClick={() => rotateMug(180)}
+          className="flex-1"
+          title="Mostra o lado de trás da caneca"
+        >
           <RotateCw className="mr-1 inline h-3 w-3" /> Virar
         </MiniButton>
       </div>
-      <MiniButton onClick={frameAll} className="w-full" title="Ajusta a câmera para caber todas as canecas no quadro">
+      <MiniButton
+        onClick={frameAll}
+        className="w-full"
+        title="Ajusta a câmera para caber todas as canecas no quadro"
+      >
         <Move className="mr-1 inline h-3 w-3" /> Enquadrar tudo
       </MiniButton>
-      <ToggleRow label="Giro automático" checked={camera.autoRotate} onChange={(v) => patch('camera', { autoRotate: v })} />
+      <ToggleRow
+        label="Giro automático"
+        checked={camera.autoRotate}
+        onChange={(v) => patch("camera", { autoRotate: v })}
+      />
       {camera.autoRotate && (
-        <SliderRow label="Velocidade do giro" value={camera.autoRotateSpeed} min={0.2} max={6} step={0.1} onChange={(v) => patch('camera', { autoRotateSpeed: v })} defaultValue={1.6} />
+        <SliderRow
+          label="Velocidade do giro"
+          value={camera.autoRotateSpeed}
+          min={0.2}
+          max={6}
+          step={0.1}
+          onChange={(v) => patch("camera", { autoRotateSpeed: v })}
+          defaultValue={1.6}
+        />
       )}
       <ToggleRow
         label="Guias de enquadramento"
@@ -1047,7 +1472,11 @@ export function CameraPanel() {
       <p className="-mt-2 text-[10px] leading-relaxed text-neutral-500">
         Grade de terços para compor a foto como profissional.
       </p>
-      <MiniButton onClick={toggleFullscreen} className="w-full" title="Mostra o estúdio em tela cheia">
+      <MiniButton
+        onClick={toggleFullscreen}
+        className="w-full"
+        title="Mostra o estúdio em tela cheia"
+      >
         <Maximize className="mr-1 inline h-3 w-3" /> Tela cheia
       </MiniButton>
     </Section>
@@ -1056,20 +1485,20 @@ export function CameraPanel() {
 
 /* ---------------- Diálogo de exportação ---------------- */
 
-type ExportTab = 'imagem' | 'video' | 'gif' | 'lote' | 'folha';
+type ExportTab = "imagem" | "video" | "gif" | "lote" | "folha";
 
 const EXPORT_TABS: { id: ExportTab; label: string }[] = [
-  { id: 'imagem', label: 'Imagem' },
-  { id: 'video', label: 'Vídeo' },
-  { id: 'gif', label: 'GIF' },
-  { id: 'lote', label: 'Lote' },
-  { id: 'folha', label: 'Folha' },
+  { id: "imagem", label: "Imagem" },
+  { id: "video", label: "Vídeo" },
+  { id: "gif", label: "GIF" },
+  { id: "lote", label: "Lote" },
+  { id: "folha", label: "Folha" },
 ];
 
 export function ExportDialog() {
   const open = useMockupStore((s) => s.exportOpen);
   const setOpen = useMockupStore((s) => s.setExportOpen);
-  const [tab, setTab] = useState<ExportTab>('imagem');
+  const [tab, setTab] = useState<ExportTab>("imagem");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -1079,7 +1508,8 @@ export function ExportDialog() {
             <Download className="h-4 w-4 text-primary" /> Exportar
           </DialogTitle>
           <DialogDescription className="text-xs text-neutral-400">
-            Imagens em alta resolução, vídeo em MP4, GIF animado, lote em ZIP e a folha de sublimação.
+            Imagens em alta resolução, vídeo em MP4, GIF animado, lote em ZIP e
+            a folha de sublimação.
           </DialogDescription>
         </DialogHeader>
 
@@ -1089,8 +1519,10 @@ export function ExportDialog() {
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                'flex-1 rounded-lg px-1.5 py-2 text-[11px] font-bold transition-all',
-                tab === t.id ? 'bg-primary text-[#1d130d] shadow-sm' : 'text-neutral-400 hover:bg-white/5 hover:text-neutral-200',
+                "flex-1 rounded-lg px-1.5 py-2 text-[11px] font-bold transition-all",
+                tab === t.id
+                  ? "bg-primary text-[#1d130d] shadow-sm"
+                  : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200",
               )}
             >
               {t.label}
@@ -1098,11 +1530,11 @@ export function ExportDialog() {
           ))}
         </div>
 
-        {tab === 'imagem' && <ImageTab />}
-        {tab === 'video' && <VideoTab />}
-        {tab === 'gif' && <GifTab />}
-        {tab === 'lote' && <BatchTab />}
-        {tab === 'folha' && <TemplateTab />}
+        {tab === "imagem" && <ImageTab />}
+        {tab === "video" && <VideoTab />}
+        {tab === "gif" && <GifTab />}
+        {tab === "lote" && <BatchTab />}
+        {tab === "folha" && <TemplateTab />}
       </DialogContent>
     </Dialog>
   );
@@ -1121,14 +1553,23 @@ function ImageTab() {
   const [busy, setBusy] = useState(false);
 
   const ratio = EXPORT_RATIOS.find((r) => r.id === es.ratioId);
-  const width = (es.ratioId === 'custom' ? es.customW : ratio?.w ?? 1080) * es.scale;
-  const height = (es.ratioId === 'custom' ? es.customH : ratio?.h ?? 1080) * es.scale;
+  const width =
+    (es.ratioId === "custom" ? es.customW : (ratio?.w ?? 1080)) * es.scale;
+  const height =
+    (es.ratioId === "custom" ? es.customH : (ratio?.h ?? 1080)) * es.scale;
 
   const estimate = useMemo(() => {
     const px = width * height;
-    const f = es.format === 'png' ? 0.9 : es.format === 'jpeg' ? 0.12 * es.quality : 0.09 * es.quality;
+    const f =
+      es.format === "png"
+        ? 0.9
+        : es.format === "jpeg"
+          ? 0.12 * es.quality
+          : 0.09 * es.quality;
     const bytes = px * f;
-    return bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+    return bytes > 1024 * 1024
+      ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+      : `${Math.round(bytes / 1024)} KB`;
   }, [width, height, es.format, es.quality]);
 
   const doExport = async () => {
@@ -1144,14 +1585,17 @@ function ImageTab() {
       downloadBlob(res.blob, res.filename);
       setOpen(false);
       toast({
-        title: 'Imagem exportada!',
+        title: "Imagem exportada!",
         description: `${res.width} × ${res.height} · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB — pronta para Instagram.`,
       });
     } catch (e) {
       toast({
-        title: 'Falha na exportação',
-        description: e instanceof ExportError ? e.message : 'Erro inesperado ao renderizar a imagem.',
-        variant: 'destructive',
+        title: "Falha na exportação",
+        description:
+          e instanceof ExportError
+            ? e.message
+            : "Erro inesperado ao renderizar a imagem.",
+        variant: "destructive",
       });
     } finally {
       setBusy(false);
@@ -1163,17 +1607,19 @@ function ImageTab() {
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">Proporção</p>
+        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+          Proporção
+        </p>
         <div className="grid grid-cols-3 gap-1.5">
           {EXPORT_RATIOS.map((r) => (
             <button
               key={r.id}
               onClick={() => setExport({ ratioId: r.id })}
               className={cn(
-                'rounded-lg border px-2 py-2 text-[10px] font-bold transition-all',
+                "rounded-lg border px-2 py-2 text-[10px] font-bold transition-all",
                 es.ratioId === r.id
-                  ? 'border-primary/60 bg-primary/15 text-primary'
-                  : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+                  ? "border-primary/60 bg-primary/15 text-primary"
+                  : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
               )}
             >
               {r.label}
@@ -1185,7 +1631,7 @@ function ImageTab() {
         </div>
       </div>
 
-      {es.ratioId === 'custom' && (
+      {es.ratioId === "custom" && (
         <div className="grid grid-cols-2 gap-2">
           <div>
             <p className="mb-1 text-[11px] text-neutral-400">Largura (px)</p>
@@ -1194,7 +1640,14 @@ function ImageTab() {
               value={es.customW}
               min={200}
               max={MAX_EXPORT_PX}
-              onChange={(e) => setExport({ customW: Math.max(200, Math.min(MAX_EXPORT_PX, +e.target.value || 1080)) })}
+              onChange={(e) =>
+                setExport({
+                  customW: Math.max(
+                    200,
+                    Math.min(MAX_EXPORT_PX, +e.target.value || 1080),
+                  ),
+                })
+              }
               className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
             />
           </div>
@@ -1205,7 +1658,14 @@ function ImageTab() {
               value={es.customH}
               min={200}
               max={MAX_EXPORT_PX}
-              onChange={(e) => setExport({ customH: Math.max(200, Math.min(MAX_EXPORT_PX, +e.target.value || 1080)) })}
+              onChange={(e) =>
+                setExport({
+                  customH: Math.max(
+                    200,
+                    Math.min(MAX_EXPORT_PX, +e.target.value || 1080),
+                  ),
+                })
+              }
               className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
             />
           </div>
@@ -1216,10 +1676,10 @@ function ImageTab() {
         label="Qualidade / escala"
         value={String(es.scale)}
         options={[
-          { value: '1', label: '1×' },
-          { value: '2', label: '2× HD' },
-          { value: '3', label: '3×' },
-          { value: '4', label: '4×' },
+          { value: "1", label: "1×" },
+          { value: "2", label: "2× HD" },
+          { value: "3", label: "3×" },
+          { value: "4", label: "4×" },
         ]}
         onChange={(v) => setExport({ scale: Number(v) as 1 | 2 | 3 | 4 })}
       />
@@ -1228,44 +1688,69 @@ function ImageTab() {
         label="Formato"
         value={es.format}
         options={[
-          { value: 'png', label: 'PNG' },
-          { value: 'jpeg', label: 'JPG' },
-          { value: 'webp', label: 'WebP' },
+          { value: "png", label: "PNG" },
+          { value: "jpeg", label: "JPG" },
+          { value: "webp", label: "WebP" },
         ]}
         onChange={(v) => setExport({ format: v })}
       />
 
-      {es.format !== 'png' && (
-        <SliderRow label="Compressão" value={es.quality * 100} min={50} max={100} onChange={(v) => setExport({ quality: v / 100 })} defaultValue={92} format={(v) => `${Math.round(v)}%`} />
+      {es.format !== "png" && (
+        <SliderRow
+          label="Compressão"
+          value={es.quality * 100}
+          min={50}
+          max={100}
+          onChange={(v) => setExport({ quality: v / 100 })}
+          defaultValue={92}
+          format={(v) => `${Math.round(v)}%`}
+        />
       )}
 
-      {es.format !== 'jpeg' && (
-        <ToggleRow label="Sem fundo (PNG transparente)" checked={es.transparent} onChange={(v) => setExport({ transparent: v })} />
+      {es.format !== "jpeg" && (
+        <ToggleRow
+          label="Sem fundo (PNG transparente)"
+          checked={es.transparent}
+          onChange={(v) => setExport({ transparent: v })}
+        />
       )}
 
       <WatermarkBox wm={wm} patch={patch} />
 
       <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[11px]">
         <span className="text-neutral-400">
-          Saída: <strong className="text-neutral-100">{width} × {height} px</strong>
+          Saída:{" "}
+          <strong className="text-neutral-100">
+            {width} × {height} px
+          </strong>
         </span>
         <span className="text-neutral-500">≈ {estimate}</span>
       </div>
 
       {!art.imageId && (
         <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
-          <TriangleAlert className="h-3.5 w-3.5" /> A caneca está sem arte — envie uma imagem ou use o exemplo.
+          <TriangleAlert className="h-3.5 w-3.5" /> A caneca está sem arte —
+          envie uma imagem ou use o exemplo.
         </p>
       )}
       {tooBig && (
         <p className="flex items-center gap-1.5 text-[11px] text-red-400">
-          <TriangleAlert className="h-3.5 w-3.5" /> Reduza a escala: máximo de {MAX_EXPORT_PX} px por lado.
+          <TriangleAlert className="h-3.5 w-3.5" /> Reduza a escala: máximo de{" "}
+          {MAX_EXPORT_PX} px por lado.
         </p>
       )}
 
-      <PrimaryButton onClick={doExport} disabled={busy || tooBig} className="w-full">
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        {busy ? 'Renderizando…' : 'Exportar agora'}
+      <PrimaryButton
+        onClick={doExport}
+        disabled={busy || tooBig}
+        className="w-full"
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Sparkles className="h-4 w-4" />
+        )}
+        {busy ? "Renderizando…" : "Exportar agora"}
       </PrimaryButton>
     </div>
   );
@@ -1277,17 +1762,25 @@ function WatermarkBox({
   wm,
   patch,
 }: {
-  wm: ReturnType<typeof useMockupStore.getState>['watermark'];
-  patch: ReturnType<typeof useMockupStore.getState>['patch'];
+  wm: ReturnType<typeof useMockupStore.getState>["watermark"];
+  patch: ReturnType<typeof useMockupStore.getState>["patch"];
 }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
-      <ToggleRow label="Marca d'água" checked={wm.enabled} onChange={(v) => patch('watermark', { enabled: v })} />
+      <ToggleRow
+        label="Marca d'água"
+        checked={getStudioPlan() === "free" || wm.enabled}
+        onChange={(v) =>
+          patch("watermark", { enabled: getStudioPlan() === "free" || v })
+        }
+      />
       {wm.enabled && (
         <div className="mt-2 space-y-2">
           <input
             value={wm.text}
-            onChange={(e) => patch('watermark', { text: e.target.value.slice(0, 60) })}
+            onChange={(e) =>
+              patch("watermark", { text: e.target.value.slice(0, 60) })
+            }
             placeholder="Texto da marca d'água"
             className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
           />
@@ -1296,18 +1789,20 @@ function WatermarkBox({
             <div className="flex flex-1 gap-1">
               {(
                 [
-                  ['tl', '↑←'],
-                  ['tr', '↑→'],
-                  ['bl', '↓←'],
-                  ['br', '↓→'],
+                  ["tl", "↑←"],
+                  ["tr", "↑→"],
+                  ["bl", "↓←"],
+                  ["br", "↓→"],
                 ] as const
               ).map(([p, icon]) => (
                 <button
                   key={p}
-                  onClick={() => patch('watermark', { position: p })}
+                  onClick={() => patch("watermark", { position: p })}
                   className={cn(
-                    'flex-1 rounded-md border py-1 text-[10px] font-bold transition-all',
-                    wm.position === p ? 'border-primary/60 bg-primary/15 text-primary' : 'border-white/10 text-neutral-400 hover:text-neutral-200',
+                    "flex-1 rounded-md border py-1 text-[10px] font-bold transition-all",
+                    wm.position === p
+                      ? "border-primary/60 bg-primary/15 text-primary"
+                      : "border-white/10 text-neutral-400 hover:text-neutral-200",
                   )}
                 >
                   {icon}
@@ -1315,8 +1810,25 @@ function WatermarkBox({
               ))}
             </div>
           </div>
-          <SliderRow label="Tamanho" value={wm.size * 100} min={1.6} max={6} step={0.1} onChange={(v) => patch('watermark', { size: v / 100 })} defaultValue={2.8} format={(v) => `${v.toFixed(1)}% da largura`} />
-          <SliderRow label="Opacidade" value={wm.opacity * 100} min={10} max={100} onChange={(v) => patch('watermark', { opacity: v / 100 })} defaultValue={70} format={(v) => `${Math.round(v)}%`} />
+          <SliderRow
+            label="Tamanho"
+            value={wm.size * 100}
+            min={1.6}
+            max={6}
+            step={0.1}
+            onChange={(v) => patch("watermark", { size: v / 100 })}
+            defaultValue={2.8}
+            format={(v) => `${v.toFixed(1)}% da largura`}
+          />
+          <SliderRow
+            label="Opacidade"
+            value={wm.opacity * 100}
+            min={10}
+            max={100}
+            onChange={(v) => patch("watermark", { opacity: v / 100 })}
+            defaultValue={70}
+            format={(v) => `${Math.round(v)}%`}
+          />
         </div>
       )}
     </div>
@@ -1335,7 +1847,7 @@ function VideoTab() {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const isMagic = mug.variant === 'magic';
+  const isMagic = mug.variant === "magic";
 
   const doExport = async () => {
     setBusy(true);
@@ -1350,14 +1862,17 @@ function VideoTab() {
       downloadBlob(res.blob, res.filename);
       setOpen(false);
       toast({
-        title: 'Vídeo exportado!',
+        title: "Vídeo exportado!",
         description: `${res.width} × ${res.height} · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB · MP4 (H.264)`,
       });
     } catch (e) {
       toast({
-        title: 'Falha no vídeo',
-        description: e instanceof ExportError ? e.message : 'Erro inesperado ao renderizar o vídeo.',
-        variant: 'destructive',
+        title: "Falha no vídeo",
+        description:
+          e instanceof ExportError
+            ? e.message
+            : "Erro inesperado ao renderizar o vídeo.",
+        variant: "destructive",
       });
     } finally {
       setBusy(false);
@@ -1371,48 +1886,60 @@ function VideoTab() {
         label="Movimento"
         value={video.anim}
         options={[
-          { value: 'giro', label: 'Giro 360°' },
-          { value: 'orbita', label: 'Órbita' },
-          { value: 'zoom', label: 'Zoom' },
-          { value: 'revelacao', label: 'Revelação' },
+          { value: "giro", label: "Giro 360°" },
+          { value: "orbita", label: "Órbita" },
+          { value: "zoom", label: "Zoom" },
+          { value: "revelacao", label: "Revelação" },
         ]}
-        onChange={(v) => patch('video', { anim: v })}
+        onChange={(v) => patch("video", { anim: v })}
       />
-      {video.anim === 'revelacao' && !isMagic && (
+      {video.anim === "revelacao" && !isMagic && (
         <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
-          <TriangleAlert className="h-3.5 w-3.5" /> A revelação térmica exige a caneca mágica (aba Caneca).
+          <TriangleAlert className="h-3.5 w-3.5" /> A revelação térmica exige a
+          caneca mágica (aba Caneca).
         </p>
       )}
-      {bg.type === 'transparent' && (
+      {bg.type === "transparent" && (
         <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
-          <TriangleAlert className="h-3.5 w-3.5" /> Vídeo não tem alfa: com fundo transparente ele sai preto. Escolha um fundo na aba Cena.
+          <TriangleAlert className="h-3.5 w-3.5" /> Vídeo não tem alfa: com
+          fundo transparente ele sai preto. Escolha um fundo na aba Cena.
         </p>
       )}
 
-      <SliderRow label="Duração" value={video.duration} min={3} max={10} onChange={(v) => patch('video', { duration: v })} defaultValue={5} format={(v) => `${v} segundos`} />
+      <SliderRow
+        label="Duração"
+        value={video.duration}
+        min={3}
+        max={10}
+        onChange={(v) => patch("video", { duration: v })}
+        defaultValue={5}
+        format={(v) => `${v} segundos`}
+      />
 
       <Segmented
         label="Quadros por segundo"
         value={String(video.fps)}
         options={[
-          { value: '24', label: '24 fps' },
-          { value: '30', label: '30 fps' },
+          { value: "24", label: "24 fps" },
+          { value: "30", label: "30 fps" },
         ]}
-        onChange={(v) => patch('video', { fps: Number(v) as 24 | 30 })}
+        onChange={(v) => patch("video", { fps: Number(v) as 24 | 30 })}
       />
 
       <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">Resolução</p>
+        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+          Resolução
+        </p>
         <div className="grid grid-cols-2 gap-1.5">
           {Object.entries(VIDEO_RESOLUTIONS).map(([id, r]) => (
             <button
               key={id}
-              onClick={() => patch('video', { res: id as VideoState['res'] })}
+              onClick={() => patch("video", { res: id as VideoState["res"] })}
               className={cn(
-                'rounded-lg border px-2 py-2 text-[10px] font-bold transition-all',
+                "rounded-lg border px-2 py-2 text-[10px] font-bold transition-all",
                 video.res === id
-                  ? 'border-primary/60 bg-primary/15 text-primary'
-                  : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+                  ? "border-primary/60 bg-primary/15 text-primary"
+                  : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
               )}
             >
               {r.label}
@@ -1426,14 +1953,28 @@ function VideoTab() {
 
       <WatermarkBox wm={wm} patch={patch} />
 
-      {busy && <ProgressBar progress={progress} label={`Renderizando ${Math.round(progress * 100)}%`} />}
+      {busy && (
+        <ProgressBar
+          progress={progress}
+          label={`Renderizando ${Math.round(progress * 100)}%`}
+        />
+      )}
 
-      <PrimaryButton onClick={doExport} disabled={busy || (video.anim === 'revelacao' && !isMagic)} className="w-full">
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        {busy ? 'Gravando…' : 'Gerar MP4'}
+      <PrimaryButton
+        onClick={doExport}
+        disabled={busy || (video.anim === "revelacao" && !isMagic)}
+        className="w-full"
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Sparkles className="h-4 w-4" />
+        )}
+        {busy ? "Gravando…" : "Gerar MP4"}
       </PrimaryButton>
       <p className="text-center text-[10px] text-neutral-500">
-        H.264 via WebCodecs — sem upload, tudo no seu dispositivo. Navegadores antigos usam gravação em tempo real.
+        H.264 via WebCodecs — sem upload, tudo no seu dispositivo. Navegadores
+        antigos usam gravação em tempo real.
       </p>
     </div>
   );
@@ -1450,7 +1991,7 @@ function GifTab() {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const isMagic = mug.variant === 'magic';
+  const isMagic = mug.variant === "magic";
 
   const doExport = async () => {
     setBusy(true);
@@ -1465,14 +2006,17 @@ function GifTab() {
       downloadBlob(res.blob, res.filename);
       setOpen(false);
       toast({
-        title: 'GIF exportado!',
+        title: "GIF exportado!",
         description: `${res.width} × ${res.height} · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB · loop infinito`,
       });
     } catch (e) {
       toast({
-        title: 'Falha no GIF',
-        description: e instanceof ExportError ? e.message : 'Erro inesperado ao gerar o GIF.',
-        variant: 'destructive',
+        title: "Falha no GIF",
+        description:
+          e instanceof ExportError
+            ? e.message
+            : "Erro inesperado ao gerar o GIF.",
+        variant: "destructive",
       });
     } finally {
       setBusy(false);
@@ -1486,50 +2030,72 @@ function GifTab() {
         label="Movimento"
         value={gif.anim}
         options={[
-          { value: 'giro', label: 'Giro 360°' },
-          { value: 'orbita', label: 'Órbita' },
-          { value: 'zoom', label: 'Zoom' },
-          { value: 'revelacao', label: 'Revelação' },
+          { value: "giro", label: "Giro 360°" },
+          { value: "orbita", label: "Órbita" },
+          { value: "zoom", label: "Zoom" },
+          { value: "revelacao", label: "Revelação" },
         ]}
-        onChange={(v) => patch('gif', { anim: v })}
+        onChange={(v) => patch("gif", { anim: v })}
       />
-      {gif.anim === 'revelacao' && !isMagic && (
+      {gif.anim === "revelacao" && !isMagic && (
         <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
-          <TriangleAlert className="h-3.5 w-3.5" /> A revelação térmica exige a caneca mágica.
+          <TriangleAlert className="h-3.5 w-3.5" /> A revelação térmica exige a
+          caneca mágica.
         </p>
       )}
 
-      <SliderRow label="Duração" value={gif.duration} min={2} max={8} onChange={(v) => patch('gif', { duration: v })} defaultValue={4} format={(v) => `${v} segundos`} />
+      <SliderRow
+        label="Duração"
+        value={gif.duration}
+        min={2}
+        max={8}
+        onChange={(v) => patch("gif", { duration: v })}
+        defaultValue={4}
+        format={(v) => `${v} segundos`}
+      />
 
       <Segmented
         label="Quadros por segundo"
         value={String(gif.fps)}
         options={[
-          { value: '10', label: '10' },
-          { value: '15', label: '15' },
-          { value: '20', label: '20' },
+          { value: "10", label: "10" },
+          { value: "15", label: "15" },
+          { value: "20", label: "20" },
         ]}
-        onChange={(v) => patch('gif', { fps: Number(v) as 10 | 15 | 20 })}
+        onChange={(v) => patch("gif", { fps: Number(v) as 10 | 15 | 20 })}
       />
 
       <Segmented
         label="Largura"
         value={String(gif.width)}
         options={[
-          { value: '360', label: '360 px' },
-          { value: '480', label: '480 px' },
-          { value: '640', label: '640 px' },
+          { value: "360", label: "360 px" },
+          { value: "480", label: "480 px" },
+          { value: "640", label: "640 px" },
         ]}
-        onChange={(v) => patch('gif', { width: Number(v) as 360 | 480 | 640 })}
+        onChange={(v) => patch("gif", { width: Number(v) as 360 | 480 | 640 })}
       />
 
       <WatermarkBox wm={wm} patch={patch} />
 
-      {busy && <ProgressBar progress={progress} label={`Gerando GIF ${Math.round(progress * 100)}%`} />}
+      {busy && (
+        <ProgressBar
+          progress={progress}
+          label={`Gerando GIF ${Math.round(progress * 100)}%`}
+        />
+      )}
 
-      <PrimaryButton onClick={doExport} disabled={busy || (gif.anim === 'revelacao' && !isMagic)} className="w-full">
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        {busy ? 'Gerando…' : 'Gerar GIF'}
+      <PrimaryButton
+        onClick={doExport}
+        disabled={busy || (gif.anim === "revelacao" && !isMagic)}
+        className="w-full"
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Sparkles className="h-4 w-4" />
+        )}
+        {busy ? "Gerando…" : "Gerar GIF"}
       </PrimaryButton>
     </div>
   );
@@ -1537,7 +2103,16 @@ function GifTab() {
 
 /* ---------- aba lote ---------- */
 
-const BATCH_ANGLE_IDS = ['atual', 'frente', 'tres-quartos', 'costas', 'lateral-esq', 'heroi', 'close-arte', 'topo'];
+const BATCH_ANGLE_IDS = [
+  "atual",
+  "frente",
+  "tres-quartos",
+  "costas",
+  "lateral-esq",
+  "heroi",
+  "close-arte",
+  "topo",
+];
 
 function BatchTab() {
   const mug = useMockupStore((s) => s.mug);
@@ -1546,9 +2121,13 @@ function BatchTab() {
   const patch = useMockupStore((s) => s.patch);
   const setOpen = useMockupStore((s) => s.setExportOpen);
   const { toast } = useToast();
-  const [angles, setAngles] = useState<string[]>(['atual', 'frente', 'tres-quartos']);
-  const [format, setFormat] = useState<'png' | 'jpeg'>('png');
-  const [ratioId, setRatioId] = useState('sq');
+  const [angles, setAngles] = useState<string[]>([
+    "atual",
+    "frente",
+    "tres-quartos",
+  ]);
+  const [format, setFormat] = useState<"png" | "jpeg">("png");
+  const [ratioId, setRatioId] = useState("sq");
   const [transparent, setTransparent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -1570,20 +2149,20 @@ function BatchTab() {
         height: ratio.h,
         format,
         quality: 0.92,
-        transparent: transparent && format === 'png',
+        transparent: transparent && format === "png",
         onProgress: setProgress,
       });
       downloadBlob(res.blob, res.filename);
       setOpen(false);
       toast({
-        title: 'ZIP gerado!',
+        title: "ZIP gerado!",
         description: `${res.count} imagens · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB`,
       });
     } catch (e) {
       toast({
-        title: 'Falha no lote',
-        description: e instanceof ExportError ? e.message : 'Erro inesperado.',
-        variant: 'destructive',
+        title: "Falha no lote",
+        description: e instanceof ExportError ? e.message : "Erro inesperado.",
+        variant: "destructive",
       });
     } finally {
       setBusy(false);
@@ -1594,20 +2173,22 @@ function BatchTab() {
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">Ângulos (escolha vários)</p>
+        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+          Ângulos (escolha vários)
+        </p>
         <div className="grid grid-cols-4 gap-1">
           {BATCH_ANGLE_IDS.map((id) => {
             const p = CAMERA_PRESETS.find((c) => c.id === id);
-            const label = id === 'atual' ? 'Atual' : p?.label ?? id;
+            const label = id === "atual" ? "Atual" : (p?.label ?? id);
             return (
               <button
                 key={id}
                 onClick={() => toggleAngle(id)}
                 className={cn(
-                  'rounded-lg border px-1 py-2 text-[10px] font-bold transition-all',
+                  "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
                   angles.includes(id)
-                    ? 'border-primary/60 bg-primary/15 text-primary'
-                    : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+                    ? "border-primary/60 bg-primary/15 text-primary"
+                    : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
                 )}
               >
                 {label}
@@ -1618,33 +2199,41 @@ function BatchTab() {
       </div>
 
       <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">Variantes</p>
+        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+          Variantes
+        </p>
         <div className="flex flex-wrap gap-1">
           {variants.map((v) => (
-            <span key={v.id} className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-neutral-300">
+            <span
+              key={v.id}
+              className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-neutral-300"
+            >
               {v.label}
             </span>
           ))}
         </div>
-        {mug.variant !== 'magic' && (
+        {mug.variant !== "magic" && (
           <p className="mt-1 text-[10px] text-neutral-500">
-            Dica: com a caneca mágica selecionada o lote sai com as versões fria e quente.
+            Dica: com a caneca mágica selecionada o lote sai com as versões fria
+            e quente.
           </p>
         )}
       </div>
 
       <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">Proporção</p>
+        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+          Proporção
+        </p>
         <div className="grid grid-cols-4 gap-1">
-          {EXPORT_RATIOS.filter((r) => r.id !== 'catalog').map((r) => (
+          {EXPORT_RATIOS.filter((r) => r.id !== "catalog").map((r) => (
             <button
               key={r.id}
               onClick={() => setRatioId(r.id)}
               className={cn(
-                'rounded-lg border px-1 py-2 text-[10px] font-bold transition-all',
+                "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
                 ratioId === r.id
-                  ? 'border-primary/60 bg-primary/15 text-primary'
-                  : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200',
+                  ? "border-primary/60 bg-primary/15 text-primary"
+                  : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
               )}
             >
               {r.label}
@@ -1657,12 +2246,18 @@ function BatchTab() {
         label="Formato"
         value={format}
         options={[
-          { value: 'png', label: 'PNG' },
-          { value: 'jpeg', label: 'JPG' },
+          { value: "png", label: "PNG" },
+          { value: "jpeg", label: "JPG" },
         ]}
         onChange={(v) => setFormat(v)}
       />
-      {format === 'png' && <ToggleRow label="Sem fundo (PNG transparente)" checked={transparent} onChange={setTransparent} />}
+      {format === "png" && (
+        <ToggleRow
+          label="Sem fundo (PNG transparente)"
+          checked={transparent}
+          onChange={setTransparent}
+        />
+      )}
 
       <WatermarkBox wm={wm} patch={patch} />
 
@@ -1671,11 +2266,26 @@ function BatchTab() {
           <TriangleAlert className="h-3.5 w-3.5" /> A caneca está sem arte.
         </p>
       )}
-      {busy && <ProgressBar progress={progress} label={`Renderizando ${Math.round(progress * 100)}%`} />}
+      {busy && (
+        <ProgressBar
+          progress={progress}
+          label={`Renderizando ${Math.round(progress * 100)}%`}
+        />
+      )}
 
-      <PrimaryButton onClick={doExport} disabled={busy || !angles.length || !art.imageId} className="w-full">
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        {busy ? 'Gerando…' : `Exportar ${angles.length * variants.length} imagens em ZIP`}
+      <PrimaryButton
+        onClick={doExport}
+        disabled={busy || !angles.length || !art.imageId}
+        className="w-full"
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Sparkles className="h-4 w-4" />
+        )}
+        {busy
+          ? "Gerando…"
+          : `Exportar ${angles.length * variants.length} imagens em ZIP`}
       </PrimaryButton>
     </div>
   );
@@ -1704,14 +2314,14 @@ function TemplateTab() {
       downloadBlob(res.blob, res.filename);
       setOpen(false);
       toast({
-        title: 'Folha gerada!',
+        title: "Folha gerada!",
         description: `${res.width} × ${res.height} px · ${dpi} DPI — pronta para a prensa.`,
       });
     } catch (e) {
       toast({
-        title: 'Falha na folha',
-        description: e instanceof ExportError ? e.message : 'Erro inesperado.',
-        variant: 'destructive',
+        title: "Falha na folha",
+        description: e instanceof ExportError ? e.message : "Erro inesperado.",
+        variant: "destructive",
       });
     } finally {
       setBusy(false);
@@ -1719,19 +2329,22 @@ function TemplateTab() {
   };
 
   const areaLabel =
-    area.mode === 'forno'
-      ? 'Forno 360° — envolve a caneca toda até a alça'
-      : area.mode === 'alta'
-        ? 'Altura cheia — papel 21×9,7'
-        : area.mode === 'custom'
-          ? 'Medidas personalizadas'
-          : 'Prensa padrão — 20,7 × 8,7 cm';
+    area.mode === "forno"
+      ? "Forno 360° — envolve a caneca toda até a alça"
+      : area.mode === "alta"
+        ? "Altura cheia — papel 21×9,7"
+        : area.mode === "custom"
+          ? "Medidas personalizadas"
+          : "Prensa padrão — 20,7 × 8,7 cm";
 
   return (
     <div className="space-y-4">
       <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] leading-relaxed text-neutral-300">
-        A folha planificada é a arte no tamanho exato de impressão — envie direto para a prensa
-        térmica. Ela segue o <strong className="text-primary">tamanho configurado no painel Arte</strong>
+        A folha planificada é a arte no tamanho exato de impressão — envie
+        direto para a prensa térmica. Ela segue o{" "}
+        <strong className="text-primary">
+          tamanho configurado no painel Arte
+        </strong>
         ({areaLabel}) e os ajustes de escala, posição e repetir.
       </p>
 
@@ -1739,19 +2352,29 @@ function TemplateTab() {
         label="Resolução de impressão"
         value={String(dpi)}
         options={[
-          { value: '300', label: '300 DPI (padrão)' },
-          { value: '600', label: '600 DPI (máx.)' },
+          { value: "300", label: "300 DPI (padrão)" },
+          { value: "600", label: "600 DPI (máx.)" },
         ]}
         onChange={(v) => setDpi(Number(v) as 300 | 600)}
       />
 
-      <ToggleRow label="Guias de corte e margem de segurança" checked={guides} onChange={setGuides} />
+      <ToggleRow
+        label="Guias de corte e margem de segurança"
+        checked={guides}
+        onChange={setGuides}
+      />
 
       <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[11px]">
         <span className="text-neutral-400">
-          Área: <strong className="text-neutral-100">{widthCm.toFixed(1).replace('.', ',')} × {heightCm.toFixed(1).replace('.', ',')} cm</strong>
+          Área:{" "}
+          <strong className="text-neutral-100">
+            {widthCm.toFixed(1).replace(".", ",")} ×{" "}
+            {heightCm.toFixed(1).replace(".", ",")} cm
+          </strong>
         </span>
-        <span className="text-neutral-500">{outW} × {outH} px</span>
+        <span className="text-neutral-500">
+          {outW} × {outH} px
+        </span>
       </div>
 
       {!art.imageId && (
@@ -1760,9 +2383,17 @@ function TemplateTab() {
         </p>
       )}
 
-      <PrimaryButton onClick={doExport} disabled={busy || !art.imageId} className="w-full">
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        {busy ? 'Gerando…' : 'Baixar folha PNG'}
+      <PrimaryButton
+        onClick={doExport}
+        disabled={busy || !art.imageId}
+        className="w-full"
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Sparkles className="h-4 w-4" />
+        )}
+        {busy ? "Gerando…" : "Baixar folha PNG"}
       </PrimaryButton>
     </div>
   );
@@ -1777,7 +2408,10 @@ function ProgressBar({ progress, label }: { progress: number; label: string }) {
         <span>{label}</span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-        <div className="h-full rounded-full bg-primary transition-[width] duration-150" style={{ width: `${Math.max(3, progress * 100)}%` }} />
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-150"
+          style={{ width: `${Math.max(3, progress * 100)}%` }}
+        />
       </div>
     </div>
   );

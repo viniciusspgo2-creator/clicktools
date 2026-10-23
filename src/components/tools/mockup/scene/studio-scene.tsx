@@ -3,19 +3,25 @@
    perda de contexto. Carregado via dynamic import (ssr: false).
    ============================================================ */
 
-'use client';
+"use client";
 
-import { Suspense, useEffect, useState } from 'react';
-import * as THREE from 'three';
-import { Canvas, useThree } from '@react-three/fiber';
-import { StudioLights, Backdrop, Ground, StudioContactShadows, FloatShadows } from './studio';
-import { Mug } from './mug';
-import { ImageBackdrop } from './bg-image';
-import { CameraRig } from './camera-rig';
-import { PostFX } from './postfx';
-import { studioRefs } from './studio-refs';
-import { lensToFov } from '../lib/config';
-import { useMockupStore } from '../state/store';
+import { Suspense, useEffect, useState } from "react";
+import * as THREE from "three";
+import { Canvas, useThree } from "@react-three/fiber";
+import {
+  StudioLights,
+  Backdrop,
+  Ground,
+  StudioContactShadows,
+  FloatShadows,
+} from "./studio";
+import { Mug } from "./mug";
+import { ImageBackdrop } from "./bg-image";
+import { CameraRig } from "./camera-rig";
+import { PostFX } from "./postfx";
+import { studioRefs } from "./studio-refs";
+import { lensToFov, detectMobile } from "../lib/config";
+import { useMockupStore } from "../state/store";
 
 function SceneContent() {
   const gl = useThree((s) => s.gl);
@@ -40,7 +46,7 @@ function SceneContent() {
   // exposição global (vale com e sem pós-processamento)
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability
-    gl.toneMappingExposure = 1.06 * exposure;
+    gl.toneMappingExposure = exposure;
   }, [gl, exposure]);
 
   return (
@@ -64,19 +70,32 @@ export default function StudioCanvas() {
   return (
     <div className="relative h-full w-full">
       <Canvas
-        shadows="soft"
-        dpr={[1, 2]}
+        shadows="variance"
+        dpr={[1, detectMobile() ? 1.5 : 2]}
         frameloop="always"
-        camera={{ position: [0, 5.8, 27], fov: lensToFov(50), near: 0.4, far: 250 }}
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: false }}
+        camera={{
+          position: [0, 16, 43],
+          fov: lensToFov(50),
+          near: 0.4,
+          far: 250,
+        }}
+        gl={{
+          antialias: true,
+          alpha: true,
+          powerPreference: "high-performance",
+          preserveDrawingBuffer: false,
+        }}
         onCreated={({ gl }) => {
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.06;
-          gl.domElement.addEventListener('webglcontextlost', (e) => {
+          gl.toneMapping = THREE.NeutralToneMapping;
+          gl.outputColorSpace = THREE.SRGBColorSpace;
+          gl.toneMappingExposure = 1;
+          gl.domElement.addEventListener("webglcontextlost", (e) => {
             e.preventDefault();
             setContextLost(true);
           });
-          gl.domElement.addEventListener('webglcontextrestored', () => setContextLost(false));
+          gl.domElement.addEventListener("webglcontextrestored", () =>
+            setContextLost(false),
+          );
         }}
       >
         <Suspense fallback={null}>
@@ -87,10 +106,12 @@ export default function StudioCanvas() {
       {contextLost && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="mx-4 max-w-sm rounded-2xl border border-white/10 bg-[#141110] p-6 text-center">
-            <p className="font-display text-base font-bold text-white">Restaurando o 3D…</p>
+            <p className="font-display text-base font-bold text-white">
+              Restaurando o 3D…
+            </p>
             <p className="mt-2 text-sm text-neutral-400">
-              O navegador interrompeu a placa de vídeo momentaneamente. Se a imagem não voltar em alguns
-              segundos, recarregue a página.
+              O navegador interrompeu a placa de vídeo momentaneamente. Se a
+              imagem não voltar em alguns segundos, recarregue a página.
             </p>
           </div>
         </div>

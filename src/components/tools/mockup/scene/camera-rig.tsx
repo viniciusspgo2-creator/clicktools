@@ -3,16 +3,16 @@
    presets com transição animada, foco por duplo clique / tecla F.
    ============================================================ */
 
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
-import { useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { useMockupStore } from '../state/store';
-import { CAMERA_PRESETS, lensToFov } from '../lib/config';
-import { mugsGroup, studioRefs } from './studio-refs';
+import { useEffect, useRef, useState } from "react";
+import * as THREE from "three";
+import { useFrame, useThree } from "@react-three/fiber";
+import { OrbitControls } from "@react-three/drei";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { useMockupStore } from "../state/store";
+import { CAMERA_PRESETS, lensToFov } from "../lib/config";
+import { mugsGroup, studioRefs, visibleMugBounds } from "./studio-refs";
 
 type Anim = {
   fromPos: THREE.Vector3;
@@ -39,17 +39,24 @@ function applyLens(camera: THREE.PerspectiveCamera, lensMm: number) {
 }
 
 /** bounding esférico de todas as canecas (hero + acompanhantes) */
-function mugsBounding(scene: THREE.Scene | undefined): { center: THREE.Vector3; radius: number } {
+function mugsBounding(scene: THREE.Scene | undefined): {
+  center: THREE.Vector3;
+  radius: number;
+} {
   const group = scene ? mugsGroup(scene) : null;
   if (!group) return { center: MUG_CENTER.clone(), radius: MUG_RADIUS };
-  const box = new THREE.Box3().setFromObject(group);
+  const box = visibleMugBounds(scene!);
+  if (box.isEmpty()) return { center: MUG_CENTER.clone(), radius: MUG_RADIUS };
   const sphere = box.getBoundingSphere(new THREE.Sphere());
-  return { center: sphere.center, radius: Math.max(MUG_RADIUS * 0.8, sphere.radius * 1.05) };
+  return {
+    center: sphere.center,
+    radius: Math.max(MUG_RADIUS * 0.8, sphere.radius * 1.05),
+  };
 }
 
 export function CameraRig() {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
-  const gl = useThree((s) => s.gl);
+  const size = useThree((s) => s.size);
   const scene = useThree((s) => s.scene);
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const lens = useMockupStore((s) => s.camera.lens);
@@ -58,7 +65,10 @@ export function CameraRig() {
   const presetRequest = useMockupStore((s) => s.presetRequest);
   const focusNonce = useMockupStore((s) => s.focusNonce);
   const fitNonce = useMockupStore((s) => s.fitNonce);
+  const zoom = useMockupStore((s) => s.zoom);
+  const tool = useMockupStore((s) => s.tool);
   const [anim, setAnim] = useState<Anim | null>(null);
+  const previousSize = useRef<string | null>(null);
 
   // hook de depuração (útil para suporte e testes)
   useEffect(() => {
@@ -78,6 +88,12 @@ export function CameraRig() {
     applyLens(camera, lens);
   }, [camera, lens]);
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability -- Camera is a mutable Three.js engine handle.
+    camera.zoom = zoom / 100;
+    camera.updateProjectionMatrix();
+  }, [camera, zoom]);
+
   // registra handler de foco
   useEffect(() => {
     focusHandler = (point) => {
@@ -86,9 +102,19 @@ export function CameraRig() {
       const target = point ? point.clone() : mugsBounding(scene).center;
       // enquadra a caneca: aproxima ao raio de enquadramento
       const vFov = THREE.MathUtils.degToRad(camera.fov);
-      const dist = mugsBounding(scene).radius / Math.sin(vFov / 2) * 0.72;
-      const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-      const pos = target.clone().add(dir.multiplyScalar(point ? Math.min(dist, camera.position.distanceTo(controls.target)) : dist));
+      const dist = (mugsBounding(scene).radius / Math.sin(vFov / 2)) * 0.72;
+      const dir = new THREE.Vector3()
+        .subVectors(camera.position, controls.target)
+        .normalize();
+      const pos = target
+        .clone()
+        .add(
+          dir.multiplyScalar(
+            point
+              ? Math.min(dist, camera.position.distanceTo(controls.target))
+              : dist,
+          ),
+        );
       setAnim({
         fromPos: camera.position.clone(),
         toPos: pos,
@@ -103,13 +129,19 @@ export function CameraRig() {
     };
   }, [camera, scene]);
 
+  useEffect(() => {
+    if (focusNonce) focusHandler?.(null);
+  }, [focusNonce]);
+
   // preset de câmera
   useEffect(() => {
     if (!presetRequest) return;
     setAnim({
       fromPos: camera.position.clone(),
       toPos: new THREE.Vector3(...presetRequest.pos),
-      fromTarget: controlsRef.current ? controlsRef.current.target.clone() : MUG_CENTER.clone(),
+      fromTarget: controlsRef.current
+        ? controlsRef.current.target.clone()
+        : MUG_CENTER.clone(),
       toTarget: new THREE.Vector3(...presetRequest.target),
       t0: performance.now(),
       dur: 850,
@@ -118,15 +150,24 @@ export function CameraRig() {
 
   // "Enquadrar tudo": aproxima/afasta para o grupo inteiro caber no quadro
   useEffect(() => {
-    if (!fitNonce) return;
+    const sizeKey = `${size.width}x${size.height}`;
+    const resized = previousSize.current !== null && previousSize.current !== sizeKey;
+    const initialMobile = previousSize.current === null && size.width < 600;
+    previousSize.current = sizeKey;
+    if (!fitNonce && !resized && !initialMobile) return;
     const controls = controlsRef.current;
     if (!controls) return;
     const { center, radius } = mugsBounding(scene);
     const vFov = THREE.MathUtils.degToRad(camera.fov);
-    const aspect = (gl.getSize(new THREE.Vector2()).x || 1) / (gl.getSize(new THREE.Vector2()).y || 1);
+    const aspect = (size.width || 1) / (size.height || 1);
     const hHalf = Math.atan(Math.tan(vFov / 2) * aspect);
-    const dist = Math.min(90, (radius / Math.sin(Math.min(vFov / 2, hHalf))) * 1.12);
-    const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+    const dist = Math.min(
+      270,
+      (radius / Math.sin(Math.min(vFov / 2, hHalf))) * 1.12,
+    );
+    const dir = new THREE.Vector3()
+      .subVectors(camera.position, controls.target)
+      .normalize();
     setAnim({
       fromPos: camera.position.clone(),
       toPos: center.clone().addScaledVector(dir, dist),
@@ -135,7 +176,7 @@ export function CameraRig() {
       t0: performance.now(),
       dur: 800,
     });
-  }, [fitNonce, scene, camera]);
+  }, [fitNonce, scene, camera, size.width, size.height]);
 
   useFrame(() => {
     const controls = controlsRef.current;
@@ -166,9 +207,14 @@ export function CameraRig() {
       enableDamping
       dampingFactor={0.08}
       enablePan
+      mouseButtons={{
+        LEFT: tool === "pan" ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN,
+      }}
       screenSpacePanning
       minDistance={6.5}
-      maxDistance={95}
+      maxDistance={280}
       maxPolarAngle={1.54}
       autoRotate={autoRotate && !anim}
       autoRotateSpeed={autoRotateSpeed}

@@ -9,13 +9,20 @@
      (0,5 mm), o que elimina qualquer faixa esmaecida na borda.
    ============================================================ */
 
-import * as THREE from 'three';
-import { MUG, V_EXT, V_INT, texV, type PrintArea } from '../lib/config';
+import * as THREE from "three";
+import { MUG, V_EXT, V_INT, texV, type PrintArea } from "../lib/config";
 
 type P = [number, number]; // [raio, y]
 
 /** pontos de um arco (circular), de a0 a a1 inclusive */
-function arcPoints(cx: number, cy: number, r: number, a0: number, a1: number, n: number): P[] {
+function arcPoints(
+  cx: number,
+  cy: number,
+  r: number,
+  a0: number,
+  a1: number,
+  n: number,
+): P[] {
   const pts: P[] = [];
   for (let i = 0; i <= n; i++) {
     const a = a0 + ((a1 - a0) * i) / n;
@@ -130,7 +137,7 @@ function getHandleCurve(): THREE.CatmullRomCurve3 {
         new THREE.Vector3(0, 2.2, -3.75),
       ],
       false,
-      'catmullrom',
+      "catmullrom",
       0.5,
     );
   }
@@ -189,7 +196,11 @@ export function buildHandleGeometry(): THREE.BufferGeometry {
       );
       positions.push(v.x, v.y, v.z);
       // normal aproximada
-      const n = new THREE.Vector3(ox / (aX * aX), (perp.y * on) / (bN * bN), (perp.z * on) / (bN * bN)).normalize();
+      const n = new THREE.Vector3(
+        ox / (aX * aX),
+        (perp.y * on) / (bN * bN),
+        (perp.z * on) / (bN * bN),
+      ).normalize();
       normals.push(n.x, n.y, n.z);
       uvs.push(j / radial, t);
     }
@@ -204,9 +215,9 @@ export function buildHandleGeometry(): THREE.BufferGeometry {
   }
 
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geo.setIndex(indices);
   return geo;
 }
@@ -215,7 +226,10 @@ export function buildHandleGeometry(): THREE.BufferGeometry {
  * Pedestal redondo premium com bordas arredondadas (bevel) — usado no
  * modo de chão "Podium". O raio acompanha o tamanho do grupo de canecas.
  */
-export function buildPedestalGeometry(radius: number, height: number): THREE.BufferGeometry {
+export function buildPedestalGeometry(
+  radius: number,
+  height: number,
+): THREE.BufferGeometry {
   const bev = Math.min(0.24, height * 0.3, radius * 0.12);
   const r = Math.max(3, radius);
   const pts: THREE.Vector2[] = [
@@ -233,7 +247,10 @@ export function buildPedestalGeometry(radius: number, height: number): THREE.Buf
 }
 
 /** prato redondo de cerâmica (base redonda) */
-export function buildRoundPlateGeometry(radius: number, height: number): THREE.BufferGeometry {
+export function buildRoundPlateGeometry(
+  radius: number,
+  height: number,
+): THREE.BufferGeometry {
   const bev = Math.min(0.22, height * 0.35);
   const r = Math.max(4.5, radius);
   const pts: THREE.Vector2[] = [
@@ -251,7 +268,10 @@ export function buildRoundPlateGeometry(radius: number, height: number): THREE.B
 }
 
 /** placa quadrada com cantos arredondados (base quadrada) */
-export function buildSquarePlateGeometry(size: number, height: number): THREE.BufferGeometry {
+export function buildSquarePlateGeometry(
+  size: number,
+  height: number,
+): THREE.BufferGeometry {
   const half = Math.max(5, size) / 2;
   const bev = Math.min(0.28, height * 0.42);
   const shape = new THREE.Shape();
@@ -277,7 +297,11 @@ export function buildSquarePlateGeometry(size: number, height: number): THREE.Bu
   // normaliza: assenta no chão (y: 0..height) e centra em XZ
   geo.computeBoundingBox();
   const bb = geo.boundingBox!;
-  geo.translate(-((bb.max.x + bb.min.x) / 2), -bb.min.y, -((bb.max.z + bb.min.z) / 2));
+  geo.translate(
+    -((bb.max.x + bb.min.x) / 2),
+    -bb.min.y,
+    -((bb.max.z + bb.min.z) / 2),
+  );
   geo.computeVertexNormals();
   return geo;
 }

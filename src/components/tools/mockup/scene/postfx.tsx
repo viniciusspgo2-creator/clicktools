@@ -4,28 +4,98 @@
    Montado somente quando fx.enabled (assumindo o render loop).
    ============================================================ */
 
-'use client';
+"use client";
 
-import { useEffect, useMemo } from 'react';
-import * as THREE from 'three';
-import { useFrame, useThree } from '@react-three/fiber';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { useMockupStore, type FxState } from '../state/store';
-import { studioRefs } from './studio-refs';
+import { useEffect, useMemo } from "react";
+import * as THREE from "three";
+import { useFrame, useThree } from "@react-three/fiber";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { useMockupStore, type FxState } from "../state/store";
+import { studioRefs } from "./studio-refs";
 
 /* ---------------- LUT presets ---------------- */
 
-export const FX_LUTS: { id: FxState['lut']; label: string; patch: Partial<FxState> }[] = [
-  { id: 'none', label: 'Nenhum', patch: { contrast: 0, saturation: 0, temperature: 0, vignette: 0, bloom: 0, grain: 0 } },
-  { id: 'vivo', label: 'Vivo', patch: { contrast: 0.12, saturation: 0.28, temperature: 0.04, vignette: 0.12, bloom: 0.12, grain: 0 } },
-  { id: 'quente', label: 'Quente', patch: { contrast: 0.08, saturation: 0.16, temperature: 0.35, vignette: 0.2, bloom: 0.1, grain: 0.04 } },
-  { id: 'frio', label: 'Frio', patch: { contrast: 0.1, saturation: 0.05, temperature: -0.35, vignette: 0.18, bloom: 0.08, grain: 0.04 } },
-  { id: 'cinema', label: 'Cinema', patch: { contrast: 0.18, saturation: -0.12, temperature: -0.08, vignette: 0.35, bloom: 0.16, grain: 0.16 } },
-  { id: 'pb', label: 'P&B', patch: { contrast: 0.2, saturation: -1, temperature: 0, vignette: 0.3, bloom: 0.1, grain: 0.18 } },
+export const FX_LUTS: {
+  id: FxState["lut"];
+  label: string;
+  patch: Partial<FxState>;
+}[] = [
+  {
+    id: "none",
+    label: "Nenhum",
+    patch: {
+      contrast: 0,
+      saturation: 0,
+      temperature: 0,
+      vignette: 0,
+      bloom: 0,
+      grain: 0,
+    },
+  },
+  {
+    id: "vivo",
+    label: "Vivo",
+    patch: {
+      contrast: 0.12,
+      saturation: 0.28,
+      temperature: 0.04,
+      vignette: 0.12,
+      bloom: 0.12,
+      grain: 0,
+    },
+  },
+  {
+    id: "quente",
+    label: "Quente",
+    patch: {
+      contrast: 0.08,
+      saturation: 0.16,
+      temperature: 0.35,
+      vignette: 0.2,
+      bloom: 0.1,
+      grain: 0.04,
+    },
+  },
+  {
+    id: "frio",
+    label: "Frio",
+    patch: {
+      contrast: 0.1,
+      saturation: 0.05,
+      temperature: -0.35,
+      vignette: 0.18,
+      bloom: 0.08,
+      grain: 0.04,
+    },
+  },
+  {
+    id: "cinema",
+    label: "Cinema",
+    patch: {
+      contrast: 0.18,
+      saturation: -0.12,
+      temperature: -0.08,
+      vignette: 0.35,
+      bloom: 0.16,
+      grain: 0.16,
+    },
+  },
+  {
+    id: "pb",
+    label: "P&B",
+    patch: {
+      contrast: 0.2,
+      saturation: -1,
+      temperature: 0,
+      vignette: 0.3,
+      bloom: 0.1,
+      grain: 0.18,
+    },
+  },
 ];
 
 /* ---------------- shader de grading ---------------- */
@@ -105,7 +175,12 @@ export function PostFX() {
   const passes = useMemo(() => {
     const composer = new EffectComposer(gl);
     const renderPass = new RenderPass(scene, camera);
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.35, 0.55, 1.0);
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(512, 512),
+      0.35,
+      0.55,
+      1.0,
+    );
     const gradePass = new ShaderPass(GradeShader);
     const outputPass = new OutputPass();
     composer.addPass(renderPass);
@@ -151,7 +226,15 @@ export function PostFX() {
     passes.bloomPass.threshold = 1.0;
     passes.bloomPass.enabled = fx.bloom > 0.005;
     /* eslint-enable react-hooks/immutability */
-  }, [passes, fx.contrast, fx.saturation, fx.temperature, fx.vignette, fx.grain, fx.bloom]);
+  }, [
+    passes,
+    fx.contrast,
+    fx.saturation,
+    fx.temperature,
+    fx.vignette,
+    fx.grain,
+    fx.bloom,
+  ]);
 
   // assume o render loop (priority 1 desativa o render automático do R3F)
   useFrame((_, delta) => {
