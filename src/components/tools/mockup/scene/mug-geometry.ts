@@ -43,6 +43,21 @@ const WALL_KNOTS: P[] = [
   [4.115, 9.35],
 ];
 
+/** Perfis independentes para cada família de caneca.
+ * Cada perfil controla as dimensões de base, parede e boca.
+ */
+export type CeramicProfile = "classic" | "square" | "cone" | "beer" | "latte" | "tea";
+export function profileRadius(model: CeramicProfile, t: number): number {
+  const clamped = Math.max(0, Math.min(1, t));
+  switch (model) {
+    case "cone": return 3.08 + 1.12 * clamped;
+    case "beer": return 4.28 + 0.26 * Math.pow(clamped, 3);
+    case "latte": return 3.0 + 1.88 * Math.pow(clamped, 0.93);
+    case "tea": return 4.06 + 0.75 * clamped;
+    default: return 3.9 + 0.215 * clamped;
+  }
+}
+
 /**
  * Perfil do corpo, do centro do fundo externo, subindo pela parede,
  * passando pela borda e descendo pelo interior. Pontos duplicados criam
@@ -54,33 +69,35 @@ const WALL_KNOTS: P[] = [
  * textura. Era isso que causava as faixas coloridas (um anel de 0,05 mm
  * esticava toda a textura numa linha fina).
  */
-function bodyProfile(): { pts: P[]; iWall0: number; iArcEnd: number } {
+function bodyProfile(model: CeramicProfile): { pts: P[]; iWall0: number; iArcEnd: number } {
   const pts: P[] = [];
-  // ---- fundo externo rebaixado + pé ----
-  pts.push([0, MUG.footH]); // centro recesso
-  pts.push([3.3, MUG.footH]);
-  pts.push([3.52, MUG.footH]); // canto interno do anel
-  pts.push([3.72, 0.08]); // chanfro do pé
-  pts.push([MUG.bottomOuterR, 0]); // borda de contato com o chão (aresta viva)
+  // Base lisa e fechada, sem anel ou relevo.
+  const baseR = profileRadius(model, 0);
+  pts.push([0, 0.025]);
+  pts.push([baseR * 0.85, 0.025]);
+  pts.push([baseR * 0.943, 0.025]);
+  pts.push([baseR * 0.982, 0.07]);
+  pts.push([baseR, 0.16]);
   // duplicata: a partir daqui o UV segue a altura (a arte pode envolver o chanfro do pé)
   const iWall0 = pts.length;
-  pts.push([MUG.bottomOuterR, 0]);
-  // ---- parede externa ----
-  pts.push(...WALL_KNOTS);
-  // ---- borda arredondada (raio ~0.155), de (4.115, 9.35) até (3.805, 9.35) ----
-  pts.push(...arcPoints(3.96, 9.35, 0.155, 0, Math.PI, 12).slice(1));
+  pts.push([baseR, 0.16]);
+  // ---- paredes externas independentes por tipo de cerâmica ----
+  pts.push(...WALL_KNOTS.map(([, y]) => [profileRadius(model, y / 9.35), y] as P));
+  // Borda esmaltada com raio de ~1,55 mm e parede de ~3,1 mm.
+  const topR = profileRadius(model, 1);
+  pts.push(...arcPoints(topR - 0.155, 9.35, 0.155, 0, Math.PI, 12).slice(1));
   const iArcEnd = pts.length - 1;
-  pts.push([3.805, 9.35]); // duplicata: aresta de comprimento zero (UV exterior → interior)
-  // ---- parede interna ----
-  pts.push([3.8, 8.4]);
-  pts.push([3.78, 6.0]);
-  pts.push([3.74, 3.4]);
-  pts.push([3.7, 1.7]);
+  pts.push([topR - 0.31, 9.35]); // UV constante no interior
+  // ---- parede interna segue o perfil externo, mantendo espessura física ----
+  pts.push([profileRadius(model, 8.4 / 9.35) - 0.34, 8.4]);
+  pts.push([profileRadius(model, 6.0 / 9.35) - 0.34, 6.0]);
+  pts.push([profileRadius(model, 3.4 / 9.35) - 0.34, 3.4]);
+  pts.push([profileRadius(model, 1.7 / 9.35) - 0.34, 1.7]);
   // ---- canto interno e piso interno ----
-  pts.push([3.52, 1.02]);
-  pts.push([3.0, 0.92]);
-  pts.push([2.0, 0.9]);
-  pts.push([1.0, 0.9]);
+  pts.push([baseR - 0.52, 1.02]);
+  pts.push([Math.max(0.5, baseR - 1), 0.92]);
+  pts.push([Math.max(0.5, baseR - 2), 0.9]);
+  pts.push([Math.max(0.5, baseR - 3), 0.9]);
   pts.push([0, 0.9]);
   return { pts, iWall0, iArcEnd };
 }
@@ -89,8 +106,8 @@ function bodyProfile(): { pts: P[]; iWall0: number; iArcEnd: number } {
  * @param _area mantido por compatibilidade: a geometria NÃO depende mais da
  * área de impressão (a arte é limitada pela textura, não pelo modelo 3D).
  */
-export function buildMugBodyGeometry(_area?: PrintArea): THREE.BufferGeometry {
-  const { pts, iWall0, iArcEnd } = bodyProfile();
+export function buildMugBodyGeometry(_area?: PrintArea, model: CeramicProfile = "classic"): THREE.BufferGeometry {
+  const { pts, iWall0, iArcEnd } = bodyProfile(model);
   const N = pts.length;
   const geo = new THREE.LatheGeometry(
     pts.map(([r, y]) => new THREE.Vector2(Math.max(r, 0.0001), y)),
@@ -145,8 +162,8 @@ function getHandleCurve(): THREE.CatmullRomCurve3 {
 }
 
 /** semi-eixos da seção elíptica da alça */
-export const HANDLE_A_X = 0.5; // largura (X)
-export const HANDLE_B_N = 0.37; // espessura no plano da curva
+export const HANDLE_A_X = 0.76; // largura (X)
+export const HANDLE_B_N = 0.57; // espessura no plano da curva
 
 /** Caixa real da alça: alcance máximo a partir do centro da caneca (cm) */
 let handleExtentCache: number | null = null;
@@ -165,8 +182,8 @@ export function handleExtentR(): number {
 export function buildHandleGeometry(): THREE.BufferGeometry {
   const curve = getHandleCurve();
 
-  const tubular = 72;
-  const radial = 22;
+  const tubular = 112;
+  const radial = 32;
   const aX = HANDLE_A_X;
   const bN = HANDLE_B_N;
 

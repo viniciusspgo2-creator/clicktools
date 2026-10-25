@@ -1,6 +1,6 @@
 'use client';
 
-import { MessageCircle, Instagram, ExternalLink, Heart, BookOpen, ShieldCheck } from 'lucide-react';
+import { MessageCircle, Instagram, Facebook, ExternalLink, Heart, BookOpen, ShieldCheck } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -36,6 +36,10 @@ export function Footer() {
                 className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3.5 py-1.5 text-xs font-medium text-primary transition-all hover:bg-primary/20 active:scale-95"
               >
                 <Instagram className="h-3.5 w-3.5" /> @clickgruda.digital
+              </a>
+              <a href="https://www.facebook.com/artesparacanecasoficial" target="_blank" rel="noopener noreferrer" aria-label="Facebook Click&Gruda"
+                className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3.5 py-1.5 text-xs font-medium text-primary transition-all hover:bg-primary/20 active:scale-95">
+                <Facebook className="h-3.5 w-3.5" /> Facebook Click&Gruda
               </a>
               <a
                 href="https://instagram.com/playmedia.hub"

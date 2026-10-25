@@ -37,6 +37,13 @@ import {
   Check,
   Camera,
   Lightbulb,
+  RotateCcw,
+  SlidersHorizontal,
+  Palette,
+  Sparkles,
+  Facebook,
+  Instagram,
+  Search,
 } from "lucide-react";
 import { useMockupStore, type MugState, type ArtState } from "../state/store";
 import { useToolsStore } from "@/lib/tools-store";
@@ -50,7 +57,7 @@ import {
 import { FXPanel, MultiMugPanel } from "./panels-extra";
 import { Section, ColorRow, SliderRow, ToggleRow } from "./controls";
 import { MODELS } from "../scene/model-geometry";
-import { CAMERA_PRESETS, FLOOR_OPTIONS } from "../lib/config";
+import { CAMERA_PRESETS, FLOOR_OPTIONS, LIGHT_PRESETS } from "../lib/config";
 import { getArtImage, loadArtFile, makeSampleArt } from "../lib/art-registry";
 import { NEUTRAL_ADJUSTMENTS } from "../lib/art-adjustments";
 import { PrintLayersPanel } from "./print-layers-panel";
@@ -64,13 +71,16 @@ import {
 } from "../lib/portable-project";
 import "./workspace.css";
 
-type Tab = "arts" | "backgrounds" | "models" | "layers" | "scene";
+type Tab = "arts" | "backgrounds" | "models" | "layers" | "scene" | "light" | "camera" | "compose" | "effects";
 const NAV = [
-  { id: "arts", label: "Artes", icon: ImagePlus },
-  { id: "backgrounds", label: "Fundos", icon: Images },
-  { id: "models", label: "Bases", icon: Coffee },
-  { id: "layers", label: "Camadas", icon: Layers },
-  { id: "scene", label: "Cena", icon: Lightbulb },
+  { id: "arts", label: "Arte", icon: ImagePlus },
+  { id: "models", label: "Caneca", icon: Coffee },
+  { id: "backgrounds", label: "Cena", icon: Images },
+  { id: "light", label: "Luz e sombra", icon: Sun },
+  { id: "camera", label: "Câmera", icon: Camera },
+  { id: "compose", label: "Compor", icon: Layers },
+  { id: "effects", label: "Efeitos", icon: Palette },
+  { id: "layers", label: "Camadas", icon: SlidersHorizontal },
 ] as const;
 function ToolButton({
   label,
@@ -108,7 +118,12 @@ export function Workspace({
 }) {
   const st = useMockupStore();
   const [tab, setTab] = useState<Tab>("arts");
-  const [light, setLight] = useState(false);
+  const [light, setLight] = useState(true);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [keepArt, setKeepArt] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [resetNotice, setResetNotice] = useState(false);
   const [drawer, setDrawer] = useState<"library" | "properties" | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -119,6 +134,22 @@ export function Workspace({
     active === "hero"
       ? st.art
       : (st.companions.find((c) => c.id === active)?.art ?? st.art);
+  ReactUseEffect(() => {
+    const migrated = (e: Event) => notify((e as CustomEvent<string>).detail);
+    window.addEventListener("cg-mockup-migrated", migrated);
+    return () => window.removeEventListener("cg-mockup-migrated", migrated);
+  // registered once; the notification is not needed during rerenders
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  ReactUseEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault(); setSearchOpen(v => !v);
+      }
+    };
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  }, []);
   const notify = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 4500);
@@ -153,11 +184,11 @@ export function Workspace({
     st.patchObjectArt(active, p);
   }
   return (
-    <div className={`cg-workspace ${light ? "cg-light" : ""}`}>
+    <div className={`cg-workspace ${light ? "cg-light" : "cg-dark"}`}>
       <header className="cg-topbar">
         <ToolButton
-          label="Voltar às ferramentas"
-          onClick={() => useToolsStore.getState().setActiveTool("inicio")}
+          label="Voltar ao guia"
+          onClick={() => window.location.assign("/mockup-caneca-3d")}
         >
           <ArrowLeft />
         </ToolButton>
@@ -208,6 +239,10 @@ export function Workspace({
             +
           </button>
         </div>
+        <a className="cg-toplink" href="https://clickgruda.vercel.app/" target="_blank" rel="noopener noreferrer" title="Biblioteca de artes">Biblioteca</a>
+        <a className="cg-top-social" href="https://instagram.com/clickgruda.digital" target="_blank" rel="noopener noreferrer" aria-label="Instagram Click&Gruda"><Instagram /></a>
+        <a className="cg-top-social" href="https://www.facebook.com/artesparacanecasoficial" target="_blank" rel="noopener noreferrer" aria-label="Facebook Click&Gruda"><Facebook /></a>
+        <ToolButton label="Buscar ajustes · Ctrl+K" onClick={() => setSearchOpen(true)}><Search /></ToolButton>
         <ToolButton
           label={light ? "Tema escuro" : "Tema claro"}
           onClick={() => setLight(!light)}
@@ -232,6 +267,9 @@ export function Workspace({
         >
           <Save />
         </ToolButton>
+        <button className="cg-reset-btn" onClick={() => setResetOpen(true)} title="Resetar tudo">
+          <RotateCcw /> <span>Resetar tudo</span>
+        </button>
         <button className="cg-export" onClick={() => st.setExportOpen(true)}>
           <Download />
           <span>Exportar</span>
@@ -354,6 +392,20 @@ export function Workspace({
           )}
           {tab === "backgrounds" && (
             <>
+              <Section title="Cenas prontas em 1 clique" icon={Sparkles} defaultOpen>
+                <div className="cg-preset-grid">
+                  {[
+                    {label:"Estúdio branco",bg:{type:"studio-white" as const,floor:"continuo" as const},light:"suave"},
+                    {label:"Estúdio escuro",bg:{type:"studio-dark" as const,floor:"continuo" as const},light:"dramatico"},
+                    {label:"Laranja criativo",bg:{type:"solid" as const,colorA:"#ffb986",floor:"continuo" as const},light:"quente"},
+                    {label:"Fundo transparente",bg:{type:"transparent" as const,floor:"continuo" as const},light:"suave"},
+                  ].map(scene => <button key={scene.label} type="button" onClick={() => {
+                    st.patch("bg", {...scene.bg,imageId:null});
+                    const found = LIGHT_PRESETS.find(l=>l.id===scene.light);
+                    if(found) st.patch("light",{preset:found.id});
+                  }}>{scene.label}</button>)}
+                </div>
+              </Section>
               <PremiumBackgrounds notify={notify} />
               <ScenePanel />
             </>
@@ -363,6 +415,17 @@ export function Workspace({
               <p className="cg-hint">
                 Escolha a forma da peça selecionada. A arte acompanha a mudança.
               </p>
+              <Section title="Cores prontas" icon={Palette} defaultOpen>
+                <div className="cg-preset-grid">
+                  {[
+                    { label: "Branca clássica", patch: {variant:"white" as const,bodyColor:"#ffffff",handleColor:"#ffffff",interiorColor:"#ffffff",roughness:0.18}},
+                    { label: "Alça colorida", patch: {variant:"accent" as const,bodyColor:"#ffffff",handleColor:"#e44837",interiorColor:"#e44837",accentColor:"#e44837"}},
+                    { label: "Toda colorida", patch: {variant:"accent" as const,bodyColor:"#325aaf",handleColor:"#325aaf",interiorColor:"#325aaf",accentColor:"#325aaf"}},
+                    { label: "Preta fosca", patch: {variant:"accent" as const,bodyColor:"#202024",handleColor:"#202024",interiorColor:"#202024",roughness:0.68}},
+                    { label: "Mágica", patch: {variant:"magic" as const,bodyColor:"#18181b",handleColor:"#121216",interiorColor:"#121216",magicHeat:0.2}},
+                  ].map(v => <button key={v.label} type="button" onClick={() => st.patchObject(active,v.patch)}>{v.label}</button>)}
+                </div>
+              </Section>
               <div className="cg-model-grid">
                 {MODELS.map((m) => (
                   <button
@@ -372,7 +435,7 @@ export function Workspace({
                   >
                     <Coffee
                       style={{
-                        transform: `scale(${m.id === "tea" ? "1.25,.8" : m.id === "long" || m.id === "squeeze" ? ".75,1.35" : "1"})`,
+                        transform: m.id === "tea" ? "scale(1.25,.8)" : "none",
                       }}
                     />
                     <strong>{m.label}</strong>
@@ -497,18 +560,33 @@ export function Workspace({
               </div>
             </>
           )}
-          {tab === "scene" && (
-            <>
-              <LightPanel />
-              <HDRIPanel />
-              <CameraPanel />
-              <FXPanel />
-              <MultiMugPanel />
-              <button className="cg-secondary" onClick={() => st.resetAll()}>
-                Recomeçar a cena
-              </button>
-            </>
-          )}
+          {tab === "light" && <><LightPanel /><HDRIPanel /></>}
+          {tab === "camera" && <CameraPanel />}
+          {tab === "compose" && <MultiMugPanel />}
+          {tab === "effects" && <>
+            <FXPanel />
+            <Section title="Meus presets (neste navegador)" icon={Save} defaultOpen>
+              <button className="cg-secondary" onClick={() => {
+                try {
+                  const current = {mug:st.mug,light:st.light,bg:st.bg,fx:st.fx};
+                  localStorage.setItem("cg_studio_preset",JSON.stringify(current));notify("Configuração salva neste navegador.");
+                } catch {notify("Não foi possível salvar. Verifique o espaço disponível.")}
+              }}>Salvar minha configuração</button>
+              <button className="cg-secondary" onClick={() => {
+                try {
+                  const stored = localStorage.getItem("cg_studio_preset");
+                  if(!stored) {notify("Nenhum preset salvo ainda.");return;}
+                  const parsed = JSON.parse(stored);
+                  if(parsed.mug) st.patch("mug",parsed.mug);
+                  if(parsed.light) st.patch("light",parsed.light);
+                  if(parsed.bg) st.patch("bg",parsed.bg);
+                  if(parsed.fx) st.patch("fx",parsed.fx);
+                  notify("Meu preset aplicado.");
+                } catch {notify("Este preset não pôde ser aberto.")}
+              }}>Aplicar meu preset salvo</button>
+            </Section>
+          </>}
+          {tab === "scene" && <><PremiumBackgrounds notify={notify} /><ScenePanel /></>}
         </aside>
         <main className="cg-canvas" aria-label="Canvas 3D">
           <div className="cg-canvas-toolbar">
@@ -845,6 +923,26 @@ export function Workspace({
           )}
         </aside>
       </div>
+      {searchOpen && <div className="cg-search-popover" role="dialog" aria-label="Buscar ajustes">
+        <div className="cg-search-head"><Search /><input autoFocus placeholder="Buscar ajustes: sombra, arte, giro, caneca..." value={query}
+          onChange={e => setQuery(e.target.value)}/><button onClick={() => setSearchOpen(false)} aria-label="Fechar busca"><X /></button></div>
+        <div className="cg-search-results">{NAV.filter(n => !query || n.label.toLowerCase().includes(query.toLowerCase()) ||
+          ({arts:"estampa upload encaixe impressão",models:"caneca cor cerâmica alça interior",backgrounds:"fundo cenário superfície",light:"sombra iluminação hdri",camera:"giro rotação movimento",compose:"duo trio grupo",effects:"cor brilho look",layers:"objeto camada"}[n.id] || "").includes(query.toLowerCase()))
+          .map(n => <button key={n.id} onClick={() => {setTab(n.id);setDrawer("library");setSearchOpen(false);setQuery("");}}><n.icon /> {n.label}</button>)}</div>
+      </div>}
+      {resetOpen && <div className="cg-modal-scrim" role="presentation">
+        <div className="cg-confirm" role="dialog" aria-modal="true" aria-labelledby="cg-reset-title">
+          <span className="cg-confirm-icon"><RotateCcw /></span>
+          <h2 id="cg-reset-title">Voltar tudo ao padrão?</h2>
+          <p>A caneca, a arte, a cena, a luz, a câmera e os efeitos voltam ao início. Seus projetos salvos não serão apagados.</p>
+          <label><input type="checkbox" checked={keepArt} onChange={e => setKeepArt(e.target.checked)}/> Manter a arte que enviei</label>
+          <div className="cg-confirm-actions"><button onClick={() => setResetOpen(false)}>Cancelar</button><button className="is-danger" onClick={() => {
+            st.resetAll(keepArt); setResetOpen(false); setKeepArt(false); setResetNotice(true);
+            window.setTimeout(() => setResetNotice(false), 8000);
+          }}>Resetar tudo</button></div>
+        </div>
+      </div>}
+      {resetNotice && <div className="cg-reset-toast" role="status">Tudo resetado <button onClick={() => { st.undo(); setResetNotice(false); }}>Desfazer</button></div>}
       <footer className="cg-statusbar">
         <button
           onClick={() =>
@@ -854,6 +952,7 @@ export function Workspace({
           {st.camera.autoRotate ? <Pause /> : <Play />}
           {st.camera.autoRotate ? "Pausar giro" : "Girar automaticamente"}
         </button>
+        <a className="cg-guide-status" href="/mockup-caneca-3d">Ver guia rápido</a>
         <span className="cg-shortcuts">
           Shift + clique: seleção múltipla · Ctrl+D: duplicar · Delete: apagar ·
           Ctrl+Z: desfazer

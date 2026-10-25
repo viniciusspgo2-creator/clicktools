@@ -1371,6 +1371,12 @@ export function LightPanel() {
         defaultValue={50}
         format={(v) => `${Math.round(v)}%`}
       />
+      <Section title="Sombras" icon={Lightbulb} defaultOpen>
+        <SliderRow label="Intensidade da sombra" min={0} max={100} value={(light.shadowOpacity ?? 0.44)*100}
+          defaultValue={44} onChange={v => patch("light", {shadowOpacity: v/100})} format={v=>`${Math.round(v)}%`}/>
+        <ColorRow label="Cor da sombra" value={light.shadowColor ?? "#292520"} onChange={v => patch("light", {shadowColor:v})}/>
+        <p className="text-xs text-neutral-500">A sombra acompanha a peça também ao exportar imagem e vídeo, quando habilitada na cena.</p>
+      </Section>
       <SliderRow
         label="Reflexos do estúdio"
         value={light.envIntensity * 100}
@@ -1453,7 +1459,16 @@ export function CameraPanel() {
         checked={camera.autoRotate}
         onChange={(v) => patch("camera", { autoRotate: v })}
       />
-      {camera.autoRotate && (
+      {camera.autoRotate && <>
+        <Segmented label="Sentido" value={camera.direction ?? "right"}
+          options={[{value:"right", label:"Direita"},{value:"left",label:"Esquerda"},{value:"pingpong",label:"Vai e volta"}]}
+          onChange={direction => patch("camera", {direction})}/>
+        <SliderRow label="Segundos por volta" min={3} max={20} step={1}
+          value={camera.secondsPerTurn ?? 8} defaultValue={8}
+          onChange={secondsPerTurn => patch("camera", {secondsPerTurn})}
+          format={v => `${Math.round(v)} s / volta`}/>
+        <div className="flex gap-2">{[4,6,10].map(seconds => <button key={seconds} type="button" className="rounded-lg border px-3 py-2 text-xs" onClick={() => patch("camera", {secondsPerTurn:seconds})}>{seconds}s</button>)}</div>
+        <Section title="Velocidade técnica" icon={Camera}>
         <SliderRow
           label="Velocidade do giro"
           value={camera.autoRotateSpeed}
@@ -1463,7 +1478,8 @@ export function CameraPanel() {
           onChange={(v) => patch("camera", { autoRotateSpeed: v })}
           defaultValue={1.6}
         />
-      )}
+        </Section>
+      </>}
       <ToggleRow
         label="Guias de enquadramento"
         checked={showGuides}
@@ -1847,24 +1863,30 @@ function VideoTab() {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
   const isMagic = mug.variant === "magic";
 
   const doExport = async () => {
     setBusy(true);
     setProgress(0);
+    abortRef.current = new AbortController();
     try {
       const res = await exportVideo(video.res, {
         anim: video.anim,
         duration: video.duration,
         fps: video.fps,
         transparent: video.transparent,
+        quality: video.quality ?? "high",
+        direction: video.direction ?? "right",
+        turns: video.turns ?? 1,
+        signal: abortRef.current.signal,
         onProgress: setProgress,
       });
       downloadBlob(res.blob, res.filename);
       setOpen(false);
       toast({
         title: "Vídeo exportado!",
-        description: `${res.width} × ${res.height} · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB · ${video.transparent ? "WebM com ALFA" : res.mimeType.includes("mp4") ? "MP4 (H.264)" : "WebM"}`,
+        description: `${res.width} × ${res.height} · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB · ${video.transparent ? "WebM com ALFA" : res.mimeType.includes("mp4") ? "MP4 (H.264)" : "WebM"}${res.engine === "mediarecorder" ? " · Qualidade reduzida (navegador sem WebCodecs)" : ""}`,
       });
     } catch (e) {
       toast({
@@ -1876,6 +1898,7 @@ function VideoTab() {
         variant: "destructive",
       });
     } finally {
+      abortRef.current = null;
       setBusy(false);
       setProgress(0);
     }
@@ -1924,20 +1947,40 @@ function VideoTab() {
         label="Duração"
         value={video.duration}
         min={3}
-        max={10}
+        max={20}
         onChange={(v) => patch("video", { duration: v })}
         defaultValue={5}
         format={(v) => `${v} segundos`}
       />
 
+      <div className="flex gap-2 flex-wrap">
+        {[5, 10, 15, 20].map(seconds => (
+          <button key={seconds} type="button" onClick={() => patch("video", { duration: seconds })}
+            className={`rounded-lg px-3 py-2 text-xs border ${video.duration === seconds ? "border-orange-500 bg-orange-100 text-orange-950" : "border-neutral-400/25"}`}>
+            {seconds}s
+          </button>
+        ))}
+      </div>
+      <Segmented label="Qualidade" value={video.quality ?? "high"}
+        options={[{value:"fast",label:"Rápida"},{value:"high",label:"Alta"},{value:"ultra",label:"Ultra"}]}
+        onChange={quality => patch("video", {quality})}/>
+      {video.anim === "giro" && <>
+        <Segmented label="Sentido do giro" value={video.direction ?? "right"}
+          options={[{value:"right",label:"Direita"},{value:"left",label:"Esquerda"},{value:"pingpong",label:"Vai e volta"}]}
+          onChange={direction => patch("video", {direction})}/>
+        <Segmented label="Voltas" value={String(video.turns ?? 1)}
+          options={[{value:"0.5",label:"½"},{value:"1",label:"1"},{value:"2",label:"2"},{value:"3",label:"3"}]}
+          onChange={v => patch("video", {turns: Number(v) as 0.5|1|2|3})}/>
+      </>}
       <Segmented
         label="Quadros por segundo"
         value={String(video.fps)}
         options={[
           { value: "24", label: "24 fps" },
           { value: "30", label: "30 fps" },
+          { value: "60", label: "60 fps" },
         ]}
-        onChange={(v) => patch("video", { fps: Number(v) as 24 | 30 })}
+        onChange={(v) => patch("video", { fps: Number(v) as 24 | 30 | 60 })}
       />
 
       <div>
@@ -1965,6 +2008,14 @@ function VideoTab() {
         </div>
       </div>
 
+      <p className="text-xs font-semibold text-neutral-400">Tamanho previsto: cerca de {(() => {
+        const r = VIDEO_RESOLUTIONS[video.res] ?? VIDEO_RESOLUTIONS.wide;
+        const pixels = r.w * r.h;
+        const factor = video.quality === "ultra" ? 1.15 : video.quality === "fast" ? 0.42 : 0.72;
+        const rate = Math.min(110_000_000, Math.max(pixels>=3840*2160?60_000_000:pixels>=2560*1440?35_000_000:20_000_000,pixels*video.fps*factor));
+        return Math.round(rate * video.duration / 8_000_000);
+      })()} MB (estimativa para MP4; o resultado varia)</p>
+      <p className="text-xs text-neutral-500">4K e 60 fps usam mais memória. Se houver limite no navegador, escolha 2K ou Full HD. O resultado depende da resolução da arte enviada.</p>
       <WatermarkBox wm={wm} patch={patch} />
 
       {busy && (
@@ -1974,6 +2025,7 @@ function VideoTab() {
         />
       )}
 
+      {busy && <button type="button" onClick={() => abortRef.current?.abort()} className="w-full rounded-lg border border-red-400/40 p-2 text-xs text-red-500">Cancelar exportação</button>}
       <PrimaryButton
         onClick={doExport}
         disabled={busy || (video.anim === "revelacao" && !isMagic)}

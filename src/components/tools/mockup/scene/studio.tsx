@@ -107,8 +107,8 @@ export function StudioLights() {
         }
         color={keyColor}
         castShadow={castShadow}
-        shadow-mapSize-width={mobile ? 512 : 1024}
-        shadow-mapSize-height={mobile ? 512 : 1024}
+        shadow-mapSize-width={mobile ? 1024 : 2048}
+        shadow-mapSize-height={mobile ? 1024 : 2048}
         shadow-radius={3 + light.softness * 18}
         shadow-blurSamples={12}
         shadow-bias={-0.0002}
@@ -153,7 +153,7 @@ export function StudioLights() {
       ) : (
         <Environment
           key={envKey}
-          resolution={mobile ? 256 : 512}
+          resolution={mobile ? 512 : 1024}
           frames={1}
           background={false}
         >
@@ -545,7 +545,7 @@ function MirrorFloor() {
     >
       <planeGeometry args={[90, 90]} />
       <MeshReflectorMaterial
-        resolution={mobile ? 256 : 512}
+        resolution={mobile ? 512 : 1024}
         blur={[mobile ? 200 : 320, mobile ? 60 : 100]}
         mixBlur={0.9}
         mixStrength={mobile ? 1.7 : 3}
@@ -579,6 +579,8 @@ export function Ground() {
 export function StudioContactShadows() {
   const bg = useMockupStore((s) => s.bg);
   const softness = useMockupStore((s) => s.light.softness);
+  const shadowOpacity = useMockupStore((s) => s.light.shadowOpacity);
+  const shadowColor = useMockupStore((s) => s.light.shadowColor);
   const companions = useMockupStore((s) => s.companions);
   const mugScale = useMockupStore((s) => s.mug.scale);
   const mobile = useMemo(() => detectMobile(), []);
@@ -594,12 +596,12 @@ export function StudioContactShadows() {
   return (
     <ContactShadows
       position={[0, topY, 0]}
-      opacity={0.44}
+      opacity={shadowOpacity ?? 0.44}
       scale={Math.min(64, extent * 2.2)}
       blur={2.2 + softness * 2.4}
       far={4.2}
-      resolution={mobile ? 256 : 512}
-      color="#20140b"
+      resolution={mobile ? 512 : 1024}
+      color={shadowColor ?? "#292520"}
       frames={Infinity}
     />
   );

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { MugModel } from "../state/store";
-import { buildMugBodyGeometry, buildHandleGeometry } from "./mug-geometry";
+import { buildMugBodyGeometry, buildHandleGeometry, profileRadius } from "./mug-geometry";
 export const MODELS: {
   id: MugModel;
   label: string;
@@ -10,7 +10,7 @@ export const MODELS: {
 }[] = [
   {
     id: "classic",
-    label: "Clássica",
+    label: "Clássica 325 ml (11 oz)",
     desc: "Cerâmica · 325 ml",
     hasHandle: true,
     height: 9.5,
@@ -50,31 +50,11 @@ export const MODELS: {
     hasHandle: true,
     height: 6.5,
   },
-  {
-    id: "long",
-    label: "Long drink",
-    desc: "Copo alto · 350 ml",
-    hasHandle: false,
-    height: 15,
-  },
-  {
-    id: "thermal",
-    label: "Térmica",
-    desc: "Copo com tampa",
-    hasHandle: false,
-    height: 17,
-  },
-  {
-    id: "squeeze",
-    label: "Squeeze",
-    desc: "Garrafa com tampa",
-    hasHandle: false,
-    height: 21,
-  },
+
 ];
 export function buildModel(model: MugModel = "classic") {
   const def = MODELS.find((x) => x.id === model) ?? MODELS[0];
-  const body = buildMugBodyGeometry();
+  const body = buildMugBodyGeometry(undefined, def.id);
   const handle = buildHandleGeometry();
   function deform(g: THREE.BufferGeometry, isHandle: boolean) {
     const p = g.getAttribute("position");
@@ -84,13 +64,10 @@ export function buildModel(model: MugModel = "classic") {
         z = p.getZ(i);
       const t = y / 9.5;
       let r = 1;
-      if (model === "cone") r = 0.75 + 0.28 * t;
-      if (model === "beer") r = 1.1;
-      if (model === "latte") r = 0.68 + 0.55 * t;
-      if (model === "tea") r = 1.04 + 0.2 * t;
-      if (model === "long") r = 0.78;
-      if (model === "thermal") r = 0.7 + 0.3 * t;
-      if (model === "squeeze") r = 0.82 - (t > 0.82 ? (t - 0.82) * 1.45 : 0);
+      if (isHandle && model !== "classic") {
+        // Adequa a alça ao raio correspondente do modelo, sem deformar o corpo.
+        r = profileRadius(model, Math.max(0, Math.min(1, t))) / profileRadius("classic", Math.max(0, Math.min(1, t)));
+      }
       if (model === "square" && !isHandle) {
         const a = Math.atan2(z, x);
         r =

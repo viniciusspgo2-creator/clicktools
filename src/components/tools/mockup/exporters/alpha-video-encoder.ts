@@ -7,7 +7,7 @@ export async function alphaVideoConfig(
     return null;
   const base: VideoEncoderConfig = {
     codec: "vp09.00.40.08", width, height, framerate: fps,
-    bitrate: Math.round(Math.min(24_000_000, Math.max(6_000_000, width * height * fps * 0.26))),
+    bitrate: Math.round(Math.min(80_000_000, Math.max(15_000_000, width * height * fps * 0.58))),
     latencyMode: "realtime",
     alpha: "discard", // alfa é codificado separadamente; alpha:keep não é universal.
   };

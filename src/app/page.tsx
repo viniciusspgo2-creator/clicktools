@@ -1,7 +1,6 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import dynamic from 'next/dynamic';
 import { Header } from '@/components/site/header';
 import { Footer } from '@/components/site/footer';
 import { Home } from '@/components/site/home';
@@ -13,15 +12,14 @@ import { PdfEditor } from '@/components/tools/pdf-editor';
 import { ImageConverter } from '@/components/tools/image-converter';
 import { ExtrasDirectory } from '@/components/tools/extra/extras-directory';
 import { useToolsStore, type ToolId } from '@/lib/tools-store';
-import { PremiumGate } from '@/components/site/premium-gate';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect } from 'react';
 import { EXTRA_TOOLS } from '@/components/tools/extra/registry';
 
-const MockupStudio = dynamic(
-  () => import('@/components/tools/mockup/mockup-studio').then((m) => m.MockupStudio),
-  { ssr: false },
-);
+function RedirectLegacyMockup() {
+  useEffect(() => { window.location.replace('/mockup-caneca-3d'); }, []);
+  return <p className="mx-auto max-w-lg px-4 py-14 text-center">Abrindo o guia do Mockup de Caneca 3D…</p>;
+}
 
 const TOOL_META: Record<Exclude<ToolId, 'inicio'>, { title: string; subtitle: string }> = {
   qr: { title: 'Gerador de QR Code', subtitle: 'Personalize cores, logo e formato — e baixe em alta qualidade' },
@@ -66,6 +64,7 @@ export default function Page() {
       const extra = new URLSearchParams(window.location.search).get('extra');
       const validExtra = t === 'extras' && EXTRA_TOOLS.some((item) => item.id === extra) ? extra : null;
       window.history.replaceState({ tool: t, ...(validExtra ? { extra: validExtra } : {}) }, '', window.location.href);
+      if (t === "mockup") { window.location.replace("/mockup-caneca-3d"); return; }
       useToolsStore.getState().setActiveTool(t, undefined, { silent: true });
       if (validExtra) useToolsStore.setState({ activeExtra: validExtra as import('@/lib/tools-store').ExtraToolId });
     } else {
@@ -74,6 +73,7 @@ export default function Page() {
     const onPop = (e: PopStateEvent) => {
       const st = e.state as { tool?: ToolId; extra?: string } | null;
       const tool = st?.tool && st.tool in TOOL_META ? st.tool : 'inicio';
+      if (tool === "mockup") { window.location.assign("/mockup-caneca-3d"); return; }
       useToolsStore.getState().setActiveTool(tool, undefined, { silent: true });
       if (tool === 'extras' && EXTRA_TOOLS.some((item) => item.id === st?.extra)) useToolsStore.setState({ activeExtra: st?.extra as import('@/lib/tools-store').ExtraToolId });
     };
@@ -131,11 +131,7 @@ export default function Page() {
                 <div className="mx-auto max-w-7xl px-4 sm:px-6"><ImageConverter /></div>
               </>
             )}
-            {activeTool === 'mockup' && (
-              <PremiumGate>
-                <MockupStudio />
-              </PremiumGate>
-            )}
+            {activeTool === 'mockup' && <RedirectLegacyMockup />}
             {activeTool === 'extras' && <ExtrasDirectory />}
           </motion.div>
         </AnimatePresence>

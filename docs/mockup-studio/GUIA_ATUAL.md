@@ -1,3 +1,23 @@
+# Mockup Studio 3D — guia atualizado (25/10/2026)
+
+**Rotas:** `/mockup-caneca-3d` apresenta o produto; `/mockup-caneca-3d/studio` abre o editor com o **mesmo portão premium** da home. Links antigos da home foram atualizados. O Studio mantém seus projetos `.cgstudio` e autosave local.
+
+**Primeiro uso:** escolha **Arte** no trilho esquerdo → envie ou cole sua estampa (Ctrl+V) → **Caneca** para escolher Clássica 325 ml (padrão), Quadrada, Cônica, Chopp, Latte ou Xícara → **Cena** para fundo → **Luz e sombra** → **Câmera** para giro → **Exportar**.
+
+**Exportação de vídeo:** agora permite selecionar entre **3 e 20 segundos** (atalhos 5/10/15/20 s), 24/30/60 fps, resolução Full HD, QHD e 4K (inclui 4:5, vertical e quadrado). Níveis Rápida, Alta, Ultra. O formato efetivo, bitrate e resolução dependem do suporte WebCodecs, WebGL e memória do seu navegador/dispositivo. Em aparelhos incompatíveis, reduza para Full HD; não há promessa de 4K em todos os navegadores. Vídeo com ALFA permanece WebM, somente quando o encoder VP9 com alfa separado está disponível.
+
+**Giro:** botão na barra do palco e painel Câmera; sentido Direita/Esquerda/Vai e volta, segundos por volta, ajuste de voltas no vídeo. O Studio move a caneca no preview sem rotacionar a câmera junto. A exportação de giro amostra frames sem repetir a pose inicial na emenda.
+
+**Tema:** claro por padrão, branco/preto/laranja; alternância para tema escuro na barra superior. **Resetar tudo** confirma antes de restaurar e oferece **Manter a arte que enviei** e **Desfazer**. A busca por ajustes abre com Ctrl+K.
+
+**Presets:** cores de caneca, cenas básicas, fundos prontos, efeitos e uma configuração pessoal salva no navegador. Para sua biblioteca use o botão **Biblioteca** no topo.
+
+**Atenção:** o arquivo continua local. Antes de trocar de computador ou limpar dados do navegador, salve o arquivo `.cgstudio`. Projetos que mencionam recipientes antigos fora da linha de canecas são migrados para **Clássica 325 ml**.
+
+---
+
+## Informações e atalhos da versão anterior
+
 # Mockup Studio — guia da versão atual
 
 ## Começar

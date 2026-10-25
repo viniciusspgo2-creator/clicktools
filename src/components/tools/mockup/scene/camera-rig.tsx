@@ -216,7 +216,7 @@ export function CameraRig() {
       minDistance={6.5}
       maxDistance={280}
       maxPolarAngle={1.54}
-      autoRotate={autoRotate && !anim}
+      autoRotate={false} // o giro agora move a caneca, não a câmera
       autoRotateSpeed={autoRotateSpeed}
       target={[0, 4.7, 0]}
     />

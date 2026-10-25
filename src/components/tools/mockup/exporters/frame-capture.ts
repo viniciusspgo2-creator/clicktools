@@ -79,6 +79,20 @@ export async function checkH264Support(
   try {
     const configs = [
       {
+        codec: "avc1.640033",
+        width,
+        height,
+        framerate: 60,
+        bitrate: 70_000_000,
+      },
+      {
+        codec: "avc1.64002a",
+        width,
+        height,
+        framerate: 60,
+        bitrate: 24_000_000,
+      },
+      {
         codec: "avc1.640028",
         width,
         height,
@@ -164,9 +178,11 @@ export function beginFrames(
     tex = mat.map as THREE.CanvasTexture;
     previewCanvas = tex.image as HTMLCanvasElement;
     artCanvas = document.createElement("canvas");
-    artCanvas.width = CANVAS_W_EXPORT;
+    const exportTextureWidth = Math.min(gl.capabilities.maxTextureSize || 4096,
+      width * height > 1920 * 1080 && !isMobile ? 8192 : CANVAS_W_EXPORT);
+    artCanvas.width = exportTextureWidth;
     artCanvas.height = canvasHeightFor(
-      CANVAS_W_EXPORT,
+      exportTextureWidth,
       resolvePrintArea(useMockupStore.getState().art),
       useMockupStore.getState().mug.model,
     );

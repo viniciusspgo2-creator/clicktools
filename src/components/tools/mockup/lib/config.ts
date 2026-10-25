@@ -7,7 +7,7 @@ export const MUG = {
   height: 9.5, // cm altura total
   topOuterR: 4.11, // raio externo no topo
   bottomOuterR: 3.9, // raio na base (leve conicidade)
-  footH: 0.34, // altura do pé/recesso
+  footH: 0, // fundo plano e liso, sem recesso
   innerFloorY: 0.9, // piso interno
   printTop: 9.32, // y do topo da área de impressão (padrão prensa)
   printBottom: 0.62, // y da base da área de impressão (padrão prensa)
@@ -173,7 +173,7 @@ export const V_INT = 1 - (ZONE_CM + STRIP_CM * 1.5) / TEX_TOTAL_CM;
 export const STRIP_PX = 32; // (legado)
 /** Inset UV (px) que impede o “bleed” da filtragem na fronteira arte/cor-base */
 export const UV_PAD_PX = 4;
-export const MAX_ART_PX = 4096; // redimensionamento interno da arte
+export const MAX_ART_PX = 8192; // preserva mais detalhes da arte original; exportação ajusta à GPU // redimensionamento interno da arte
 export const MAX_UPLOAD_MB = 25;
 export const MAX_BG_PX = 4096; // redimensionamento interno da imagem de fundo
 
@@ -491,7 +491,4 @@ export const MODEL_METRICS: Record<
   beer: { height: 14, circumference: CIRC_CM * 1.1 },
   latte: { height: 12, circumference: CIRC_CM * 0.955 },
   tea: { height: 6.5, circumference: CIRC_CM * 1.14 },
-  long: { height: 15, circumference: CIRC_CM * 0.78 },
-  thermal: { height: 17, circumference: CIRC_CM * 0.85 },
-  squeeze: { height: 21, circumference: CIRC_CM * 0.81 },
 };

@@ -1,3 +1,21 @@
+## 25/10/2026 — Mockup Studio: refatoração progressiva (sem alteração de deploy)
+
+- Guia indexável `/mockup-caneca-3d` e Studio próprio `/mockup-caneca-3d/studio`, com `PremiumGate` reaproveitado.
+- Estúdio com aparência clara por padrão, navegação Arte/Caneca/Cena/Luz/Câmera/Compor/Efeitos/Camadas, busca Ctrl+K e confirmações de reset.
+- Reset completo de estado (inclui exportação, marca d’água e GIF) e histórico de desfazer; opção de conservar arquivo de arte.
+- Remoção de três recipientes sem alça da lista; migração automática `long`, `thermal`, `squeeze` para caneca clássica ao carregar projetos.
+- Base 3D lisa, alça mais robusta e perfis independentes de raio para caneca cônica, chopp, latte, xícara; preservada edição de arte e materiais.
+- Controles de giro automático por sentido e segundos por volta, sombreado de contato regulável e mapas de sombra de maior resolução.
+- Vídeo ampliado para até 20 segundos com presets, 24/30/60 fps, resoluções 1080p/2K/4K/4:5, níveis de qualidade, bitrate superior e cancelamento (caminho WebCodecs/ALFA); correção da emenda do giro.
+- Novos acessos Biblioteca / Instagram / Facebook e atualização dos pontos de entrada da home, header, footer e sitemap.
+- Presets de cor e cena, configuração pessoal local; documentação e testes estáticos atualizados.
+
+**Validação:** código TypeScript/TSX analisado sintaticamente; testes isolados do estado passaram. **Não foi possível executar build Next.js ou testes visuais de WebGL/WebCodecs**, pois o ZIP não inclui dependências e o acesso ao registro npm falhou por erro de DNS. Compatibilidade 4K e exportação alfa em diferentes navegadores continuam sujeitas a QA em equipamento real.
+
+**Não entregue nesta versão:** codec HEVC, sequências PNG em ZIP, pacote de anúncio em um clique, divisão integral de `ui/panels.tsx` em arquivos menores, aferição Lighthouse, ensaio visual comparativo 200% 4K vs Full HD. Esses itens precisam de continuidade e validação antes de proclamar atendimento integral de todos os critérios do agente.
+
+---
+
 # CHANGELOG — Click&Gruda Mockup Studio
 
 ## 25/10/2026 — Vídeo com canal alfa

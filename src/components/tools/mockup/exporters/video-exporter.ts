@@ -9,6 +9,7 @@ import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import { GIFEncoder, quantize, applyPalette } from "gifenc";
 import * as THREE from "three";
 import {
+  applyWatermark,
   beginFrames,
   captureFrame,
   checkH264Support,
@@ -32,7 +33,13 @@ export const VIDEO_RESOLUTIONS: Record<
   sq1080: { w: 1080, h: 1080, label: "Quadrado 1080" },
   hd: { w: 1280, h: 720, label: "HD 720p" },
   vertical: { w: 1080, h: 1920, label: "Story 1080×1920" },
-  wide: { w: 1920, h: 1080, label: "Wide 1080p" },
+  wide: { w: 1920, h: 1080, label: "Full HD 1920×1080" },
+  qhd: { w: 2560, h: 1440, label: "2K QHD" },
+  uhd: { w: 3840, h: 2160, label: "4K UHD" },
+  story4k: { w: 2160, h: 3840, label: "Story 4K" },
+  square4k: { w: 2160, h: 2160, label: "Quadrado 4K" },
+  feed: { w: 1080, h: 1350, label: "Feed 4:5" },
+  feed4k: { w: 2160, h: 2700, label: "Feed 4K 4:5" },
 };
 
 export interface AnimOpts {
@@ -41,6 +48,10 @@ export interface AnimOpts {
   fps: number;
   transparent?: boolean;
   onProgress?: (p: number) => void;
+  quality?: "fast" | "high" | "ultra";
+  direction?: "right" | "left" | "pingpong";
+  turns?: number;
+  signal?: AbortSignal;
 }
 
 /* ---------------- caminho de câmera ---------------- */
@@ -67,6 +78,18 @@ interface Turntable {
 function beginTurntable(scene: THREE.Scene): Turntable {
   const obj = mugsGroup(scene)?.getObjectByName("mug-float") ?? null;
   return { obj, rot0: obj?.rotation.y ?? 0 };
+}
+
+function videoAngle(t: number, opts: AnimOpts) {
+  const turns = Math.max(0.5, Math.min(3, opts.turns ?? 1));
+  const cycle = (opts.direction === "pingpong")
+    ? (1 - Math.cos(t * Math.PI * 2 * turns)) * 0.5
+    : t * turns;
+  return Math.PI * 2 * (opts.direction === "left" ? -cycle : cycle);
+}
+
+function checkCancelled(signal?: AbortSignal) {
+  if (signal?.aborted) throw new ExportError("Exportação cancelada pelo usuário.");
 }
 
 function applyTurntable(tt: Turntable, angle: number) {
@@ -171,13 +194,20 @@ export async function exportVideo(
   resolution: string,
   animOpts: AnimOpts,
 ): Promise<VideoResult> {
-  const res = VIDEO_RESOLUTIONS[resolution] ?? VIDEO_RESOLUTIONS.sq1080;
+  const res = VIDEO_RESOLUTIONS[resolution] ?? VIDEO_RESOLUTIONS.wide;
+  if (!Number.isFinite(animOpts.duration) || animOpts.duration < 3 || animOpts.duration > 20)
+    throw new ExportError("Escolha um vídeo de 3 a 20 segundos.");
+  if (![24, 30, 60].includes(animOpts.fps)) throw new ExportError("Taxa de quadros inválida.");
+  if (animOpts.signal?.aborted) throw new ExportError("Exportação cancelada.");
   // Nunca faz fallback opaco quando o usuário solicitou transparência.
   if (animOpts.transparent) return exportVideoAlpha(res.w, res.h, animOpts);
   const supported = await checkH264Support(res.w, res.h);
   if (supported) return exportVideoWebCodecs(res.w, res.h, animOpts);
-  if (typeof MediaRecorder !== "undefined")
+  if (typeof MediaRecorder !== "undefined") {
+    if (res.w * res.h > 1920 * 1080)
+      throw new ExportError("Seu navegador não oferece codificação 2K/4K com qualidade confiável. Escolha Full HD ou use Chrome/Edge atualizado.");
     return exportVideoMediaRecorder(res.w, res.h, animOpts);
+  }
   throw new ExportError(
     "Seu navegador não suporta exportar vídeo. Use o Chrome ou Edge atualizados — ou exporte um GIF.",
   );
@@ -186,7 +216,7 @@ export async function exportVideo(
 async function exportVideoAlpha(
   w: number,
   h: number,
-  { anim, duration, fps, onProgress }: AnimOpts,
+  { anim, duration, fps, onProgress, ...extra }: AnimOpts,
 ): Promise<VideoResult> {
   if (anim === "revelacao" && useMockupStore.getState().mug.variant !== "magic")
     throw new ExportError("A animação de revelação só funciona na caneca mágica. Escolha outro movimento.");
@@ -195,7 +225,7 @@ async function exportVideoAlpha(
   let tt: Turntable | null = null;
   try {
     encoder = await createAlphaVideoEncoder(w, h, fps);
-    session = beginFrames(w, h, { transparent: true, ssCap: 1.5 });
+    session = beginFrames(w, h, { transparent: true, ssCap: extra.quality === "fast" ? 1 : 2 });
     const base = fitCamera(session);
     const center = sceneCenter(session.scene);
     const baseOffset = new THREE.Vector3().subVectors(base.position, center);
@@ -203,8 +233,9 @@ async function exportVideoAlpha(
     const total = Math.max(2, Math.round(duration * fps));
     for (let i = 0; i < total; i++) {
       await ensureContext(session);
-      const t = i / (total - 1);
-      if (tt) applyTurntable(tt, t * Math.PI * 2);
+      checkCancelled(extra.signal);
+      const t = i / total;
+      if (tt) applyTurntable(tt, videoAngle(t, extra));
       applyCameraPath(anim, t, base, baseOffset, center, (v) =>
         setMugOverride(session!, { magicHeat: v }));
       renderFrame(session, base);
@@ -232,14 +263,27 @@ async function exportVideoAlpha(
   }
 }
 
+/** Captura direta antes de o navegador limpar o framebuffer.
+ * Reutiliza o mesmo canvas e aplica marca d'água, sem criar PNGs temporários
+ * nem fazer decode de uma imagem em cada quadro de vídeo. */
+function copyFrameFast(session: FrameSession, output: HTMLCanvasElement) {
+  const ctx = output.getContext("2d");
+  if (!ctx) throw new ExportError("Falha ao preparar o quadro de vídeo.");
+  ctx.clearRect(0, 0, output.width, output.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(session.gl.domElement, 0, 0, output.width, output.height);
+  applyWatermark(ctx, output.width, output.height);
+}
+
 async function exportVideoWebCodecs(
   w: number,
   h: number,
-  { anim, duration, fps, onProgress }: AnimOpts,
+  { anim, duration, fps, onProgress, ...extra }: AnimOpts,
 ): Promise<VideoResult> {
   // supersampling 1,5× (não 2×): vídeo em movimento esconde o detalhe e a
   // memória de GPU poupada evita perda de contexto WebGL em máquinas fracas
-  const session = beginFrames(w, h, { transparent: false, ssCap: 1.5 });
+  const session = beginFrames(w, h, { transparent: false, ssCap: extra.quality === "fast" ? 1 : 2 });
   try {
     const base = fitCamera(session);
     const center = sceneCenter(session.scene);
@@ -250,9 +294,12 @@ async function exportVideoWebCodecs(
       );
     }
 
-    // suporte a codec — já checado por checkH264Support; reconfirma o codec string
-    let codec = "avc1.640028";
-    for (const c of ["avc1.640028", "avc1.4d0028", "avc1.42E01E"]) {
+    // Seleção de codec conforme perfil e limites da resolução.
+    let codec: string | null = null;
+    const large = w * h > 1920 * 1080;
+    for (const c of (large
+      ? ["avc1.640033", "avc1.640032", "avc1.64002a"]
+      : ["avc1.64002a", "avc1.640028", "avc1.4d0028", "avc1.42E01E"])) {
       const r = await VideoEncoder.isConfigSupported({
         codec: c,
         width: w,
@@ -265,13 +312,15 @@ async function exportVideoWebCodecs(
         break;
       }
     }
+    if (!codec) throw new ExportError("O navegador não suporta H.264 nessa resolução. Escolha Full HD ou use Chrome/Edge atualizados.");
 
     const pixels = w * h;
     // bitrate generoso: produto parado girando tem fundo limpo — o encoder
     // gasta os bits na caneca; 0,26·px·fps ≈ 9,8 Mbps em 1080²@30
-    const bitrate = Math.round(
-      Math.min(24_000_000, Math.max(6_000_000, pixels * fps * 0.26)),
-    );
+    const qualityFactor = extra.quality === "ultra" ? 1.15 : extra.quality === "fast" ? 0.42 : 0.72;
+    const bitrate = Math.round(Math.min(110_000_000,
+      Math.max(pixels >= 3840 * 2160 ? 60_000_000 : pixels >= 2560 * 1440 ? 35_000_000 : 20_000_000,
+        pixels * fps * qualityFactor)));
     const target = new ArrayBufferTarget();
     const muxer = new Muxer({
       target,
@@ -289,6 +338,9 @@ async function exportVideoWebCodecs(
     encoder.configure({ codec, width: w, height: h, bitrate, framerate: fps });
 
     const total = Math.max(2, Math.round(duration * fps));
+    const output = document.createElement("canvas");
+    output.width = w;
+    output.height = h;
     // offset original (imutável) — evita a rotação composta do bug antigo
     const baseOffset = new THREE.Vector3().subVectors(base.position, center);
     // giro = mesa giratória: a caneca gira, a câmera fica parada
@@ -297,14 +349,16 @@ async function exportVideoWebCodecs(
       for (let i = 0; i < total; i++) {
         if (encError) throw encError;
         await ensureContext(session);
-        const t = i / (total - 1); // 0..1 inclusive (loop suave no giro: vê a frente no início e fim)
-        if (tt) applyTurntable(tt, t * Math.PI * 2);
+        checkCancelled(extra.signal);
+        const t = i / total; // renderiza sem duplicar o primeiro quadro
+        if (tt) applyTurntable(tt, videoAngle(t, extra));
         applyCameraPath(anim, t, base, baseOffset, center, (v) =>
           setMugOverride(session, { magicHeat: v }),
         );
         renderFrame(session, base);
 
-        const frame = new VideoFrame(session.gl.domElement, {
+        copyFrameFast(session, output);
+        const frame = new VideoFrame(output, {
           timestamp: Math.round((i * 1e6) / fps),
           duration: Math.round(1e6 / fps),
         });
@@ -348,7 +402,7 @@ async function exportVideoWebCodecs(
 async function exportVideoMediaRecorder(
   w: number,
   h: number,
-  { anim, duration, fps, onProgress }: AnimOpts,
+  { anim, duration, fps, onProgress, ...extra }: AnimOpts,
 ): Promise<VideoResult> {
   // sem supersampling: a gravação é em tempo real — o render precisa ser leve
   // para manter a cadência uniforme (rotação suave).
@@ -387,9 +441,8 @@ async function exportVideoMediaRecorder(
         requestFrame?: () => void;
       };
     }
-    const rec = new MediaRecorder(stream, {
-      mimeType: mimeType || undefined,
-      videoBitsPerSecond: 12_000_000,
+    const rec = new MediaRecorder(stream, {      mimeType: mimeType || undefined,
+      videoBitsPerSecond: Math.min(60_000_000, Math.max(15_000_000, w * h * fps * 0.3)),
     });
     const chunks: BlobPart[] = [];
     rec.ondataavailable = (e) => {
@@ -415,8 +468,9 @@ async function exportVideoMediaRecorder(
     try {
       for (let i = 0; i < total; i++) {
         await ensureContext(session);
-        const t = i / (total - 1);
-        if (tt) applyTurntable(tt, t * Math.PI * 2);
+        checkCancelled(extra.signal);
+      const t = i / total;
+        if (tt) applyTurntable(tt, videoAngle(t, extra));
         applyCameraPath(anim, t, base, baseOffset, center, (v) =>
           setMugOverride(session, { magicHeat: v }),
         );
@@ -432,8 +486,8 @@ async function exportVideoMediaRecorder(
       await new Promise((r) => setTimeout(r, 220));
     } finally {
       endTurntable(tt);
+      if (rec.state !== "inactive") rec.stop();
     }
-    rec.stop();
     const blob = await done;
     const ext = (mimeType || "video/webm").includes("mp4") ? "mp4" : "webm";
     return {

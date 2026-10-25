@@ -137,6 +137,8 @@ function MugObject({
   const snap = useMockupStore((s) => s.snapEnabled);
   const compare = useMockupStore((s) => s.compareArt);
   const [object, setObject] = useState<THREE.Group | null>(null);
+  const spinElapsed = useRef(0);
+  const sceneCamera = useMockupStore(s => s.camera);
   const entryGroup = useRef<THREE.Group>(null);
   const dragArt = useRef<{ x: number; y: number; art: ArtState } | null>(null);
   const startPose = useRef<THREE.Vector3 | null>(null);
@@ -249,6 +251,19 @@ function MugObject({
           : 0) + (mug.posY ?? 0);
   useFrame(({ clock }, delta) => {
     if (!object) return;
+    if (id === "hero" && !studioRefs.exporting) {
+      if (sceneCamera.autoRotate) {
+        spinElapsed.current += delta;
+        const phase = spinElapsed.current / Math.max(3, sceneCamera.secondsPerTurn ?? 8);
+        const travel = sceneCamera.direction === "pingpong"
+          ? (1 - Math.cos(phase * Math.PI * 2)) * Math.PI
+          : phase * Math.PI * 2 * (sceneCamera.direction === "left" ? -1 : 1);
+        object.rotation.y = rotation.y - travel;
+      } else if (spinElapsed.current) {
+        spinElapsed.current = 0;
+        object.rotation.y = rotation.y;
+      }
+    }
     if (!initialized.current) {
       initialized.current = true;
       entranceStart.current = clock.elapsedTime;
@@ -402,25 +417,7 @@ function MugObject({
                 />
               </mesh>
             )}
-            {(mug.model === "thermal" || mug.model === "squeeze") && (
-              <mesh position={[0, model.def.height + 0.16, 0]} castShadow>
-                <cylinderGeometry
-                  args={[
-                    mug.model === "squeeze" ? 2.1 : 4.05,
-                    mug.model === "squeeze" ? 2.25 : 4.08,
-                    0.5,
-                    64,
-                  ]}
-                />
-                <meshPhysicalMaterial
-                  color={
-                    mug.handleColor === "#ffffff" ? "#25272b" : mug.handleColor
-                  }
-                  roughness={0.35}
-                  clearcoat={0.3}
-                />
-              </mesh>
-            )}
+
           </group>
         </group>
       </group>

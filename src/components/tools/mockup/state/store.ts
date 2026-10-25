@@ -21,10 +21,7 @@ export type MugModel =
   | "cone"
   | "beer"
   | "latte"
-  | "tea"
-  | "long"
-  | "thermal"
-  | "squeeze";
+  | "tea";
 export interface ArtState {
   decalImageId?: string | null;
   decalScale?: number;
@@ -104,6 +101,8 @@ export interface LightState {
   temperature: number; // offset em K aplicado via absoluto? usa valor direto -2000..+2000
   rotation: number; // 0..360 gira o rig
   softness: number; // 0..1 suavidade da sombra
+  shadowOpacity?: number;
+  shadowColor?: string;
   envIntensity: number; // 0..2 reflexos do estúdio
 }
 
@@ -146,6 +145,8 @@ export interface CameraState {
   lens: number; // 24..100 mm
   autoRotate: boolean;
   autoRotateSpeed: number; // 0.2..6
+  direction?: "right" | "left" | "pingpong";
+  secondsPerTurn?: number;
 }
 
 /** caneca acompanhante para cenas com várias canecas (máx. 3) */
@@ -203,9 +204,12 @@ export type VideoAnim = "giro" | "orbita" | "zoom" | "revelacao";
 export interface VideoState {
   anim: VideoAnim;
   transparent: boolean;
-  duration: number; // 3..10 s
-  fps: 24 | 30;
-  res: "sq1080" | "hd" | "vertical" | "wide";
+  duration: number; // 3..20 s
+  fps: 24 | 30 | 60;
+  res: "sq1080" | "hd" | "vertical" | "wide" | "qhd" | "uhd" | "story4k" | "square4k" | "feed" | "feed4k";
+  quality?: "fast" | "high" | "ultra";
+  direction?: "right" | "left" | "pingpong";
+  turns?: 0.5 | 1 | 2 | 3;
 }
 
 export interface GifState {
@@ -242,6 +246,9 @@ type Snapshot = {
   layerOrder: string[];
   projectName: string;
   watermark: WatermarkState;
+  video: VideoState;
+  gif: GifState;
+  exportSettings: ExportState;
 };
 
 export type PatchSlice =
@@ -353,8 +360,12 @@ interface MockupStore {
   }) => void;
   undo: () => void;
   redo: () => void;
-  resetAll: () => void;
+  resetAll: (keepArt?: boolean) => void;
 }
+
+export const migrateMugModel = (model: unknown): MugModel =>
+  (["classic", "square", "cone", "beer", "latte", "tea"] as string[]).includes(String(model))
+    ? model as MugModel : "classic";
 
 const initialArt: ArtState = {
   bleed: 0,
@@ -418,6 +429,8 @@ const initialLight: LightState = {
   temperature: 0,
   rotation: 0,
   softness: 0.5,
+  shadowOpacity: 0.44,
+  shadowColor: "#292520",
   envIntensity: 1,
 };
 
@@ -449,6 +462,8 @@ const initialCamera: CameraState = {
   lens: 50,
   autoRotate: false,
   autoRotateSpeed: 1.6,
+  direction: "right",
+  secondsPerTurn: 8,
 };
 
 const initialFx: FxState = {
@@ -476,7 +491,10 @@ const initialVideo: VideoState = {
   transparent: false,
   duration: 5,
   fps: 30,
-  res: "sq1080",
+  res: "wide",
+  quality: "high",
+  direction: "right",
+  turns: 1,
 };
 
 const initialGif: GifState = {
@@ -690,6 +708,9 @@ function snap(s: MockupStore): Snapshot {
     layerOrder: s.layerOrder,
     projectName: s.projectName,
     watermark: s.watermark,
+    video: s.video,
+    gif: s.gif,
+    exportSettings: s.exportSettings,
   };
 }
 
@@ -1104,12 +1125,16 @@ export const useMockupStore = create<MockupStore>((set, get) => {
       const companions = s.companions
         ? s.companions.map((c) => ({
             ...c,
+            model: c.model ? migrateMugModel(c.model) : undefined,
             posX: clamp(Number.isFinite(c.posX) ? c.posX : 10.8, -150, 150),
             posZ: clamp(Number.isFinite(c.posZ) ? c.posZ : 0.6, -150, 150),
             scale: clamp(Number.isFinite(c.scale) ? c.scale : 0.95, 0.2, 3),
           }))
         : st.companions;
-      const mug = { ...st.mug, ...s.mug };
+      const mug = { ...st.mug, ...s.mug, model: migrateMugModel(s.mug?.model ?? st.mug.model) };
+      if (s.mug?.model && mug.model !== s.mug.model && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("cg-mockup-migrated", { detail: "Um modelo antigo foi convertido para a caneca clássica." }));
+      }
       const ids = ["hero", ...companions.map((c) => c.id)];
       const ordered = Array.isArray(s.layerOrder)
         ? s.layerOrder.filter((id) => ids.includes(id))
@@ -1127,7 +1152,7 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         selectedIds: ["hero"],
         fx: { ...st.fx, ...s.fx },
         watermark: { ...st.watermark, ...s.watermark },
-        video: { ...st.video, ...s.video },
+        video: { ...st.video, ...s.video, duration: clamp(s.video?.duration ?? st.video.duration, 3, 20) },
         gif: { ...st.gif, ...s.gif },
       });
       if (s.art) set((x) => ({ artAppliedNonce: x.artAppliedNonce + 1 }));
@@ -1154,6 +1179,9 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         layerOrder: prev.layerOrder,
         projectName: prev.projectName,
         watermark: prev.watermark,
+        video: prev.video,
+        gif: prev.gif,
+        exportSettings: prev.exportSettings,
       });
     },
 
@@ -1178,15 +1206,19 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         layerOrder: next.layerOrder,
         projectName: next.projectName,
         watermark: next.watermark,
+        video: next.video,
+        gif: next.gif,
+        exportSettings: next.exportSettings,
       });
     },
 
-    resetAll: () => {
+    resetAll: (keepArt = false) => {
       // zera TUDO de verdade: arte, caneca, luz, cena, efeitos, câmera e acompanhantes
       // (mantém um passo de histórico para poder desfazer o reset se for acidental)
-      guardHistory();
+      guardHistory(true);
+      const priorArt = get().art;
       set({
-        art: { ...initialArt },
+        art: keepArt ? { ...initialArt, imageId: priorArt.imageId, name: priorArt.name, width: priorArt.width, height: priorArt.height } : { ...initialArt },
         mug: { ...initialMug },
         light: { ...initialLight },
         bg: { ...initialBg },
@@ -1196,6 +1228,18 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         selectedIds: ["hero"],
         layerOrder: ["hero"],
         bgAdjustMode: false,
+        watermark: { ...initialWatermark },
+        exportSettings: { ...initialExport },
+        video: { ...initialVideo },
+        gif: { ...initialGif },
+        zoom: 100,
+        tool: "select",
+        showGuides: false,
+        snapEnabled: true,
+        compareArt: false,
+        exportOpen: false,
+        presetRequest: null,
+        focusNonce: get().focusNonce + 1,
       });
     },
   };

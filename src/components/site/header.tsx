@@ -28,7 +28,7 @@ export function Header() {
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
         {/* Logo */}
         <button
-          onClick={() => setActiveTool('inicio')}
+          onClick={() => window.location.pathname === '/' ? setActiveTool('inicio') : window.location.assign('/')}
           className="flex shrink-0 items-center gap-2.5 transition-transform active:scale-95"
           aria-label="Ir para o início"
         >
@@ -48,7 +48,7 @@ export function Header() {
           {NAV.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
-              onClick={() => setActiveTool(id)}
+              onClick={() => id === "mockup" ? window.location.assign("/mockup-caneca-3d") : setActiveTool(id)}
               title={label}
               aria-pressed={activeTool === id}
               className={`relative flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors sm:px-3.5 ${
