@@ -1508,7 +1508,7 @@ export function ExportDialog() {
             <Download className="h-4 w-4 text-primary" /> Exportar
           </DialogTitle>
           <DialogDescription className="text-xs text-neutral-400">
-            Imagens em alta resolução, vídeo em MP4, GIF animado, lote em ZIP e
+            Imagens em alta resolução, vídeo em MP4 ou WebM com ALFA, GIF animado, lote em ZIP e
             a folha de sublimação.
           </DialogDescription>
         </DialogHeader>
@@ -1857,13 +1857,14 @@ function VideoTab() {
         anim: video.anim,
         duration: video.duration,
         fps: video.fps,
+        transparent: video.transparent,
         onProgress: setProgress,
       });
       downloadBlob(res.blob, res.filename);
       setOpen(false);
       toast({
         title: "Vídeo exportado!",
-        description: `${res.width} × ${res.height} · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB · MP4 (H.264)`,
+        description: `${res.width} × ${res.height} · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB · ${video.transparent ? "WebM com ALFA" : res.mimeType.includes("mp4") ? "MP4 (H.264)" : "WebM"}`,
       });
     } catch (e) {
       toast({
@@ -1899,10 +1900,23 @@ function VideoTab() {
           caneca mágica (aba Caneca).
         </p>
       )}
-      {bg.type === "transparent" && (
+      <ToggleRow
+        label="ALFA — fundo transparente"
+        checked={!!video.transparent}
+        onChange={(v) => patch("video", { transparent: v })}
+      />
+      {video.transparent && (
+        <p className="text-[11px] leading-relaxed text-neutral-400">
+          Exporta em WebM com canal alfa, sem o fundo da cena. Mantém a peça e
+          as sombras transparentes para sobrepor em outras composições.
+          Efeitos de tela inteira ficam desativados nesta exportação.
+          Use um editor que aceite WebM com alfa; alguns players exibem o fundo preto.
+        </p>
+      )}
+      {bg.type === "transparent" && !video.transparent && (
         <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
-          <TriangleAlert className="h-3.5 w-3.5" /> Vídeo não tem alfa: com
-          fundo transparente ele sai preto. Escolha um fundo na aba Cena.
+          <TriangleAlert className="h-3.5 w-3.5" /> Ative ALFA para preservar
+          o fundo transparente. No vídeo normal, ele sai preto.
         </p>
       )}
 
@@ -1970,11 +1984,12 @@ function VideoTab() {
         ) : (
           <Sparkles className="h-4 w-4" />
         )}
-        {busy ? "Gravando…" : "Gerar MP4"}
+        {busy ? "Gravando…" : video.transparent ? "Gerar WebM com ALFA" : "Gerar vídeo"}
       </PrimaryButton>
       <p className="text-center text-[10px] text-neutral-500">
-        H.264 via WebCodecs — sem upload, tudo no seu dispositivo. Navegadores
-        antigos usam gravação em tempo real.
+        {video.transparent
+          ? "WebM com ALFA • processamento no seu dispositivo. Se o navegador não for compatível, avisaremos antes de gerar."
+          : "MP4 quando disponível; WebM em outros navegadores. Sem upload, tudo no seu dispositivo."}
       </p>
     </div>
   );

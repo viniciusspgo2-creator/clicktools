@@ -202,6 +202,7 @@ export type VideoAnim = "giro" | "orbita" | "zoom" | "revelacao";
 
 export interface VideoState {
   anim: VideoAnim;
+  transparent: boolean;
   duration: number; // 3..10 s
   fps: 24 | 30;
   res: "sq1080" | "hd" | "vertical" | "wide";
@@ -472,6 +473,7 @@ const initialWatermark: WatermarkState = {
 
 const initialVideo: VideoState = {
   anim: "giro",
+  transparent: false,
   duration: 5,
   fps: 30,
   res: "sq1080",

@@ -1,5 +1,5 @@
 /* ============================================================
-   Exportador de vídeo (MP4) e GIF animado.
+   Exportador de vídeo (MP4 / WebM com alfa) e GIF animado.
    MP4: WebCodecs VideoEncoder + mp4-muxer (H.264, in-memory).
    Fallback: MediaRecorder (MP4 no Safari, WebM no resto).
    GIF: gifenc com paleta adaptativa por frame.
@@ -23,6 +23,7 @@ import {
 } from "./frame-capture";
 import { mugsGroup } from "../scene/studio-refs";
 import { useMockupStore, type VideoAnim } from "../state/store";
+import { createAlphaVideoEncoder } from "./alpha-video-encoder";
 
 export const VIDEO_RESOLUTIONS: Record<
   string,
@@ -38,6 +39,7 @@ export interface AnimOpts {
   anim: VideoAnim;
   duration: number;
   fps: number;
+  transparent?: boolean;
   onProgress?: (p: number) => void;
 }
 
@@ -170,6 +172,8 @@ export async function exportVideo(
   animOpts: AnimOpts,
 ): Promise<VideoResult> {
   const res = VIDEO_RESOLUTIONS[resolution] ?? VIDEO_RESOLUTIONS.sq1080;
+  // Nunca faz fallback opaco quando o usuário solicitou transparência.
+  if (animOpts.transparent) return exportVideoAlpha(res.w, res.h, animOpts);
   const supported = await checkH264Support(res.w, res.h);
   if (supported) return exportVideoWebCodecs(res.w, res.h, animOpts);
   if (typeof MediaRecorder !== "undefined")
@@ -177,6 +181,55 @@ export async function exportVideo(
   throw new ExportError(
     "Seu navegador não suporta exportar vídeo. Use o Chrome ou Edge atualizados — ou exporte um GIF.",
   );
+}
+
+async function exportVideoAlpha(
+  w: number,
+  h: number,
+  { anim, duration, fps, onProgress }: AnimOpts,
+): Promise<VideoResult> {
+  if (anim === "revelacao" && useMockupStore.getState().mug.variant !== "magic")
+    throw new ExportError("A animação de revelação só funciona na caneca mágica. Escolha outro movimento.");
+  let encoder: Awaited<ReturnType<typeof createAlphaVideoEncoder>> | undefined;
+  let session: FrameSession | undefined;
+  let tt: Turntable | null = null;
+  try {
+    encoder = await createAlphaVideoEncoder(w, h, fps);
+    session = beginFrames(w, h, { transparent: true, ssCap: 1.5 });
+    const base = fitCamera(session);
+    const center = sceneCenter(session.scene);
+    const baseOffset = new THREE.Vector3().subVectors(base.position, center);
+    tt = anim === "giro" ? beginTurntable(session.scene) : null;
+    const total = Math.max(2, Math.round(duration * fps));
+    for (let i = 0; i < total; i++) {
+      await ensureContext(session);
+      const t = i / (total - 1);
+      if (tt) applyTurntable(tt, t * Math.PI * 2);
+      applyCameraPath(anim, t, base, baseOffset, center, (v) =>
+        setMugOverride(session!, { magicHeat: v }));
+      renderFrame(session, base);
+      // A cópia ocorre antes de ceder o controle: preserveDrawingBuffer=false.
+      // captureFrame também aplica a marca d'água e reduz o supersampling.
+      const frame = await captureFrame(session, w, h);
+      await encoder.encode(frame, Math.round(i * 1e6 / fps), i % (fps * 2) === 0);
+      onProgress?.((i + 1) / total * 0.95);
+      if (i % 3 === 2) await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    const blob = await encoder.finalize(total);
+    if (!blob.size) throw new ExportError("O vídeo saiu vazio. Tente uma resolução menor.");
+    onProgress?.(1);
+    return {
+      blob, filename: `mockup-caneca-${anim}-${h}p-alfa-${Date.now()}.webm`,
+      mimeType: "video/webm", width: w, height: h, engine: "webcodecs",
+    };
+  } catch (e) {
+    throw e instanceof ExportError ? e : new ExportError(
+      e instanceof Error ? e.message : "Não foi possível gerar o vídeo com ALFA.");
+  } finally {
+    encoder?.close();
+    endTurntable(tt);
+    if (session) endFrames(session);
+  }
 }
 
 async function exportVideoWebCodecs(

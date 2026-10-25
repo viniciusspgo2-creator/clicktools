@@ -84,7 +84,7 @@ exclusivo para assinantes da Biblioteca de Artes mediante código de acesso.
 | Modo | O que faz |
 |------|-----------|
 | **Imagem** | PNG/JPG/WebP até 8K, 6 proporções + custom, fundo alfa verdadeiro |
-| **Vídeo** | MP4 H.264 (WebCodecs) em Giro 360°, Órbita, Zoom e Revelação; 720p–1080p; fallback MediaRecorder em navegadores antigos |
+| **Vídeo** | MP4 H.264 ou WebM VP9 com ALFA em Giro 360°, Órbita, Zoom e Revelação; 720p–1080p; fallback MediaRecorder apenas no vídeo normal |
 | **GIF** | Loop infinito com paleta adaptativa, 360/480/640 px, 10–20 fps |
 | **Lote** | Vários ângulos × variantes (mágica fria/quente) num único ZIP |
 | **Folha** | Arte planificada para sublimação: 20,7 × 8,7 cm em 300/600 DPI, guias de corte e margem de segurança opcionais, opção volta completa |
@@ -195,8 +195,10 @@ provas visuais rápidas para enviar ao cliente e biblioteca de cenários.
   por design); ficaria uma cena sem arte.
 
 ## Limitações conhecidas
-- Vídeo não suporta fundo transparente (codecs H.264 não têm alfa) — com o fundo
-  “Sem fundo” o vídeo sai preto; o aviso aparece no diálogo.
+- Em Exportar → Vídeo, ative **ALFA — fundo transparente** para gerar WebM VP9
+  com transparência. O modo normal permanece opaco. Veja [Exportação ALFA](mockup-studio/EXPORTACAO-ALFA.md).
+- Vídeo ALFA exige WebCodecs/VP9 e um editor/player compatível com WebM com alfa.
+  Efeitos de tela inteira são desativados nas exportações transparentes para preservar o recorte.
 - GIF sempre com fundo renderizado (sem alfa).
 - Exportações 8K exigem navegadores 64-bit e memória disponível.
 - No piso Espelhado o horizonte é visível por natureza (é o comportamento

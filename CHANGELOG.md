@@ -1,5 +1,15 @@
 # CHANGELOG — Click&Gruda Mockup Studio
 
+## 25/10/2026 — Vídeo com canal alfa
+
+- Opção **ALFA — fundo transparente** em Exportar → Vídeo, com saída WebM VP9.
+- Cor e máscara de transparência codificadas separadamente e combinadas no WebM, incluindo transparência parcial das bordas e sombras.
+- Resoluções e movimentos existentes disponíveis; Revelação continua exigindo caneca mágica.
+- Marca d'água aplicada no vídeo ALFA; restauração da cena em sucesso ou falha.
+- Pós-processamento de tela inteira ignorado em exportações transparentes para preservar o alfa; o loop de pós-processamento não interfere no render de exportação.
+- Mensagem de incompatibilidade sem fallback opaco; informação do formato real no aviso de conclusão.
+- Teste de regressão com navegador e FFmpeg em `docs/mockup-studio/alpha-video-regressions.mjs`.
+
 ## 23/10/2026 — Editor e renderização
 
 ### Experiência de edição

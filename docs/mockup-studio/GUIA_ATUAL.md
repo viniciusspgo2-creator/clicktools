@@ -45,6 +45,8 @@ Imagem PNG/JPG/WebP, presets 1080×1080, story 1080×1920, paisagem 1920×1080, 
 
 Compartilhar abre o compartilhamento de arquivos do sistema, quando disponível. Para WhatsApp, escolha o aplicativo no seletor do dispositivo. Sem Web Share, a imagem é baixada para anexar manualmente.
 
+Em **Exportar → Vídeo**, ative **ALFA — fundo transparente** para gerar um vídeo WebM VP9 com canal alfa. O fundo, a foto e as bases de apoio são removidos apenas durante a exportação; as peças, sombras e marca d'água são preservadas. Efeitos de tela inteira ficam desativados nesse render. O navegador precisa oferecer WebCodecs/VP9; não há fallback opaco nesse modo. Mais detalhes em [EXPORTACAO-ALFA.md](EXPORTACAO-ALFA.md).
+
 ## Plano e integração
 
 `<MockupStudio plan="free" />`, `plan="pro"` ou `plan="premium"` recebe o plano já autorizado pelo host. O padrão premium preserva o portão de acesso original. Free força a marca Click&Gruda; Pro e Premium permitem ajustar a marca existente. Esta política de interface não constitui segurança de cobrança. Nenhum endpoint de autenticação ou assinatura foi alterado.

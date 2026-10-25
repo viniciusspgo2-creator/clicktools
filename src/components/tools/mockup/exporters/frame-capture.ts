@@ -136,7 +136,9 @@ export function beginFrames(
   // com pós-processamento ativo o composer já trabalha em HalfFloat multi-pass:
   // supersampling dobra memória e custo — desativa
   const fx = useMockupStore.getState().fx;
-  const usingFx = fx.enabled && !!studioRefs.composer;
+  // UnrealBloomPass escreve alfa opaco. O recorte transparente usa o render
+  // direto, preservando iluminação/exposição, sem efeitos de tela inteira.
+  const usingFx = !opts.transparent && fx.enabled && !!studioRefs.composer;
   const ssCap = Math.max(1, Math.min(opts.ssCap ?? 2, usingFx ? 1 : 2));
   const ss = opts.noSupersample
     ? 1

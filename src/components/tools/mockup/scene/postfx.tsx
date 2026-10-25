@@ -238,6 +238,7 @@ export function PostFX() {
 
   // assume o render loop (priority 1 desativa o render automático do R3F)
   useFrame((_, delta) => {
+    if (studioRefs.exporting) return;
     // eslint-disable-next-line react-hooks/immutability
     passes.gradePass.uniforms.uTime.value += delta;
     // câmera pode ter sido trocada por animação — RenderPass usa studioRefs
