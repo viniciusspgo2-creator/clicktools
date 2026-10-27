@@ -14,6 +14,7 @@ import {
   ExportError,
   renderFrame,
 } from "./frame-capture";
+import { withPngDpi } from "./png-dpi";
 
 export interface ExportOpts {
   width: number;
@@ -21,6 +22,9 @@ export interface ExportOpts {
   format: "png" | "jpeg" | "webp";
   quality: number;
   transparent: boolean;
+  background?: "scene" | "white" | "transparent";
+  dpi?: number;
+  supersample?: number;
 }
 
 export interface ExportResult {
@@ -28,6 +32,7 @@ export interface ExportResult {
   filename: string;
   width: number;
   height: number;
+  supersample: number;
 }
 
 export { ExportError, downloadBlob };
@@ -35,9 +40,13 @@ export { ExportError, downloadBlob };
 export async function exportImage(opts: ExportOpts): Promise<ExportResult> {
   const width = Math.round(opts.width);
   const height = Math.round(opts.height);
-  const usingTransparent = opts.transparent && opts.format !== "jpeg";
-
-  const session = beginFrames(width, height, { transparent: usingTransparent });
+  const requestedTransparent = opts.background === "transparent" || (opts.background == null && opts.transparent);
+  const usingTransparent = requestedTransparent && opts.format !== "jpeg";
+  // Let React paint the progress state before allocating the large buffer.
+  await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  const session = beginFrames(width, height, { transparent: usingTransparent,
+    whiteBackground: opts.background === "white" || (requestedTransparent && opts.format === "jpeg"),
+    ssCap: opts.supersample ?? 4 });
   try {
     const cam2 = fitCamera(session);
     // render offscreen + captura síncrona
@@ -55,7 +64,7 @@ export async function exportImage(opts: ExportOpts): Promise<ExportResult> {
         : opts.format === "jpeg"
           ? "image/jpeg"
           : "image/webp";
-    const blob = await new Promise<Blob>((res, rej) =>
+    let blob = await new Promise<Blob>((res, rej) =>
       out.toBlob(
         (b) =>
           b ? res(b) : rej(new ExportError("Falha ao codificar a imagem.")),
@@ -63,9 +72,10 @@ export async function exportImage(opts: ExportOpts): Promise<ExportResult> {
         opts.quality,
       ),
     );
+    if (opts.dpi && opts.format === "png") blob = await withPngDpi(blob, opts.dpi);
     const ext = opts.format === "jpeg" ? "jpg" : opts.format;
     const filename = `mockup-caneca-${width}x${height}-${Date.now()}.${ext}`;
-    return { blob, filename, width, height };
+    return { blob, filename, width, height, supersample: session.ssWidth / width };
   } finally {
     endFrames(session);
   }
@@ -77,8 +87,11 @@ export async function exportImageCanvas(
 ): Promise<HTMLCanvasElement> {
   const width = Math.round(opts.width);
   const height = Math.round(opts.height);
+  const requestedTransparent = opts.background === "transparent" || (opts.background == null && opts.transparent);
   const session = beginFrames(width, height, {
-    transparent: opts.transparent && opts.format !== "jpeg",
+    transparent: requestedTransparent && opts.format !== "jpeg",
+    whiteBackground: opts.background === "white" || (requestedTransparent && opts.format === "jpeg"),
+    ssCap: 2,
   });
   try {
     const cam2 = fitCamera(session);

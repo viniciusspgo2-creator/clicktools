@@ -1,3 +1,13 @@
+# Atualização V2 — 27/10/2026
+
+A Clássica agora tem corpo cilíndrico, borda arredondada, fundo rebaixado e material compartilhado com a alça. O painel prioriza tamanho/alinhamento da arte e paleta visual. A barra do palco reúne giro 360°, cinco vistas e centralização. Coordenadas ficam em **Avançado (Modo Manual)**.
+
+Em **Exportar imagem**, escolha Redes, Stories ou Print 300 DPI e depois Cenário atual, Branco ou Transparente. Vídeo, GIF, lote, folha e projetos continuam disponíveis nas respectivas abas. No celular, as ações do cabeçalho ficam no menu de três pontos.
+
+Leia [STUDIO_MOCKUP_V2.md](../../STUDIO_MOCKUP_V2.md) e [VALIDACAO_V2.md](VALIDACAO_V2.md) para as alterações e a verificação desta entrega. As seções abaixo registram os recursos e o histórico anterior.
+
+---
+
 # Mockup Studio 3D — guia atualizado (25/10/2026)
 
 **Rotas:** `/mockup-caneca-3d` apresenta o produto; `/mockup-caneca-3d/studio` abre o editor com o **mesmo portão premium** da home. Links antigos da home foram atualizados. O Studio mantém seus projetos `.cgstudio` e autosave local.

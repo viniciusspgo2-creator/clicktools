@@ -30,6 +30,8 @@ export function focusOn(point: THREE.Vector3 | null) {
 }
 
 const MUG_CENTER = new THREE.Vector3(0, 4.75, 0);
+const transitionDuration = (ms: number) =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms;
 const MUG_RADIUS = 7.6; // bounding aproximado com alça
 
 /** aplica a lente na câmera three (mutação intencional do objeto 3D) */
@@ -121,7 +123,7 @@ export function CameraRig() {
         fromTarget: controls.target.clone(),
         toTarget: target,
         t0: performance.now(),
-        dur: 700,
+        dur: transitionDuration(700),
       });
     };
     return () => {
@@ -144,7 +146,7 @@ export function CameraRig() {
         : MUG_CENTER.clone(),
       toTarget: new THREE.Vector3(...presetRequest.target),
       t0: performance.now(),
-      dur: 850,
+      dur: transitionDuration(850),
     });
   }, [presetRequest, camera]);
 
@@ -174,15 +176,16 @@ export function CameraRig() {
       fromTarget: controls.target.clone(),
       toTarget: center.clone(),
       t0: performance.now(),
-      dur: 800,
+      dur: transitionDuration(800),
     });
   }, [fitNonce, scene, camera, size.width, size.height]);
 
   useFrame(() => {
+    if (studioRefs.exporting) return;
     const controls = controlsRef.current;
     if (!controls) return;
     if (anim) {
-      const k = Math.min(1, (performance.now() - anim.t0) / anim.dur);
+      const k = anim.dur === 0 ? 1 : Math.min(1, (performance.now() - anim.t0) / anim.dur);
       const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; // easeInOutCubic
       camera.position.lerpVectors(anim.fromPos, anim.toPos, e);
       controls.target.lerpVectors(anim.fromTarget, anim.toTarget, e);

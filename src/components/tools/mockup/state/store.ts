@@ -227,6 +227,8 @@ export interface ExportState {
   format: "png" | "jpeg" | "webp";
   quality: number; // 0.5..1
   transparent: boolean;
+  background?: "scene" | "white" | "transparent";
+  dpi?: number;
 }
 
 export interface CameraPresetRequest {
@@ -403,7 +405,7 @@ const initialMug: MugState = {
   interiorColor: "#ffffff",
   handleColor: "#ffffff",
   clearcoat: 1,
-  roughness: 0.16,
+  roughness: 0.08,
   reflection: 0.8,
   faithfulColor: true,
   posX: 0,
@@ -430,7 +432,7 @@ const initialLight: LightState = {
   rotation: 0,
   softness: 0.5,
   shadowOpacity: 0.44,
-  shadowColor: "#292520",
+  shadowColor: "#242424",
   envIntensity: 1,
 };
 
@@ -459,7 +461,7 @@ const initialBg: BackgroundState = {
 };
 
 const initialCamera: CameraState = {
-  lens: 50,
+  lens: 85,
   autoRotate: false,
   autoRotateSpeed: 1.6,
   direction: "right",

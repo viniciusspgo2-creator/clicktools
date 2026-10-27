@@ -44,6 +44,38 @@ interface MergeFile {
   pages: number;
 }
 
+function ViewerCanvas({ previewPage, docBytes, ensurePdfjs }: {
+  previewPage: PdfPage;
+  docBytes: Uint8Array | null;
+  ensurePdfjs: () => Promise<typeof import("pdfjs-dist")>;
+}) {
+    const ref = useRef<HTMLCanvasElement>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        if (!previewPage || !docBytes || !ref.current) return;
+        const pdfjs = await ensurePdfjs();
+        const task = pdfjs.getDocument({ data: docBytes.slice() });
+        const doc = await task.promise;
+        const page = await doc.getPage(previewPage.origIndex + 1);
+        const vp0 = page.getViewport({ scale: 1 });
+        const scale = Math.min(1.4, 560 / vp0.width);
+        const vp = page.getViewport({ scale: scale });
+        const canvas = ref.current;
+        canvas.width = Math.floor(vp.width);
+        canvas.height = Math.floor(vp.height);
+        const ctx = canvas.getContext('2d')!;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvas, canvasContext: ctx, viewport: vp } as never).promise;
+        if (cancelled) return;
+        await task.destroy();
+      })();
+      return () => { cancelled = true; };
+    }, [previewPage, docBytes, ensurePdfjs]);
+    return <canvas ref={ref} className="mx-auto max-w-full rounded-lg bg-white shadow-xl" />;
+}
+
 /* ================= Componente ================= */
 
 export function PdfEditor() {
@@ -349,35 +381,6 @@ export function PdfEditor() {
     }
   };
 
-  /* ---------- visualizador ---------- */
-  const ViewerCanvas = () => {
-    const ref = useRef<HTMLCanvasElement>(null);
-    useEffect(() => {
-      let cancelled = false;
-      (async () => {
-        if (!previewPage || !docBytes || !ref.current) return;
-        const pdfjs = await ensurePdfjs();
-        const task = pdfjs.getDocument({ data: docBytes.slice() });
-        const doc = await task.promise;
-        const page = await doc.getPage(previewPage.origIndex + 1);
-        const vp0 = page.getViewport({ scale: 1 });
-        const scale = Math.min(1.4, 560 / vp0.width);
-        const vp = page.getViewport({ scale: scale });
-        const canvas = ref.current;
-        canvas.width = Math.floor(vp.width);
-        canvas.height = Math.floor(vp.height);
-        const ctx = canvas.getContext('2d')!;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        await page.render({ canvas, canvasContext: ctx, viewport: vp } as never).promise;
-        if (cancelled) return;
-        await task.destroy();
-      })();
-      return () => { cancelled = true; };
-    }, [previewPage]);
-    return <canvas ref={ref} className="mx-auto max-w-full rounded-lg bg-white shadow-xl" />;
-  };
-
   const dropzone = (
     <div
       onDragOver={(e) => e.preventDefault()}
@@ -645,7 +648,7 @@ export function PdfEditor() {
             </DialogTitle>
           </DialogHeader>
           <div className="thin-scroll max-h-[70vh] overflow-auto rounded-xl bg-secondary/40 p-4">
-            {previewPage && <ViewerCanvas />}
+            {previewPage && <ViewerCanvas previewPage={previewPage} docBytes={docBytes} ensurePdfjs={ensurePdfjs} />}
           </div>
         </DialogContent>
       </Dialog>

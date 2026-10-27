@@ -1,3 +1,11 @@
+## 27/10/2026 — Mockup Studio V2
+
+Caneca Clássica cilíndrica de 8,2 × 9,55 cm com borda arredondada, fundo rebaixado e alça com junções alargadas. Material cerâmico compartilhado, gestão sRGB, estúdio neutro, sombras suaves, vistas e giro acessíveis no palco. Painel simplificado, exportação por destino e PNG com metadados reais de 300 DPI.
+
+Corrigidos a restauração do preview após exportação, a tipagem do giro de vídeo, um erro de componente estático no editor de PDF e inconsistências anteriores do lockfile que bloqueavam `npm ci`. Consulte `STUDIO_MOCKUP_V2.md` e `docs/mockup-studio/VALIDACAO_V2.md`.
+
+---
+
 ## 25/10/2026 — Mockup Studio: refatoração progressiva (sem alteração de deploy)
 
 - Guia indexável `/mockup-caneca-3d` e Studio próprio `/mockup-caneca-3d/studio`, com `PremiumGate` reaproveitado.

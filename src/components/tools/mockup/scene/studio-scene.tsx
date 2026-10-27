@@ -70,12 +70,12 @@ export default function StudioCanvas() {
   return (
     <div className="relative h-full w-full">
       <Canvas
-        shadows="variance"
+        shadows
         dpr={[1, detectMobile() ? 1.5 : 2]}
         frameloop="always"
         camera={{
-          position: [0, 16, 43],
-          fov: lensToFov(50),
+          position: [0, 14, 67],
+          fov: lensToFov(85),
           near: 0.4,
           far: 250,
         }}
@@ -86,7 +86,8 @@ export default function StudioCanvas() {
           preserveDrawingBuffer: false,
         }}
         onCreated={({ gl }) => {
-          gl.toneMapping = THREE.NeutralToneMapping;
+          gl.shadowMap.type = THREE.PCFShadowMap;
+          gl.toneMapping = THREE.AgXToneMapping;
           gl.outputColorSpace = THREE.SRGBColorSpace;
           gl.toneMappingExposure = 1;
           gl.domElement.addEventListener("webglcontextlost", (e) => {

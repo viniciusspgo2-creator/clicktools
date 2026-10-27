@@ -4,22 +4,26 @@
    ============================================================ */
 
 export const MUG = {
-  height: 9.5, // cm altura total
-  topOuterR: 4.11, // raio externo no topo
-  bottomOuterR: 3.9, // raio na base (leve conicidade)
-  footH: 0, // fundo plano e liso, sem recesso
-  innerFloorY: 0.9, // piso interno
+  height: 9.55, // cm; 1 unidade da cena = 1 cm
+  topOuterR: 4.1,
+  bottomOuterR: 4.1, // parede cilíndrica: o mesmo raio em toda a altura
+  innerR: 3.725, // R_int=0.745 na escala normalizada de 0.2
+  rimSegments: 32,
+  footH: 0.18, // rebaixo de 1,8 mm no centro do fundo
+  footWidth: 0.4, // anel de contato com 4 mm de largura radial
+  baseBevel: 0.22,
+  innerFloorY: 0.65,
   printTop: 9.32, // y do topo da área de impressão (padrão prensa)
   printBottom: 0.62, // y da base da área de impressão (padrão prensa)
   paperW: 21, // cm — largura do papel padrão (referência de DPI)
   paperH: 9.5, // cm — altura do papel padrão (referência de DPI)
   gapCirc: 4.6, // cm da circunferência sem impressão (região da alça)
-  segments: 180, // segmentos radiais do corpo
+  segments: 256, // segmentos radiais do corpo
 } as const;
 
 export const PRINT_HEIGHT_CM = MUG.printTop - MUG.printBottom; // 8.7 cm
 /** Raio médio da parede para cálculo da circunferência de impressão */
-export const AVG_R = 4.02;
+export const AVG_R = MUG.topOuterR;
 export const CIRC_CM = 2 * Math.PI * AVG_R;
 export const GAP_ANGLE = (MUG.gapCirc / CIRC_CM) * Math.PI * 2; // rad
 export const PRINT_ARC_CM = CIRC_CM - MUG.gapCirc;
@@ -51,12 +55,12 @@ export interface PrintArea {
  *  da borda arredondada (y=9,35). Esses limites NÃO vêm mais da geometria:
  *  a fronteira da arte agora é desenhada na própria textura. */
 export const PRINT_BOTTOM_MIN = 0;
-export const PRINT_TOP_MAX = 9.505;
+export const PRINT_TOP_MAX = MUG.height;
 /** vão mínimo escondido atrás da alça (cm) — mesmo no modo forno */
 export const GAP_MIN_CM = 0;
 
-const AREA_CENTER_Y = (PRINT_BOTTOM_MIN + PRINT_TOP_MAX) / 2; // 4.855
-const AREA_MAX_H = PRINT_TOP_MAX - PRINT_BOTTOM_MIN; // 8.81
+const AREA_CENTER_Y = (PRINT_BOTTOM_MIN + PRINT_TOP_MAX) / 2;
+const AREA_MAX_H = PRINT_TOP_MAX - PRINT_BOTTOM_MIN;
 
 export const AREA_PRESETS: { id: AreaMode; label: string; desc: string }[] = [
   {
@@ -197,13 +201,13 @@ export const LIGHT_PRESETS: LightPresetDef[] = [
     id: "suave",
     label: "Estúdio Suave",
     keyInt: 1.15,
-    keyTemp: 5600,
+    keyTemp: 6500,
     keyDir: [-6, 12, 8],
     fillInt: 0.5,
-    fillTemp: 6800,
+    fillTemp: 6500,
     rimInt: 0.75,
     rimTemp: 6500,
-    env: 1.0,
+    env: 0.65,
     backdrop: "white",
   },
   {
@@ -485,7 +489,7 @@ export const MODEL_METRICS: Record<
   string,
   { height: number; circumference: number }
 > = {
-  classic: { height: 9.5, circumference: CIRC_CM },
+  classic: { height: MUG.height, circumference: CIRC_CM },
   square: { height: 9.5, circumference: 25.6 },
   cone: { height: 10.8, circumference: CIRC_CM * 0.89 },
   beer: { height: 14, circumference: CIRC_CM * 1.1 },

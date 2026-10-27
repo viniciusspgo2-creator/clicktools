@@ -1,6 +1,7 @@
 import * as THREE from "three";
+import { MUG } from "../lib/config";
 import type { MugModel } from "../state/store";
-import { buildMugBodyGeometry, buildHandleGeometry, profileRadius } from "./mug-geometry";
+import { buildMugBodyGeometry, buildHandleGeometry, buildBasePrintGeometry, profileRadius } from "./mug-geometry";
 export const MODELS: {
   id: MugModel;
   label: string;
@@ -13,7 +14,7 @@ export const MODELS: {
     label: "Clássica 325 ml (11 oz)",
     desc: "Cerâmica · 325 ml",
     hasHandle: true,
-    height: 9.5,
+    height: MUG.height,
   },
   {
     id: "square",
@@ -56,13 +57,14 @@ export function buildModel(model: MugModel = "classic") {
   const def = MODELS.find((x) => x.id === model) ?? MODELS[0];
   const body = buildMugBodyGeometry(undefined, def.id);
   const handle = buildHandleGeometry();
+  const basePrint = buildBasePrintGeometry(def.id);
   function deform(g: THREE.BufferGeometry, isHandle: boolean) {
     const p = g.getAttribute("position");
     for (let i = 0; i < p.count; i++) {
       let x = p.getX(i),
         y = p.getY(i),
         z = p.getZ(i);
-      const t = y / 9.5;
+      const t = y / MUG.height;
       let r = 1;
       if (isHandle && model !== "classic") {
         // Adequa a alça ao raio correspondente do modelo, sem deformar o corpo.
@@ -81,17 +83,18 @@ export function buildModel(model: MugModel = "classic") {
       }
       x *= r;
       z *= r;
-      y *= def.height / 9.5;
+      y *= def.height / MUG.height;
       p.setXYZ(i, x, y, z);
     }
     p.needsUpdate = true;
-    g.computeVertexNormals();
+    if (model !== "classic") g.computeVertexNormals();
     g.computeBoundingBox();
     g.computeBoundingSphere();
   }
   deform(body, false);
   deform(handle, true);
-  return { body, handle, def };
+  deform(basePrint, false);
+  return { body, handle, basePrint, def };
 }
 /** Minimum center height after arbitrary 3-axis rotation, including handle. */
 export function supportHeight(
@@ -107,7 +110,7 @@ export function supportHeight(
     const p = geo.getAttribute("position");
     for (let i = 0; i < p.count; i++) {
       v.fromBufferAttribute(p, i);
-      v.y -= 4.75;
+      v.y -= MUG.height / 2;
       v.applyQuaternion(q);
       min = Math.min(min, v.y);
     }

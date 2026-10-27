@@ -10,6 +10,7 @@ import {
   type MugState,
   type CompanionMug,
 } from "../state/store";
+import { createCeramicMaterial } from "./ceramic-material";
 import { buildModel, supportHeight } from "./model-geometry";
 import { getArtImage } from "../lib/art-registry";
 import {
@@ -19,102 +20,17 @@ import {
   renderMetalMask,
 } from "../lib/art-canvas";
 import { NEUTRAL_ADJUSTMENTS } from "../lib/art-adjustments";
-import { FLOAT_LIFT, PEDESTAL_H, PLATE_H, detectMobile } from "../lib/config";
+import { MUG, FLOAT_LIFT, PEDESTAL_H, PLATE_H, detectMobile } from "../lib/config";
 import { studioRefs } from "./studio-refs";
 
-function CeramicMaterial({
-  texture,
-  mug,
-  metalMask,
-  height,
-}: {
+function CeramicMaterial({ texture, mug, metalMask, color }: {
   texture?: THREE.Texture;
   mug: MugState;
   metalMask?: THREE.Texture;
-  height: number;
+  color?: THREE.ColorRepresentation;
 }) {
-  const maps = useMemo(() => {
-    const c = document.createElement("canvas");
-    c.width = 64;
-    c.height = 256;
-    const ctx = c.getContext("2d")!;
-    for (let y = 0; y < 256; y++) {
-      const v = y < 238 ? 255 - (y / 238) * 12 : y < 246 ? 235 : 180;
-      ctx.fillStyle = `rgb(${v},${v},${v})`;
-      ctx.fillRect(0, y, 64, 1);
-    }
-    const ao = new THREE.CanvasTexture(c);
-    ao.colorSpace = THREE.NoColorSpace;
-    const n = document.createElement("canvas");
-    n.width = n.height = 64;
-    const nc = n.getContext("2d")!;
-    const image = nc.createImageData(64, 64);
-    for (let i = 0; i < image.data.length; i += 4) {
-      const v = 126 + (Math.sin(i * 13.13) * 0.5 + 0.5) * 5;
-      image.data[i] = image.data[i + 1] = image.data[i + 2] = v;
-      image.data[i + 3] = 255;
-    }
-    nc.putImageData(image, 0, 0);
-    const bump = new THREE.CanvasTexture(n);
-    bump.wrapS = bump.wrapT = THREE.RepeatWrapping;
-    return { ao, bump };
-  }, []);
-  useEffect(
-    () => () => {
-      maps.ao.dispose();
-      maps.bump.dispose();
-    },
-    [maps],
-  );
-  const material = useMemo(() => {
-    const m = new THREE.MeshPhysicalMaterial({
-      map: texture,
-      roughness: mug.roughness ?? 0.16,
-      clearcoat: mug.clearcoat ?? 1,
-      clearcoatRoughness: 0.09,
-      metalness: metalMask ? 1 : 0,
-      metalnessMap: metalMask ?? null,
-      aoMap: maps.ao,
-      aoMapIntensity: 0.5,
-      bumpMap: maps.bump,
-      bumpScale: 0.002,
-      specularIntensity: 0.6,
-      envMapIntensity: mug.reflection ?? 0.8,
-      toneMapped: !mug.faithfulColor || !!metalMask,
-    });
-    if (mug.faithfulColor && !metalMask) {
-      m.onBeforeCompile = (shader) => {
-        shader.vertexShader = `varying float vCeramicHeight; varying vec2 vCeramicUV;\n${shader.vertexShader}`.replace(
-          "#include <begin_vertex>",
-          "#include <begin_vertex>\nvCeramicHeight = position.y; vCeramicUV = uv;",
-        );
-        shader.fragmentShader = `varying float vCeramicHeight; varying vec2 vCeramicUV;\n${shader.fragmentShader}`;
-        shader.fragmentShader = shader.fragmentShader.replace(
-          "vec3 outgoingLight = totalDiffuse + totalSpecular + totalEmissiveRadiance;",
-          `vec3 shadingRatio = totalDiffuse / max(diffuseColor.rgb, vec3(0.0001));
-     float formShade = clamp(dot(shadingRatio, vec3(0.2126,0.7152,0.0722)),0.0,1.0);
-     vec3 outgoingLight = diffuseColor.rgb * (0.68 + 0.32 * formShade) + totalSpecular + totalEmissiveRadiance;
-     // Interior occupies its own constant UV strip. Cavity shading belongs
-     // there, so it never darkens the printed artwork or its white areas.
-     if (vCeramicUV.y < 0.03) {
-       float cavity = mix(0.42, 0.94, smoothstep(0.05, 1.0, vCeramicHeight / ${height.toFixed(3)}));
-       outgoingLight = diffuseColor.rgb * (0.62 + 0.2 * formShade) * cavity + min(totalSpecular, vec3(0.08)) + totalEmissiveRadiance;
-     }`,
-        );
-      };
-      m.customProgramCacheKey = () => `clickgruda-faithful-v2-${height}`;
-    }
-    return m;
-  }, [
-    maps,
-    texture,
-    metalMask,
-    mug.roughness,
-    mug.clearcoat,
-    mug.reflection,
-    mug.faithfulColor,
-    height,
-  ]);
+  const material = useMemo(() => createCeramicMaterial(mug, { map: texture, metalMask, color }),
+    [texture, metalMask, color, mug.roughness, mug.clearcoat, mug.reflection, mug.faithfulColor]);
   useEffect(() => () => material.dispose(), [material]);
   return <primitive object={material} attach="material" />;
 }
@@ -138,6 +54,7 @@ function MugObject({
   const compare = useMockupStore((s) => s.compareArt);
   const [object, setObject] = useState<THREE.Group | null>(null);
   const spinElapsed = useRef(0);
+  const spinBase = useRef<number | null>(null);
   const sceneCamera = useMockupStore(s => s.camera);
   const entryGroup = useRef<THREE.Group>(null);
   const dragArt = useRef<{ x: number; y: number; art: ArtState } | null>(null);
@@ -149,6 +66,7 @@ function MugObject({
     () => () => {
       model.body.dispose();
       model.handle.dispose();
+      model.basePrint.dispose();
     },
     [model],
   );
@@ -253,15 +171,20 @@ function MugObject({
     if (!object) return;
     if (id === "hero" && !studioRefs.exporting) {
       if (sceneCamera.autoRotate) {
+        if (spinBase.current === null) spinBase.current = object.rotation.y;
         spinElapsed.current += delta;
         const phase = spinElapsed.current / Math.max(3, sceneCamera.secondsPerTurn ?? 8);
         const travel = sceneCamera.direction === "pingpong"
           ? (1 - Math.cos(phase * Math.PI * 2)) * Math.PI
           : phase * Math.PI * 2 * (sceneCamera.direction === "left" ? -1 : 1);
-        object.rotation.y = rotation.y - travel;
-      } else if (spinElapsed.current) {
+        object.rotation.y = spinBase.current - travel;
+      } else if (spinBase.current !== null) {
+        // Pause is a real pause: retain the visible pose and persist it once.
+        // The next play starts from this angle instead of jumping to the start.
+        const paused = THREE.MathUtils.euclideanModulo(-THREE.MathUtils.radToDeg(object.rotation.y), 360);
+        spinBase.current = null;
         spinElapsed.current = 0;
-        object.rotation.y = rotation.y;
+        useMockupStore.getState().patchObject("hero", { rotationY: paused });
       }
     }
     if (!initialized.current) {
@@ -332,12 +255,7 @@ function MugObject({
       gl.domElement.removeEventListener("pointerup", end);
     };
   }, [gl, id]);
-  const handle =
-    mug.variant === "white"
-      ? mug.handleColor
-      : mug.handleColor !== "#ffffff"
-        ? mug.handleColor
-        : mug.accentColor;
+  const handle = mug.handleColor ?? (mug.variant === "white" ? "#ffffff" : mug.accentColor);
   return (
     <>
       <group
@@ -360,7 +278,7 @@ function MugObject({
             geometry={outline}
             position={[
               0,
-              model.def.height / 2 - 4.75,
+              model.def.height / 2 - MUG.height / 2,
               model.def.hasHandle ? -1.2 : 0,
             ]}
           >
@@ -373,7 +291,7 @@ function MugObject({
           </lineSegments>
         )}
         <group ref={entryGroup} name="mug-entrance">
-          <group position={[0, -4.75, 0]}>
+          <group position={[0, -MUG.height / 2, 0]}>
             <mesh
               geometry={model.body}
               castShadow
@@ -385,36 +303,17 @@ function MugObject({
                 texture={texture}
                 mug={mug}
                 metalMask={metalMask}
-                height={model.def.height}
               />
             </mesh>
             {baseTexture && (
-              <mesh
-                position={[0, (0.335 * model.def.height) / 9.5, 0]}
-                rotation={[
-                  Math.PI / 2,
-                  0,
-                  ((art.baseRotation ?? 0) * Math.PI) / 180,
-                ]}
-              >
-                <circleGeometry args={[model.def.hasHandle ? 3.25 : 2.5, 64]} />
-                <meshPhysicalMaterial
-                  map={baseTexture}
-                  roughness={mug.roughness}
-                  clearcoat={mug.clearcoat}
-                  side={THREE.FrontSide}
-                />
+              <mesh geometry={model.basePrint} rotation={[0, ((art.baseRotation ?? 0) * Math.PI) / 180, 0]}
+                receiveShadow name="mug-base-print">
+                <CeramicMaterial texture={baseTexture} mug={mug} />
               </mesh>
             )}
             {model.def.hasHandle && (
-              <mesh geometry={model.handle} castShadow>
-                <meshPhysicalMaterial
-                  color={handle}
-                  roughness={mug.roughness}
-                  clearcoat={mug.clearcoat}
-                  clearcoatRoughness={0.09}
-                  envMapIntensity={mug.reflection}
-                />
+              <mesh geometry={model.handle} castShadow receiveShadow name="mug-handle" userData={{ objectId: id }}>
+                <CeramicMaterial color={handle} mug={mug} />
               </mesh>
             )}
 

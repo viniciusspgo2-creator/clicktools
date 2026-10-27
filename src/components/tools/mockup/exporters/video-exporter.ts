@@ -80,7 +80,7 @@ function beginTurntable(scene: THREE.Scene): Turntable {
   return { obj, rot0: obj?.rotation.y ?? 0 };
 }
 
-function videoAngle(t: number, opts: AnimOpts) {
+function videoAngle(t: number, opts: Pick<AnimOpts, "turns" | "direction">) {
   const turns = Math.max(0.5, Math.min(3, opts.turns ?? 1));
   const cycle = (opts.direction === "pingpong")
     ? (1 - Math.cos(t * Math.PI * 2 * turns)) * 0.5

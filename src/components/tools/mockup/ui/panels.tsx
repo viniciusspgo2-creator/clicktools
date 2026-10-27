@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ImagePlus,
+  Settings2,
   CupSoda,
   Mountain,
   Lightbulb,
@@ -658,7 +659,7 @@ export function MugPanel() {
         <ColorRow
           label="Cor da alça e interior"
           value={mug.accentColor}
-          onChange={(v) => patch("mug", { accentColor: v })}
+          onChange={(v) => patch("mug", { accentColor: v, handleColor: v, interiorColor: v })}
         />
       )}
       {isMagic && (
@@ -1416,14 +1417,17 @@ export function CameraPanel() {
         min={24}
         max={100}
         onChange={(v) => patch("camera", { lens: v })}
-        defaultValue={50}
+        defaultValue={85}
         format={(v) => `${Math.round(v)} mm equivalente`}
       />
       <div className="grid grid-cols-3 gap-1">
         {CAMERA_PRESETS.map((p) => (
           <MiniButton
             key={p.id}
-            onClick={() => applyPreset(p)}
+            onClick={() => applyPreset({ ...p,
+              // Legacy camera distances were composed with a 50 mm lens.
+              pos: p.pos.map((v, i) => p.target[i] + (v - p.target[i]) * camera.lens / 50) as [number, number, number],
+            })}
             className="!px-1 !text-[10px]"
             title={`Ver a caneca de: ${p.label}`}
           >
@@ -1567,6 +1571,15 @@ function ImageTab() {
   const setOpen = useMockupStore((s) => s.setExportOpen);
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
+  const background = es.background ?? (es.transparent ? "transparent" : "scene");
+  const destination = es.dpi === 300 ? "print" : es.ratioId === "story" ? "story" :
+    es.ratioId === "sq" ? "social" : "custom";
+  function chooseDestination(value: string) {
+    if (value === "print") setExport({ ratioId: "custom", customW: 3000, customH: 3000, scale: 1, format: "png", dpi: 300 });
+    else if (value === "custom") setExport({ ratioId: "custom", dpi: undefined });
+    else setExport({ ratioId: value === "story" ? "story" : "sq", scale: 1, dpi: undefined });
+  }
+
 
   const ratio = EXPORT_RATIOS.find((r) => r.id === es.ratioId);
   const width =
@@ -1596,13 +1609,16 @@ function ImageTab() {
         height,
         format: es.format,
         quality: es.quality,
-        transparent: es.transparent,
+        transparent: background === "transparent",
+        background,
+        dpi: es.dpi,
+        supersample: 4,
       });
       downloadBlob(res.blob, res.filename);
       setOpen(false);
       toast({
         title: "Imagem exportada!",
-        description: `${res.width} × ${res.height} · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB — pronta para Instagram.`,
+        description: `${res.width} × ${res.height} · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB — ${es.dpi === 300 ? "300 DPI para impressão" : "pronta para compartilhar"}.`,
       });
     } catch (e) {
       toast({
@@ -1622,15 +1638,35 @@ function ImageTab() {
 
   return (
     <div className="space-y-4">
+      <div className="space-y-3 rounded-xl border border-primary/25 bg-primary/5 p-3">
+        <label className="block text-sm font-semibold" htmlFor="cg-export-purpose">Onde você vai usar?</label>
+        <select id="cg-export-purpose" value={destination} disabled={busy} onChange={e => chooseDestination(e.target.value)}
+          className="w-full rounded-lg border border-white/15 bg-[#252222] p-3 text-sm text-neutral-100">
+          <option value="social">WhatsApp / Redes · quadrado 1:1</option>
+          <option value="story">Stories / Reels · vertical 9:16</option>
+          <option value="print">Alta resolução Print · 300 DPI</option>
+          <option value="custom">Personalizado / outros formatos</option>
+        </select>
+        <p className="text-xs leading-relaxed text-neutral-400">
+          {destination === "print" ? "PNG de 3000 × 3000 px com resolução de 300 DPI gravada no arquivo (25,4 × 25,4 cm)." :
+            destination === "story" ? "Imagem vertical de 1080 × 1920 px para suas redes." :
+            destination === "social" ? "Imagem de 1080 × 1080 px para enviar ao cliente ou publicar." : "Abra os ajustes avançados para definir as medidas."}
+        </p>
+      </div>
+      <Segmented label="Fundo da imagem" value={background}
+        options={[{ value: "scene", label: "Cenário atual" }, { value: "white", label: "Branco" }, { value: "transparent", label: "Transparente" }]}
+        onChange={value => setExport({ background: value, transparent: value === "transparent",
+          ...(value === "transparent" ? { format: "png" as const } : {}) })} />
+      <Section key={destination === "custom" ? "custom" : "preset"} title="Avançado: tamanho e formato" icon={Settings2} defaultOpen={destination === "custom"}>
       <div>
         <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
           Proporção
         </p>
         <div className="grid grid-cols-3 gap-1.5">
-          {EXPORT_RATIOS.map((r) => (
+          {[...EXPORT_RATIOS, { id: "custom", label: "Personalizado", w: es.customW, h: es.customH }].map((r) => (
             <button
               key={r.id}
-              onClick={() => setExport({ ratioId: r.id })}
+              onClick={() => setExport({ ratioId: r.id, dpi: undefined })}
               className={cn(
                 "rounded-lg border px-2 py-2 text-[10px] font-bold transition-all",
                 es.ratioId === r.id
@@ -1708,7 +1744,8 @@ function ImageTab() {
           { value: "jpeg", label: "JPG" },
           { value: "webp", label: "WebP" },
         ]}
-        onChange={(v) => setExport({ format: v })}
+        onChange={(v) => setExport({ format: v, ...(v === "jpeg" && background === "transparent" ?
+          { background: "white", transparent: false } : {}) , ...(v !== "png" ? { dpi: undefined } : {}) })}
       />
 
       {es.format !== "png" && (
@@ -1723,15 +1760,11 @@ function ImageTab() {
         />
       )}
 
-      {es.format !== "jpeg" && (
-        <ToggleRow
-          label="Sem fundo (PNG transparente)"
-          checked={es.transparent}
-          onChange={(v) => setExport({ transparent: v })}
-        />
-      )}
+      </Section>
 
-      <WatermarkBox wm={wm} patch={patch} />
+      <Section title="Marca d’água" icon={Eye}>
+        <WatermarkBox wm={wm} patch={patch} />
+      </Section>
 
       <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[11px]">
         <span className="text-neutral-400">
@@ -1766,7 +1799,7 @@ function ImageTab() {
         ) : (
           <Sparkles className="h-4 w-4" />
         )}
-        {busy ? "Renderizando…" : "Exportar agora"}
+        {busy ? "Preparando sua imagem…" : "Exportar imagem"}
       </PrimaryButton>
     </div>
   );

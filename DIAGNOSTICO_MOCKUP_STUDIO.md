@@ -1,3 +1,5 @@
+> Histórico da versão anterior. Para o estado desta entrega, consulte `STUDIO_MOCKUP_V2.md` e `docs/mockup-studio/VALIDACAO_V2.md`.
+
 # Diagnóstico inicial — Mockup Studio 3D
 
 Data: 23/10/2026. Fonte primária: os 8.337 registros de linha do módulo original, documentação interna e 17 prints enviados. Esta análise precedeu a alteração dos componentes. A implementação final está no CHANGELOG.

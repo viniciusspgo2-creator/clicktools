@@ -15,10 +15,10 @@ assert.match(video,/uhd: \{ w: 3840, h: 2160/);
 assert.match(video,/const t = i \/ total/);
 assert.match(model,/Clássica 325 ml/);
 assert.doesNotMatch(model,/id: "squeeze"|id: "thermal"|id: "long"/);
-assert.match(geom,/Base lisa e fechada/);
+// A geometria cilíndrica e o fundo rebaixado são verificados em regressions.mjs.
 assert.match(studio,/<PremiumGate>/);
 assert.match(read('src/app/sitemap.ts'),/mockup-caneca-3d/);
 assert.match(read('src/app/page.tsx'), /RedirectLegacyMockup/);
 assert.doesNotMatch(read('src/components/site/home.tsx'), /setActiveTool\('mockup'\)/);
 assert.match(read('src/components/tools/mockup/ui/workspace.css'), /height: 100dvh;/);
-console.log('QA estática: 12 testes passaram. Ainda é preciso testar build e WebGL/WebCodecs no navegador.');
+console.log('QA estática concluída. Geometria e materiais são verificados em regressions.mjs; navegador e codecs têm validação separada.');

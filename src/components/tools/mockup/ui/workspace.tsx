@@ -1,5 +1,5 @@
 "use client";
-import { useEffect as ReactUseEffect, useState, type ReactNode } from "react";
+import { useEffect as ReactUseEffect, useState, useCallback, type ReactNode } from "react";
 import {
   ImagePlus,
   Images,
@@ -44,6 +44,7 @@ import {
   Facebook,
   Instagram,
   Search,
+  MoreHorizontal,
 } from "lucide-react";
 import { useMockupStore, type MugState, type ArtState } from "../state/store";
 import { useToolsStore } from "@/lib/tools-store";
@@ -69,6 +70,7 @@ import {
   exportPortableProject,
   importPortableProject,
 } from "../lib/portable-project";
+import { QuickCameraBar, QuickArtControls, CeramicPalette } from "./quick-controls";
 import "./workspace.css";
 
 type Tab = "arts" | "backgrounds" | "models" | "layers" | "scene" | "light" | "camera" | "compose" | "effects";
@@ -134,13 +136,15 @@ export function Workspace({
     active === "hero"
       ? st.art
       : (st.companions.find((c) => c.id === active)?.art ?? st.art);
+  const notify = useCallback((message: string) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice(""), 4500);
+  }, []);
   ReactUseEffect(() => {
     const migrated = (e: Event) => notify((e as CustomEvent<string>).detail);
     window.addEventListener("cg-mockup-migrated", migrated);
     return () => window.removeEventListener("cg-mockup-migrated", migrated);
-  // registered once; the notification is not needed during rerenders
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [notify]);
   ReactUseEffect(() => {
     const handle = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -150,10 +154,6 @@ export function Workspace({
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
   }, []);
-  const notify = (message: string) => {
-    setNotice(message);
-    window.setTimeout(() => setNotice(""), 4500);
-  };
   async function safe(task: () => Promise<void>) {
     setBusy(true);
     try {
@@ -186,12 +186,7 @@ export function Workspace({
   return (
     <div className={`cg-workspace ${light ? "cg-light" : "cg-dark"}`}>
       <header className="cg-topbar">
-        <ToolButton
-          label="Voltar ao guia"
-          onClick={() => window.location.assign("/mockup-caneca-3d")}
-        >
-          <ArrowLeft />
-        </ToolButton>
+        <a className="cg-icon" aria-label="Voltar ao guia" href="/mockup-caneca-3d"><ArrowLeft /></a>
         <div className="cg-brand">
           <span className="cg-logo">
             <Coffee />
@@ -242,6 +237,7 @@ export function Workspace({
         <a className="cg-toplink" href="https://clickgruda.vercel.app/" target="_blank" rel="noopener noreferrer" title="Biblioteca de artes">Biblioteca</a>
         <a className="cg-top-social" href="https://instagram.com/clickgruda.digital" target="_blank" rel="noopener noreferrer" aria-label="Instagram Click&Gruda"><Instagram /></a>
         <a className="cg-top-social" href="https://www.facebook.com/artesparacanecasoficial" target="_blank" rel="noopener noreferrer" aria-label="Facebook Click&Gruda"><Facebook /></a>
+        <div className="cg-header-actions">
         <ToolButton label="Buscar ajustes · Ctrl+K" onClick={() => setSearchOpen(true)}><Search /></ToolButton>
         <ToolButton
           label={light ? "Tema escuro" : "Tema claro"}
@@ -270,9 +266,23 @@ export function Workspace({
         <button className="cg-reset-btn" onClick={() => setResetOpen(true)} title="Resetar tudo">
           <RotateCcw /> <span>Resetar tudo</span>
         </button>
-        <button className="cg-export" onClick={() => st.setExportOpen(true)}>
+        </div>
+        <details className="cg-mobile-menu">
+          <summary aria-label="Mais opções do estúdio"><MoreHorizontal /></summary>
+          <div>
+            <button type="button" onClick={e => { setSearchOpen(true); e.currentTarget.closest("details")?.removeAttribute("open"); }}><Search />Buscar ajustes</button>
+            <button type="button" onClick={e => { st.setProjectsOpen(true); e.currentTarget.closest("details")?.removeAttribute("open"); }}><FolderOpen />Projetos salvos</button>
+            <button type="button" disabled={busy} onClick={e => {
+              e.currentTarget.closest("details")?.removeAttribute("open");
+              safe(async () => { await saveCurrentProject("working-project", st.projectName); notify("Projeto salvo neste dispositivo."); });
+            }}><Save />Salvar projeto</button>
+            <button type="button" onClick={() => setLight(!light)}>{light ? <Moon /> : <Sun />}{light ? "Tema escuro" : "Tema claro"}</button>
+            <button type="button" onClick={e => { setResetOpen(true); e.currentTarget.closest("details")?.removeAttribute("open"); }}><RotateCcw />Resetar tudo</button>
+          </div>
+        </details>
+        <button className="cg-export" aria-label="Exportar imagem" onClick={() => st.setExportOpen(true)}>
           <Download />
-          <span>Exportar</span>
+          <span>Exportar imagem</span>
         </button>
       </header>
       <div className="cg-body">
@@ -418,7 +428,7 @@ export function Workspace({
               <Section title="Cores prontas" icon={Palette} defaultOpen>
                 <div className="cg-preset-grid">
                   {[
-                    { label: "Branca clássica", patch: {variant:"white" as const,bodyColor:"#ffffff",handleColor:"#ffffff",interiorColor:"#ffffff",roughness:0.18}},
+                    { label: "Branca clássica", patch: {variant:"white" as const,bodyColor:"#ffffff",handleColor:"#ffffff",interiorColor:"#ffffff",roughness:0.08}},
                     { label: "Alça colorida", patch: {variant:"accent" as const,bodyColor:"#ffffff",handleColor:"#e44837",interiorColor:"#e44837",accentColor:"#e44837"}},
                     { label: "Toda colorida", patch: {variant:"accent" as const,bodyColor:"#325aaf",handleColor:"#325aaf",interiorColor:"#325aaf",accentColor:"#325aaf"}},
                     { label: "Preta fosca", patch: {variant:"accent" as const,bodyColor:"#202024",handleColor:"#202024",interiorColor:"#202024",roughness:0.68}},
@@ -625,8 +635,8 @@ export function Workspace({
             <span className="cg-live-dot" />
             PRÉVIA 3D EM TEMPO REAL
           </div>
-          <div className="cg-scene-presets">
-            <label>Composição</label>
+          <details className="cg-scene-presets">
+            <summary><Layers /> Composição rápida</summary>
             <div>
               {(
                 [
@@ -644,20 +654,8 @@ export function Workspace({
                 </button>
               ))}
             </div>
-          </div>
-          <div className="cg-camera-strip">
-            {CAMERA_PRESETS.filter((p) =>
-              ["frente", "tres-quartos", "costas", "topo"].includes(p.id),
-            ).map((p) => (
-              <button key={p.id} onClick={() => st.applyCameraPreset(p)}>
-                {p.label}
-              </button>
-            ))}
-            <button onClick={st.frameAll}>
-              <Maximize />
-              Enquadrar
-            </button>
-          </div>
+          </details>
+          <QuickCameraBar />
           {notice && (
             <div className="cg-notice" role="status">
               {notice}
@@ -687,7 +685,9 @@ export function Workspace({
           </div>
           {selected ? (
             <>
-              <Section title="Transformar" icon={Move} defaultOpen>
+              <QuickArtControls active={active} art={art} locked={!!selected.locked} />
+              <CeramicPalette active={active} />
+              <Section title="Poses prontas" icon={Move} defaultOpen>
                 <div className="cg-pills">
                   {[
                     ["Em pé", 0, 0],
@@ -708,6 +708,18 @@ export function Workspace({
                     </button>
                   ))}
                 </div>
+                <ToggleRow
+                  label="Encaixe magnético"
+                  checked={st.snapEnabled}
+                  onChange={st.setSnap}
+                />
+                <ToggleRow
+                  label="Travar objeto"
+                  checked={!!selected.locked}
+                  onChange={(locked) => st.patchObject(active, { locked })}
+                />
+              </Section>
+              <Section title="Avançado (Modo Manual)" icon={SlidersHorizontal}>
                 <div className="cg-numeric-grid">
                   {(
                     [
@@ -759,18 +771,8 @@ export function Workspace({
                     </label>
                   ))}
                 </div>
-                <ToggleRow
-                  label="Encaixe magnético"
-                  checked={st.snapEnabled}
-                  onChange={st.setSnap}
-                />
-                <ToggleRow
-                  label="Travar objeto"
-                  checked={!!selected.locked}
-                  onChange={(locked) => st.patchObject(active, { locked })}
-                />
               </Section>
-              <Section title="Cerâmica e acabamento" icon={Coffee} defaultOpen>
+              <Section title="Cerâmica e acabamento" icon={Coffee}>
                 <ColorRow
                   label="Cor do corpo"
                   value={selected.bodyColor ?? "#ffffff"}
@@ -793,7 +795,7 @@ export function Workspace({
                   }
                 />
                 <ColorRow
-                  label="Cor da alça / tampa"
+                  label="Cor da alça"
                   value={selected.handleColor ?? "#ffffff"}
                   onChange={(handleColor) =>
                     st.patchObject(active, { handleColor })
@@ -814,7 +816,7 @@ export function Workspace({
                   min={0.04}
                   max={1}
                   step={0.01}
-                  value={selected.roughness ?? 0.16}
+                  value={selected.roughness ?? 0.08}
                   onChange={(roughness) =>
                     st.patchObject(active, { roughness })
                   }
@@ -863,7 +865,7 @@ export function Workspace({
                   </>
                 )}
               </Section>
-              <Section title="Ajustes da arte" icon={ImagePlus} defaultOpen>
+              <Section title="Ajustes de cor da arte" icon={ImagePlus}>
                 {(
                   [
                     "brightness",
@@ -915,8 +917,10 @@ export function Workspace({
                   </button>
                 </div>
               </Section>
-              <PrintLayersPanel />
-              <ArtPanel />
+              <Section title="Mais opções da arte" icon={ImagePlus}>
+                <PrintLayersPanel />
+                <ArtPanel />
+              </Section>
             </>
           ) : (
             <p className="cg-hint">Clique em uma caneca ou abra Camadas.</p>
@@ -950,7 +954,7 @@ export function Workspace({
           }
         >
           {st.camera.autoRotate ? <Pause /> : <Play />}
-          {st.camera.autoRotate ? "Pausar giro" : "Girar automaticamente"}
+          {st.camera.autoRotate ? "Pausar giro" : "Girar 360°"}
         </button>
         <a className="cg-guide-status" href="/mockup-caneca-3d">Ver guia rápido</a>
         <span className="cg-shortcuts">

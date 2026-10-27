@@ -324,12 +324,7 @@ export function renderArtCanvas(
 
   const isMagic = mug.variant === "magic";
   const ext = isMagic ? "#141110" : (mug.bodyColor ?? "#ffffff");
-  const interior =
-    mug.variant === "accent" || mug.variant === "magic"
-      ? mug.interiorColor !== "#ffffff"
-        ? mug.interiorColor
-        : mug.accentColor
-      : (mug.interiorColor ?? "#ffffff");
+  const interior = mug.interiorColor ?? (mug.variant === "white" ? "#ffffff" : mug.accentColor);
 
   // cor-base em TODA a parede + faixa exterior; interior numa faixa à parte
   ctx.clearRect(0, 0, W, H);
@@ -366,8 +361,9 @@ export function makeArtTexture(
   tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.magFilter = THREE.LinearFilter;
   tex.generateMipmaps = true;
-  tex.anisotropy = Math.min(16, maxAniso);
+  tex.anisotropy = Math.max(1, maxAniso);
   tex.flipY = true;
+  tex.needsUpdate = true;
   return tex;
 }
 

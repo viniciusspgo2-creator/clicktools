@@ -28,6 +28,8 @@ export interface FrameOpts {
   mugOverride?: Partial<MugState>;
   /** desliga o supersampling (gravação em tempo real precisa ser leve) */
   noSupersample?: boolean;
+  /** Troca apenas o cenário por branco durante esta captura. */
+  whiteBackground?: boolean;
   /** teto do supersampling (vídeo usa 1,5: memória/GPU sob pressão) */
   ssCap?: number;
 }
@@ -42,6 +44,10 @@ export interface FrameSession {
   oldSize: THREE.Vector2;
   oldPR: number;
   oldBg: THREE.Color | THREE.Texture | null;
+  oldClearColor: THREE.Color;
+  oldClearAlpha: number;
+  oldControlsEnabled?: boolean;
+  usingWhite: boolean;
   tex: THREE.CanvasTexture | null;
   previewCanvas: HTMLCanvasElement | null; // canvas original de preview (restaurado no fim)
   artCanvas: HTMLCanvasElement | null;
@@ -134,167 +140,96 @@ export function beginFrames(
   opts: Omit<FrameOpts, "width" | "height"> = {},
 ): FrameSession {
   const { gl, scene } = studioRefs;
-  if (studioRefs.exporting)
-    throw new ExportError("Outra exportação está em andamento.");
-  if (!gl || !scene)
-    throw new ExportError(
-      "Cena ainda não carregada. Aguarde um instante e tente de novo.",
-    );
-
-  const isMobile = /android|iphone|ipad|mobile/i.test(navigator.userAgent);
-  const maxBuffer = Math.min(
-    gl.capabilities.maxTextureSize || 4096,
-    6200,
-    isMobile ? 4200 : Infinity,
-  );
-  // com pós-processamento ativo o composer já trabalha em HalfFloat multi-pass:
-  // supersampling dobra memória e custo — desativa
+  if (studioRefs.exporting) throw new ExportError("Outra exportação está em andamento.");
+  if (!gl || !scene) throw new ExportError("Cena ainda não carregada. Aguarde um instante e tente de novo.");
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1)
+    throw new ExportError("Escolha uma largura e uma altura válidas.");
+  if (gl.getContext().isContextLost()) throw new ExportError("O 3D está sendo restaurado. Aguarde e tente novamente.");
+  const context = gl.getContext();
+  const maxBuffer = Math.min(gl.capabilities.maxTextureSize || 4096,
+    Number(context.getParameter(context.MAX_RENDERBUFFER_SIZE)) || 4096, 8192);
+  if (width > maxBuffer || height > maxBuffer)
+    throw new ExportError(`Este dispositivo permite até ${maxBuffer} px por lado. Reduza o tamanho da imagem.`);
+  const mobile = /android|iphone|ipad|mobile/i.test(navigator.userAgent);
   const fx = useMockupStore.getState().fx;
-  // UnrealBloomPass escreve alfa opaco. O recorte transparente usa o render
-  // direto, preservando iluminação/exposição, sem efeitos de tela inteira.
   const usingFx = !opts.transparent && fx.enabled && !!studioRefs.composer;
-  const ssCap = Math.max(1, Math.min(opts.ssCap ?? 2, usingFx ? 1 : 2));
-  const ss = opts.noSupersample
-    ? 1
-    : Math.max(
-        1,
-        Math.min(ssCap, Math.min(maxBuffer / width, maxBuffer / height)),
-      );
-  const ssWidth = Math.round(width * ss);
-  const ssHeight = Math.round(height * ss);
-
-  const oldSize = gl.getSize(new THREE.Vector2());
-  const oldPR = gl.getPixelRatio();
-  const oldBg = scene.background;
-
-  // upgrade da textura da arte para exportação nítida
-  const mugGroup = mugsGroup(scene);
-  const body = mugGroup?.getObjectByName("mug-body") as THREE.Mesh | undefined;
-  const mat = body?.material as THREE.MeshPhysicalMaterial | undefined;
-  let tex: THREE.CanvasTexture | null = null;
-  let previewCanvas: HTMLCanvasElement | null = null;
-  let artCanvas: HTMLCanvasElement | null = null;
-  if (mat?.map && (mat.map as THREE.CanvasTexture).isCanvasTexture) {
-    tex = mat.map as THREE.CanvasTexture;
-    previewCanvas = tex.image as HTMLCanvasElement;
-    artCanvas = document.createElement("canvas");
-    const exportTextureWidth = Math.min(gl.capabilities.maxTextureSize || 4096,
-      width * height > 1920 * 1080 && !isMobile ? 8192 : CANVAS_W_EXPORT);
-    artCanvas.width = exportTextureWidth;
-    artCanvas.height = canvasHeightFor(
-      exportTextureWidth,
-      resolvePrintArea(useMockupStore.getState().art),
-      useMockupStore.getState().mug.model,
-    );
-    renderWithOverride(artCanvas, opts.mugOverride ?? {});
-    tex.image = artCanvas;
-    tex.needsUpdate = true;
-  }
-
-  const companionTextures: FrameSession["companionTextures"] = [];
-  mugGroup?.traverse((o) => {
-    const mesh = o as THREE.Mesh;
-    if (mesh.name !== "mug-body-comp") return;
-    const material = mesh.material as THREE.MeshPhysicalMaterial;
-    const tex = material.map as THREE.CanvasTexture;
-    if (!tex?.isCanvasTexture) return;
-    const st = useMockupStore.getState();
-    const c = st.companions.find((c) => c.id === mesh.userData.objectId);
-    if (!c) return;
-    const art = c.showArt
-      ? (c.art ?? st.art)
-      : { ...(c.art ?? st.art), imageId: null, text: "" };
-    const mug = { ...st.mug, ...c } as MugState;
-    const canvas = document.createElement("canvas");
-    canvas.width = CANVAS_W_EXPORT;
-    canvas.height = canvasHeightFor(CANVAS_W_EXPORT, undefined, mug.model);
-    renderArtCanvas(canvas, art, mug);
-    companionTextures.push({
-      tex,
-      preview: tex.image as HTMLCanvasElement,
-      canvas,
-      art,
-      mug,
-    });
-    tex.image = canvas;
-    tex.needsUpdate = true;
-  });
-
-  // transparência verdadeira
-  const hidden: THREE.Object3D[] = [];
-  scene.traverse((o) => {
-    if (
-      (o.name === "studio-gizmo" ||
-        o.name === "selection-outline" ||
-        o.type === "TransformControlsRoot") &&
-      o.visible
-    ) {
-      o.visible = false;
-      hidden.push(o);
-    }
-  });
-  const ground = scene.getObjectByName("ground") as THREE.Mesh | null;
-  const oldGroundMat = ground?.material as THREE.Material | undefined;
-  let shadowMat: THREE.ShadowMaterial | null = null;
-  const usingTransparent = !!opts.transparent;
-
+  // 4× por eixo quando há memória; a saída mantém o tamanho escolhido.
+  // Vídeo mantém seu próprio teto. Nunca aumentamos o buffer além da GPU.
+  const ssCap = Math.max(1, Math.min(opts.ssCap ?? 2, usingFx ? 1 : 4));
+  const pixelBudget = mobile ? 8_500_000 : 40_000_000;
+  const ss = opts.noSupersample ? 1 : Math.max(1, Math.min(ssCap,
+    maxBuffer / width, maxBuffer / height, Math.sqrt(pixelBudget / (width * height))));
+  const session: FrameSession = {
+    gl, scene, width, height, ssWidth: Math.floor(width * ss), ssHeight: Math.floor(height * ss),
+    oldSize: gl.getSize(new THREE.Vector2()), oldPR: gl.getPixelRatio(), oldBg: scene.background,
+    oldClearColor: gl.getClearColor(new THREE.Color()), oldClearAlpha: gl.getClearAlpha(),
+    oldControlsEnabled: studioRefs.controls?.enabled,
+    tex: null, previewCanvas: null, artCanvas: null, hidden: [],
+    ground: scene.getObjectByName("ground") as THREE.Mesh | null,
+    oldGroundMat: undefined, shadowMat: null,
+    usingTransparent: !!opts.transparent, usingWhite: !!opts.whiteBackground && !opts.transparent,
+    usingFx, mugOverride: opts.mugOverride ?? {}, lastRenderKey: "", companionTextures: [],
+  };
   studioRefs.exporting = true;
-  studioRefs.exportTransparent = usingTransparent;
-  // congela a flutuação na pose de descanso
-  settleFloaters(scene);
-
+  studioRefs.exportTransparent = session.usingTransparent;
+  if (studioRefs.controls) studioRefs.controls.enabled = false;
   try {
-    if (usingTransparent) {
-      scene.background = null;
-      // esconde TUDO que é fundo/cenário — só canecas + sombras permanecem
-      for (const name of ["backdrop", "glowboard", "pedestal", "bg-image"]) {
-        const o = scene.getObjectByName(name);
-        if (o && o.visible) {
-          o.visible = false;
-          hidden.push(o);
-        }
-      }
-      if (ground && !(oldGroundMat instanceof THREE.ShadowMaterial)) {
-        shadowMat = new THREE.ShadowMaterial({
-          transparent: true,
-          opacity: 0.32,
-        });
-        ground.material = shadowMat;
+    const st = useMockupStore.getState();
+    const group = mugsGroup(scene);
+    const body = group?.getObjectByName("mug-body") as THREE.Mesh | undefined;
+    const material = body?.material as THREE.MeshPhysicalMaterial | undefined;
+    if (material?.map && (material.map as THREE.CanvasTexture).isCanvasTexture) {
+      session.tex = material.map as THREE.CanvasTexture;
+      session.previewCanvas = session.tex.image as HTMLCanvasElement;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.min(gl.capabilities.maxTextureSize || 4096,
+        width * height > 1920 * 1080 && !mobile ? 8192 : CANVAS_W_EXPORT);
+      canvas.height = canvasHeightFor(canvas.width, resolvePrintArea(st.art), st.mug.model);
+      renderWithOverride(canvas, session.mugOverride);
+      session.artCanvas = canvas;
+      session.tex.image = canvas; session.tex.needsUpdate = true;
+    }
+    group?.traverse(o => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.name !== "mug-body-comp") return;
+      const mat = mesh.material as THREE.MeshPhysicalMaterial;
+      const tex = mat.map as THREE.CanvasTexture;
+      if (!tex?.isCanvasTexture) return;
+      const companion = st.companions.find(c => c.id === mesh.userData.objectId);
+      if (!companion) return;
+      const art = companion.showArt ? (companion.art ?? st.art) :
+        { ...(companion.art ?? st.art), imageId: null, text: "" };
+      const mug = { ...st.mug, ...companion } as MugState;
+      const canvas = document.createElement("canvas");
+      canvas.width = CANVAS_W_EXPORT; canvas.height = canvasHeightFor(canvas.width, undefined, mug.model);
+      renderArtCanvas(canvas, art, mug);
+      session.companionTextures.push({ tex, preview: tex.image as HTMLCanvasElement, canvas, art, mug });
+      tex.image = canvas; tex.needsUpdate = true;
+    });
+    const hide = (o: THREE.Object3D | undefined) => {
+      if (o?.visible) { o.visible = false; session.hidden.push(o); }
+    };
+    scene.traverse(o => {
+      if (["studio-gizmo", "selection-outline"].includes(o.name) || o.type === "TransformControlsRoot") hide(o);
+    });
+    settleFloaters(scene);
+    if (session.usingTransparent || session.usingWhite) {
+      scene.background = session.usingWhite ? new THREE.Color("#ffffff") : null;
+      for (const name of ["backdrop", "glowboard", "bg-image"]) hide(scene.getObjectByName(name));
+      if (session.usingTransparent) hide(scene.getObjectByName("pedestal"));
+      if (session.ground && !(session.ground.material instanceof THREE.ShadowMaterial)) {
+        session.oldGroundMat = session.ground.material as THREE.Material;
+        session.shadowMat = new THREE.ShadowMaterial({ transparent: true, opacity: 0.09 });
+        session.ground.material = session.shadowMat;
       }
     }
-
-    gl.setPixelRatio(1);
-    gl.setSize(ssWidth, ssHeight, false);
-    gl.setClearColor(0x000000, usingTransparent ? 0 : 1);
+    gl.setPixelRatio(1); gl.setSize(session.ssWidth, session.ssHeight, false);
+    gl.setClearColor(session.usingWhite ? 0xffffff : 0x000000, session.usingTransparent ? 0 : 1);
+    return session;
   } catch (e) {
-    // restaura o que deu
-    if (tex && mat?.map === tex) tex.needsUpdate = true;
+    endFrames(session);
     throw e;
   }
-
-  return {
-    gl,
-    scene,
-    width,
-    height,
-    ssWidth,
-    ssHeight,
-    oldSize,
-    oldPR,
-    oldBg,
-    tex,
-    previewCanvas,
-    artCanvas,
-    hidden,
-    ground,
-    oldGroundMat,
-    shadowMat,
-    usingTransparent,
-    usingFx,
-    mugOverride: opts.mugOverride ?? {},
-    lastRenderKey: "",
-    companionTextures,
-  };
 }
 
 /** renderiza a folha em alta resolução com overrides aplicados */
@@ -343,7 +278,7 @@ export function fitCamera(session: FrameSession): THREE.PerspectiveCamera {
   const viewDir = new THREE.Vector3()
     .subVectors(center, refCam.position)
     .normalize();
-  const vHalf = THREE.MathUtils.degToRad(cam2.fov) / 2;
+  const vHalf = THREE.MathUtils.degToRad(cam2.getEffectiveFOV()) / 2;
   const hHalf = Math.atan(Math.tan(vHalf) * cam2.aspect);
   const fitDist =
     (sceneSphereRadius(session.scene) / Math.sin(Math.min(vHalf, hHalf))) *
@@ -497,7 +432,7 @@ export function endFrames(session: FrameSession) {
     // exportação (a caneca nunca fica branca depois de exportar) e de
     // qualquer mudança de estado que tenha passado durante o processo.
     try {
-      renderWithOverride(session.previewCanvas, session.mugOverride);
+      renderWithOverride(session.previewCanvas, {});
     } catch {
       /* estado indisponível: mantém o conteúdo atual do canvas */
     }
@@ -508,15 +443,22 @@ export function endFrames(session: FrameSession) {
     item.tex.image = item.preview;
     item.tex.needsUpdate = true;
   }
-  if (session.usingTransparent) scene.background = session.oldBg;
+  if (session.usingTransparent || session.usingWhite) scene.background = session.oldBg;
   for (const o of session.hidden) o.visible = true;
   if (session.ground && session.oldGroundMat)
     session.ground.material = session.oldGroundMat;
   session.shadowMat?.dispose();
   gl.setPixelRatio(session.oldPR);
   gl.setSize(session.oldSize.x, session.oldSize.y, false);
-  gl.setClearColor(0x000000, 0);
+  gl.setClearColor(session.oldClearColor, session.oldClearAlpha);
+  if (studioRefs.controls && session.oldControlsEnabled !== undefined)
+    studioRefs.controls.enabled = session.oldControlsEnabled;
   const cam = studioRefs.camera;
+  if (cam && studioRefs.renderPass) studioRefs.renderPass.camera = cam;
+  if (session.usingFx && studioRefs.composer) {
+    studioRefs.composer.setPixelRatio(session.oldPR);
+    studioRefs.composer.setSize(session.oldSize.x, session.oldSize.y);
+  }
   if (cam) {
     settleFloaters(scene);
     gl.render(scene, cam);

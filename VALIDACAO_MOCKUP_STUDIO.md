@@ -1,3 +1,5 @@
+> Histórico da versão anterior. Para o estado desta entrega, consulte `STUDIO_MOCKUP_V2.md` e `docs/mockup-studio/VALIDACAO_V2.md`.
+
 # Validação — Mockup Studio
 
 Data: 23/10/2026. Navegador: Chromium headless, WebGL com SwiftShader (GPU por software). Interface testada em 1500×950 e 390×844, com movimento reduzido na suíte funcional. Os testes não substituem benchmark em hardware real.

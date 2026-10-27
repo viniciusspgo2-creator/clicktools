@@ -45,7 +45,7 @@ function ensureRectArea() {
 }
 
 const rgbCss = ([r, g, b]: [number, number, number]) =>
-  `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
+  `rgb(${Math.round(Math.min(1, r / kelvinToRgb(6500)[0]) * 255)},${Math.round(Math.min(1, g / kelvinToRgb(6500)[1]) * 255)},${Math.round(Math.min(1, b / kelvinToRgb(6500)[2]) * 255)})`;
 
 /* ---------------- Luzes ---------------- */
 
@@ -91,28 +91,28 @@ export function StudioLights() {
 
   // Environment reconstruído apenas em mudanças discretas (preset/rotação grossa)
   const hdr = getEnvironment(light.hdriId)?.texture;
-  const envKey = `${preset.id}-${Math.round(light.rotation / 6) * 6}-${Math.round(light.intensity * 10)}`;
+  const envKey = `${preset.id}-${Math.round(light.rotation / 6) * 6}-${Math.round(light.intensity * 10)}-${light.temperature}`;
 
   return (
     <>
       <ambientLight
-        intensity={(matchAvg ? 0.26 : 0.07) * (light.ambientStrength ?? 1)}
+        intensity={(matchAvg ? 0.26 : 0.18) * (light.ambientStrength ?? 1)}
         color={matchAvg ? rgbCss(matchAvg) : "#ffffff"}
       />
       {/* luz chave com sombra suave */}
       <directionalLight
         position={keyPos.toArray()}
         intensity={
-          preset.keyInt * light.intensity * 2.4 * (light.keyStrength ?? 1)
+          preset.keyInt * light.intensity * 1.4 * (light.keyStrength ?? 1)
         }
         color={keyColor}
         castShadow={castShadow}
         shadow-mapSize-width={mobile ? 1024 : 2048}
         shadow-mapSize-height={mobile ? 1024 : 2048}
-        shadow-radius={3 + light.softness * 18}
+        shadow-radius={20 + light.softness * 80}
         shadow-blurSamples={12}
-        shadow-bias={-0.0002}
-        shadow-normalBias={0.03}
+        shadow-bias={-0.0001}
+        shadow-normalBias={0.015}
       >
         <orthographicCamera
           attach="shadow-camera"
@@ -123,7 +123,7 @@ export function StudioLights() {
       <directionalLight
         position={[keyPos.x * -0.9, 7, keyPos.z * 0.6]}
         intensity={
-          preset.fillInt * light.intensity * 1.8 * (light.fillStrength ?? 1)
+          preset.fillInt * light.intensity * 1.1 * (light.fillStrength ?? 1)
         }
         color={fillColor}
       />
@@ -131,7 +131,7 @@ export function StudioLights() {
       <directionalLight
         position={[keyPos.x * 0.4, 9, keyPos.z * -1.4]}
         intensity={
-          preset.rimInt * light.intensity * 2 * (light.rimStrength ?? 1)
+          preset.rimInt * light.intensity * 0.8 * (light.rimStrength ?? 1)
         }
         color={rimColor}
       />
@@ -141,7 +141,7 @@ export function StudioLights() {
         width={7}
         height={10}
         intensity={
-          preset.keyInt * light.intensity * 1.9 * (light.keyStrength ?? 1)
+          preset.keyInt * light.intensity * 0.7 * (light.keyStrength ?? 1)
         }
         color={keyColor}
         onUpdate={(self) => self.lookAt(0, 4.5, 0)}
@@ -149,13 +149,14 @@ export function StudioLights() {
 
       {/* ambiente de estúdio procedural (softboxes refletem no verniz) */}
       {hdr ? (
-        <Environment map={hdr} background={false} />
+        <Environment map={hdr} environmentIntensity={light.envIntensity * 0.45} background={false} />
       ) : (
         <Environment
           key={envKey}
           resolution={mobile ? 512 : 1024}
           frames={1}
           background={false}
+          environmentIntensity={light.envIntensity * 0.45}
         >
           <group
             rotation={[
@@ -204,7 +205,7 @@ export function StudioLights() {
             <Lightformer
               form="rect"
               intensity={0.7 * preset.env * light.intensity}
-              color="#fff6ec"
+              color="#ffffff"
               position={[0, -0.5, 4]}
               rotation={[-Math.PI / 2, 0, 0]}
               scale={[10, 8, 1]}
@@ -417,7 +418,7 @@ function ShadowCatcher() {
       receiveShadow
     >
       <planeGeometry args={[90, 90]} />
-      <shadowMaterial transparent opacity={0.18} />
+      <shadowMaterial transparent opacity={0.09} />
     </mesh>
   );
 }
@@ -594,16 +595,28 @@ export function StudioContactShadows() {
         ? PLATE_H + 0.002
         : 0.002;
   return (
+    <group name="studio-contact-shadows">
+    <ContactShadows
+      position={[0, topY + 0.001, 0]}
+      opacity={(shadowOpacity ?? 0.44) * 0.8}
+      scale={Math.min(64, extent * 2.2)}
+      blur={0.7 + softness * 0.6}
+      far={0.8}
+      resolution={mobile ? 512 : 1024}
+      color={shadowColor ?? "#242424"}
+      frames={Infinity}
+    />
     <ContactShadows
       position={[0, topY, 0]}
-      opacity={shadowOpacity ?? 0.44}
+      opacity={(shadowOpacity ?? 0.44) * 0.6}
       scale={Math.min(64, extent * 2.2)}
       blur={2.2 + softness * 2.4}
       far={4.2}
       resolution={mobile ? 512 : 1024}
-      color={shadowColor ?? "#292520"}
+      color={shadowColor ?? "#242424"}
       frames={Infinity}
     />
+    </group>
   );
 }
 
