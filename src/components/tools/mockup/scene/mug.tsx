@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability -- Three.js GPU handles and transforms intentionally use the engine's imperative API. */
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { TransformControls } from "@react-three/drei";
@@ -30,7 +30,8 @@ function CeramicMaterial({ texture, mug, metalMask, color }: {
   color?: THREE.ColorRepresentation;
 }) {
   const material = useMemo(() => createCeramicMaterial(mug, { map: texture, metalMask, color }),
-    [texture, metalMask, color, mug.roughness, mug.clearcoat, mug.reflection, mug.faithfulColor]);
+    [texture, metalMask, color, mug.roughness, mug.clearcoat, mug.reflection, mug.faithfulColor,
+      mug.clearcoatRoughness, mug.specularIntensity, mug.glazeStrength]);
   useEffect(() => () => material.dispose(), [material]);
   return <primitive object={material} attach="material" />;
 }
@@ -39,11 +40,13 @@ function MugObject({
   mug,
   art,
   showArt = true,
+  spinClock,
 }: {
   id: string;
   mug: MugState;
   art: ArtState;
   showArt?: boolean;
+  spinClock: RefObject<number>;
 }) {
   const gl = useThree((s) => s.gl);
   const floor = useMockupStore((s) => s.bg.floor);
@@ -53,7 +56,7 @@ function MugObject({
   const snap = useMockupStore((s) => s.snapEnabled);
   const compare = useMockupStore((s) => s.compareArt);
   const [object, setObject] = useState<THREE.Group | null>(null);
-  const spinElapsed = useRef(0);
+  const spinStart = useRef(0);
   const spinBase = useRef<number | null>(null);
   const sceneCamera = useMockupStore(s => s.camera);
   const entryGroup = useRef<THREE.Group>(null);
@@ -167,24 +170,25 @@ function MugObject({
         : floor === "flutuante"
           ? FLOAT_LIFT
           : 0) + (mug.posY ?? 0);
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock }) => {
     if (!object) return;
-    if (id === "hero" && !studioRefs.exporting) {
+    if (!studioRefs.exporting) {
       if (sceneCamera.autoRotate) {
-        if (spinBase.current === null) spinBase.current = object.rotation.y;
-        spinElapsed.current += delta;
-        const phase = spinElapsed.current / Math.max(3, sceneCamera.secondsPerTurn ?? 8);
+        const phase = spinClock.current / Math.max(3, sceneCamera.secondsPerTurn ?? 8);
         const travel = sceneCamera.direction === "pingpong"
           ? (1 - Math.cos(phase * Math.PI * 2)) * Math.PI
           : phase * Math.PI * 2 * (sceneCamera.direction === "left" ? -1 : 1);
-        object.rotation.y = spinBase.current - travel;
+        if (spinBase.current === null) {
+          spinBase.current = object.rotation.y;
+          spinStart.current = travel;
+        }
+        object.rotation.y = spinBase.current - (travel - spinStart.current);
       } else if (spinBase.current !== null) {
         // Pause is a real pause: retain the visible pose and persist it once.
         // The next play starts from this angle instead of jumping to the start.
         const paused = THREE.MathUtils.euclideanModulo(-THREE.MathUtils.radToDeg(object.rotation.y), 360);
         spinBase.current = null;
-        spinElapsed.current = 0;
-        useMockupStore.getState().patchObject("hero", { rotationY: paused });
+        useMockupStore.getState().patchObject(id, { rotationY: paused });
       }
     }
     if (!initialized.current) {
@@ -379,13 +383,22 @@ export function Mug() {
   const art = useMockupStore((s) => s.art),
     mug = useMockupStore((s) => s.mug),
     companions = useMockupStore((s) => s.companions);
+  // Um relógio compartilhado mantém todas as canecas no mesmo ritmo,
+  // inclusive no vai e volta; exportações não avançam esse relógio.
+  const spinClock = useRef(0);
+  const rotating = useMockupStore(s => s.camera.autoRotate);
+  useFrame((_, delta) => {
+    if (studioRefs.exporting) return;
+    spinClock.current = rotating ? spinClock.current + delta : 0;
+  }, -1); // Antes de TODAS as peças, mesmo das montadas depois da principal.
   return (
     <group name="mockup-mugs">
-      <MugObject id="hero" mug={mug} art={art} />
+      <MugObject id="hero" mug={mug} art={art} spinClock={spinClock} />
       {companions.map((c) => (
         <MugObject
           key={c.id}
           id={c.id}
+          spinClock={spinClock}
           mug={
             {
               ...mug,

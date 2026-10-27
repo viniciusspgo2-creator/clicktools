@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { MUG } from "../lib/config";
 import type { MugModel } from "../state/store";
-import { buildMugBodyGeometry, buildHandleGeometry, buildBasePrintGeometry, profileRadius } from "./mug-geometry";
+import { buildMugBodyGeometry, buildHandleGeometry, buildBasePrintGeometry, profileRadius, smoothBodyNormals } from "./mug-geometry";
 export const MODELS: {
   id: MugModel;
   label: string;
@@ -92,6 +92,7 @@ export function buildModel(model: MugModel = "classic") {
     g.computeBoundingSphere();
   }
   deform(body, false);
+  if (model !== "classic") smoothBodyNormals(body);
   deform(handle, true);
   deform(basePrint, false);
   return { body, handle, basePrint, def };

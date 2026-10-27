@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import * as THREE from "three";
-import { Box, CircleArrowUp, Coffee, Focus, ImagePlus, Pause, Play, RotateCcw, ScanFace } from "lucide-react";
+import { Box, CircleArrowUp, Coffee, Focus, Hand, ImagePlus, Pause, Play, RotateCcw, ScanFace } from "lucide-react";
 import { useMockupStore, type ArtState } from "../state/store";
 import { studioRefs } from "../scene/studio-refs";
 import { MUG, lensToFov } from "../lib/config";
+import { fitBoundsToView, framingBounds } from "../scene/framing";
 import { Section, SliderRow } from "./controls";
 
 const VIEWS = [
@@ -18,6 +19,8 @@ const VIEWS = [
 
 export function QuickCameraBar() {
   const rotating = useMockupStore(s => s.camera.autoRotate);
+  const panning = useMockupStore(s => s.tool === "pan");
+  const count = useMockupStore(s => s.companions.filter(c => !c.hidden).length + (s.mug.hidden ? 0 : 1));
   function showView(id: typeof VIEWS[number]["id"]) {
     const st = useMockupStore.getState();
     const selectedId = st.selectedIds[0] ?? "hero";
@@ -33,7 +36,7 @@ export function QuickCameraBar() {
     studioRefs.scene?.traverse(o => {
       if (o.name === "mug-float" && o.userData.objectId === selectedId) object = o;
     });
-    if (selectedId === "hero" && st.camera.autoRotate && object) q.copy(object.quaternion);
+    if (st.camera.autoRotate && object) q.copy(object.quaternion);
     // Focus is relative to the selected piece, even after moving/rotating it.
     const target = object?.getWorldPosition(new THREE.Vector3()) ??
       new THREE.Vector3(mug.posX ?? 0, MUG.height / 2 * mug.scale + (mug.posY ?? 0), mug.posZ ?? 0);
@@ -42,21 +45,34 @@ export function QuickCameraBar() {
     const hHalf = Math.atan(Math.tan(halfFov) * size.x / Math.max(1, size.y));
     const distance = 7.8 * mug.scale / Math.sin(Math.min(halfFov, hHalf));
     const direction = new THREE.Vector3(...view.dir).applyQuaternion(q).normalize();
-    const pos = target.clone().addScaledVector(direction, distance);
+    let pos = target.clone().addScaledVector(direction, distance);
+    if (count > 1 && studioRefs.scene) {
+      const viewFit = fitBoundsToView(framingBounds(studioRefs.scene, true),
+        new THREE.Vector3(...view.dir), lensToFov(st.camera.lens), size.x / Math.max(1, size.y));
+      target.copy(viewFit.target); pos = viewFit.pos;
+    }
     st.patch("camera", { autoRotate: false });
     st.setZoom(100);
     st.applyCameraPreset({ pos: pos.toArray(), target: target.toArray() });
   }
   return (
     <div className="cg-quick-camera" role="group" aria-label="Atalhos da câmera 3D">
+      <div className="cg-scene-actions">
       <button type="button" className="cg-spin-button" aria-pressed={rotating}
         onClick={() => {
           const st = useMockupStore.getState();
           st.patch("camera", { autoRotate: !st.camera.autoRotate });
+          if (!st.camera.autoRotate && count > 1) st.frameAll();
         }}>
         {rotating ? <Pause /> : <Play />}
-        {rotating ? "Pausar giro" : "Girar 360°"}
+        {rotating ? "Pausar giro" : count > 1 ? "Girar todas 360°" : "Girar 360°"}
       </button>
+      <button type="button" className="cg-pan-button" aria-pressed={panning}
+        title="Arraste a cena para os lados ou para cima e para baixo. Centralizar recupera o enquadramento."
+        onClick={() => useMockupStore.getState().setTool(panning ? "select" : "pan")}>
+        <Hand /><span>{panning ? "Movendo cenário" : "Mover cenário"}</span>
+      </button>
+      </div>
       <div className="cg-view-buttons">
         {VIEWS.map(view => <button key={view.id} type="button" onClick={() => showView(view.id)} title={view.label}>
           <view.icon /><span>{view.label}</span>

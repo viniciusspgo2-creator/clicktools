@@ -71,13 +71,15 @@ const easeInOut = (t: number) =>
  *  - velocidade angular constante e loop perfeito.
  */
 interface Turntable {
-  obj: THREE.Object3D | null;
-  rot0: number;
+  objects: { obj: THREE.Object3D; rot0: number }[];
 }
 
 function beginTurntable(scene: THREE.Scene): Turntable {
-  const obj = mugsGroup(scene)?.getObjectByName("mug-float") ?? null;
-  return { obj, rot0: obj?.rotation.y ?? 0 };
+  const objects: Turntable["objects"] = [];
+  mugsGroup(scene)?.traverse(obj => {
+    if (obj.name === "mug-float" && obj.visible) objects.push({ obj, rot0: obj.rotation.y });
+  });
+  return { objects };
 }
 
 function videoAngle(t: number, opts: Pick<AnimOpts, "turns" | "direction">) {
@@ -93,12 +95,12 @@ function checkCancelled(signal?: AbortSignal) {
 }
 
 function applyTurntable(tt: Turntable, angle: number) {
-  if (tt.obj) tt.obj.rotation.y = tt.rot0 - angle;
+  for (const { obj, rot0 } of tt.objects) obj.rotation.y = rot0 - angle;
 }
 
 function endTurntable(tt: Turntable | null) {
-  if (!tt?.obj) return;
-  tt.obj.rotation.y = tt.rot0;
+  if (!tt) return;
+  for (const { obj, rot0 } of tt.objects) obj.rotation.y = rot0;
 }
 
 /**

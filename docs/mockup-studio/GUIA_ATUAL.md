@@ -1,3 +1,5 @@
+> Entrega final de 27/10/2026: [ajustes finais](../../AJUSTES_FINAIS_MOCKUP_STUDIO.md) e [validação final](VALIDACAO_FINAL.md).
+
 # Atualização V2 — 27/10/2026
 
 A Clássica agora tem corpo cilíndrico, borda arredondada, fundo rebaixado e material compartilhado com a alça. O painel prioriza tamanho/alinhamento da arte e paleta visual. A barra do palco reúne giro 360°, cinco vistas e centralização. Coordenadas ficam em **Avançado (Modo Manual)**.

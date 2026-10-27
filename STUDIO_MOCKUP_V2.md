@@ -1,3 +1,5 @@
+> Atualização final: veja [AJUSTES_FINAIS_MOCKUP_STUDIO.md](AJUSTES_FINAIS_MOCKUP_STUDIO.md) para limites da estampa, Duo, giro de todas as peças e novos acabamentos.
+
 # Mockup Studio V2 — geometria, cor e interface
 
 Implementação de 27/10/2026 no módulo `src/components/tools/mockup/`.

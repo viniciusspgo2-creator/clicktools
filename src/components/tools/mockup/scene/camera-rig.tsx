@@ -11,8 +11,9 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useMockupStore } from "../state/store";
-import { CAMERA_PRESETS, lensToFov } from "../lib/config";
+import { lensToFov } from "../lib/config";
 import { mugsGroup, studioRefs, visibleMugBounds } from "./studio-refs";
+import { fitBoundsToView, framingBounds } from "./framing";
 
 type Anim = {
   fromPos: THREE.Vector3;
@@ -40,6 +41,14 @@ function applyLens(camera: THREE.PerspectiveCamera, lensMm: number) {
   camera.updateProjectionMatrix();
 }
 
+/** Descarta o movimento residual do arraste antes de centralizar ou trocar a vista. */
+function settleControls(controls: OrbitControlsImpl) {
+  const damping = controls.enableDamping;
+  controls.enableDamping = false;
+  controls.update();
+  controls.enableDamping = damping;
+}
+
 /** bounding esférico de todas as canecas (hero + acompanhantes) */
 function mugsBounding(scene: THREE.Scene | undefined): {
   center: THREE.Vector3;
@@ -62,7 +71,6 @@ export function CameraRig() {
   const scene = useThree((s) => s.scene);
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const lens = useMockupStore((s) => s.camera.lens);
-  const autoRotate = useMockupStore((s) => s.camera.autoRotate);
   const autoRotateSpeed = useMockupStore((s) => s.camera.autoRotateSpeed);
   const presetRequest = useMockupStore((s) => s.presetRequest);
   const focusNonce = useMockupStore((s) => s.focusNonce);
@@ -71,6 +79,7 @@ export function CameraRig() {
   const tool = useMockupStore((s) => s.tool);
   const [anim, setAnim] = useState<Anim | null>(null);
   const previousSize = useRef<string | null>(null);
+  const previousFit = useRef(0);
 
   // hook de depuração (útil para suporte e testes)
   useEffect(() => {
@@ -101,6 +110,7 @@ export function CameraRig() {
     focusHandler = (point) => {
       const controls = controlsRef.current;
       if (!controls) return;
+      settleControls(controls);
       const target = point ? point.clone() : mugsBounding(scene).center;
       // enquadra a caneca: aproxima ao raio de enquadramento
       const vFov = THREE.MathUtils.degToRad(camera.fov);
@@ -138,6 +148,7 @@ export function CameraRig() {
   // preset de câmera
   useEffect(() => {
     if (!presetRequest) return;
+    if (controlsRef.current) settleControls(controlsRef.current);
     setAnim({
       fromPos: camera.position.clone(),
       toPos: new THREE.Vector3(...presetRequest.pos),
@@ -156,25 +167,25 @@ export function CameraRig() {
     const resized = previousSize.current !== null && previousSize.current !== sizeKey;
     const initialMobile = previousSize.current === null && size.width < 600;
     previousSize.current = sizeKey;
-    if (!fitNonce && !resized && !initialMobile) return;
+    const requested = previousFit.current !== fitNonce;
+    previousFit.current = fitNonce;
+    if (!requested && !resized && !initialMobile) return;
     const controls = controlsRef.current;
     if (!controls) return;
-    const { center, radius } = mugsBounding(scene);
-    const vFov = THREE.MathUtils.degToRad(camera.fov);
+    settleControls(controls);
+    const st = useMockupStore.getState();
+    const box = framingBounds(scene, st.companions.length > 0 || st.camera.autoRotate);
+    if (box.isEmpty()) return;
     const aspect = (size.width || 1) / (size.height || 1);
-    const hHalf = Math.atan(Math.tan(vFov / 2) * aspect);
-    const dist = Math.min(
-      270,
-      (radius / Math.sin(Math.min(vFov / 2, hHalf))) * 1.12,
-    );
-    const dir = new THREE.Vector3()
-      .subVectors(camera.position, controls.target)
-      .normalize();
+    const dir = requested && st.fitDirection
+      ? new THREE.Vector3(...st.fitDirection)
+      : new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+    const { pos, target } = fitBoundsToView(box, dir, camera.fov, aspect);
     setAnim({
       fromPos: camera.position.clone(),
-      toPos: center.clone().addScaledVector(dir, dist),
+      toPos: pos,
       fromTarget: controls.target.clone(),
-      toTarget: center.clone(),
+      toTarget: target,
       t0: performance.now(),
       dur: transitionDuration(800),
     });
@@ -193,11 +204,6 @@ export function CameraRig() {
         setAnim(null);
       }
       controls.update();
-    } else {
-      // clamp do pan — folga ampla para compor cenas com várias canecas
-      controls.target.x = THREE.MathUtils.clamp(controls.target.x, -16, 16);
-      controls.target.y = THREE.MathUtils.clamp(controls.target.y, 0.5, 13);
-      controls.target.z = THREE.MathUtils.clamp(controls.target.z, -14, 14);
     }
   });
 
@@ -216,8 +222,10 @@ export function CameraRig() {
         RIGHT: THREE.MOUSE.PAN,
       }}
       screenSpacePanning
+      touches={{ ONE: tool === "pan" ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
+      onStart={() => setAnim(null)}
       minDistance={6.5}
-      maxDistance={280}
+      maxDistance={1500}
       maxPolarAngle={1.54}
       autoRotate={false} // o giro agora move a caneca, não a câmera
       autoRotateSpeed={autoRotateSpeed}

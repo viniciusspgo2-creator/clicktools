@@ -70,6 +70,9 @@ export interface MugState {
   interiorColor: string;
   handleColor: string;
   clearcoat: number;
+  clearcoatRoughness?: number;
+  specularIntensity?: number;
+  glazeStrength?: number;
   roughness: number;
   reflection: number;
   faithfulColor: boolean;
@@ -157,6 +160,9 @@ export interface CompanionMug {
   interiorColor?: string;
   handleColor?: string;
   clearcoat?: number;
+  clearcoatRoughness?: number;
+  specularIntensity?: number;
+  glazeStrength?: number;
   roughness?: number;
   reflection?: number;
   faithfulColor?: boolean;
@@ -311,6 +317,7 @@ interface MockupStore {
   collisionNonce: number;
   /** incrementado para pedir "Enquadrar tudo" na câmera */
   fitNonce: number;
+  fitDirection: [number, number, number] | null;
   // histórico
   past: Snapshot[];
   future: Snapshot[];
@@ -405,6 +412,9 @@ const initialMug: MugState = {
   interiorColor: "#ffffff",
   handleColor: "#ffffff",
   clearcoat: 1,
+  clearcoatRoughness: 0.04,
+  specularIntensity: 0.9,
+  glazeStrength: 1,
   roughness: 0.08,
   reflection: 0.8,
   faithfulColor: true,
@@ -830,6 +840,8 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         selectedIds: ids,
         layerOrder: [...st.layerOrder, ...ids],
         fitNonce: st.fitNonce + 1,
+        fitDirection: null,
+        zoom: 100,
       });
     },
     deleteSelected: () => {
@@ -915,7 +927,7 @@ export const useMockupStore = create<MockupStore>((set, get) => {
             : kind === "row"
               ? 4
               : 3;
-      const step = 15;
+      const step = 15 * st.mug.scale;
       const hero = {
         ...st.mug,
         posX: (-(n - 1) * step) / 2,
@@ -956,6 +968,8 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         selectedIds: ["hero"],
         layerOrder: ["hero", ...list.map((c) => c.id)],
         fitNonce: st.fitNonce + 1,
+        fitDirection: [0, 0.14, 1],
+        zoom: 100,
       });
     },
     projectName: "Meu mockup",
@@ -979,6 +993,7 @@ export const useMockupStore = create<MockupStore>((set, get) => {
     showGuides: false,
     collisionNonce: 0,
     fitNonce: 0,
+    fitDirection: null,
     past: [],
     future: [],
 
@@ -1052,15 +1067,20 @@ export const useMockupStore = create<MockupStore>((set, get) => {
       set({
         companions: get().companions.filter((c) => c.id !== id),
         layerOrder: get().layerOrder.filter((x) => x !== id),
+        fitNonce: get().fitNonce + 1,
+        fitDirection: null,
+        zoom: 100,
       });
     },
 
     arrangeScene: (kind) => {
-      guardHistory();
-      if (kind === "solo") {
-        set({ companions: [] });
+      // Os dois caminhos da UI usam o mesmo Duo simétrico, sem prender
+      // a primeira caneca à origem ou trocar a arte e o acabamento.
+      if (kind === "duo" || kind === "solo") {
+        get().compose(kind === "duo" ? "pair" : "solo");
         return;
       }
+      guardHistory();
       const st = get();
       set({ mug: { ...st.mug, posX: 0, posZ: 0, posY: 0, hidden: false } });
       const fresh = ARRANGEMENTS[kind].map((c) => ({
@@ -1074,48 +1094,33 @@ export const useMockupStore = create<MockupStore>((set, get) => {
       set({
         companions: res.list,
         layerOrder: ["hero", ...res.list.map((c) => c.id)],
+        selectedIds: ["hero"],
+        fitNonce: st.fitNonce + 1,
+        fitDirection: [0, 0.14, 1],
+        zoom: 100,
       });
     },
 
-    /** distribui as acompanhantes ao redor da principal, sem encostar */
+    /** Distribui todas as canecas numa fileira centralizada, com folga para girar. */
     spreadEvenly: () => {
       guardHistory();
       const st = get();
       const list = st.companions;
       if (!list.length) return;
-      const angleSets: Record<number, number[]> = {
-        1: [90],
-        2: [90, -90],
-        3: [90, -150, -30],
-      };
-      const angles = angleSets[list.length] ?? angleSets[3];
       const maxScale = Math.max(...list.map((c) => c.scale), st.mug.scale);
-      const radius = Math.max(
-        10.8,
-        BODY_MAX_R * maxScale * 2 + MUG_GAP_MIN + 0.6,
-      );
-      const next = list.map((c, i) => {
-        const a = (angles[i % angles.length] * Math.PI) / 180;
-        const posX = round2(Math.cos(a) * radius);
-        const posZ = round2(Math.sin(a) * radius);
-        // alça aponta para fora: (sin ry, -cos ry) = direção radial
-        const rotationY = Math.round(
-          ((Math.atan2(posX, -posZ) * 180) / Math.PI + 360) % 360,
-        );
-        return { ...c, posX, posZ, rotationY };
-      });
-      const res = resolveOverlaps(next, {
-        rotationY: st.mug.rotationY,
-        scale: st.mug.scale,
-      });
+      const step = 15 * maxScale;
+      const start = -list.length * step / 2;
       set({
-        companions: res.list,
-        layerOrder: ["hero", ...res.list.map((c) => c.id)],
+        mug: { ...st.mug, posX: start, posZ: 0 },
+        companions: list.map((c, i) => ({ ...c, posX: start + (i + 1) * step, posZ: 0 })),
+        fitNonce: st.fitNonce + 1,
+        fitDirection: [0, 0.14, 1],
+        zoom: 100,
       });
     },
 
     /** pede à câmera que enquadre o grupo inteiro */
-    frameAll: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
+    frameAll: () => set((s) => ({ fitNonce: s.fitNonce + 1, fitDirection: null, zoom: 100 })),
 
     setBgAdjustMode: (v) => set({ bgAdjustMode: v }),
     setShowGuides: (v) => set({ showGuides: v }),

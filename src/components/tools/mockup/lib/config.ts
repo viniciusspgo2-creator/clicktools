@@ -51,9 +51,8 @@ export interface PrintArea {
 }
 
 /** limites físicos da parede impressível */
-/** A arte pode ir praticamente do pé (envolvendo o chanfro, y≥0,06) até o início
- *  da borda arredondada (y=9,35). Esses limites NÃO vêm mais da geometria:
- *  a fronteira da arte agora é desenhada na própria textura. */
+/** A folha cobre toda a altura. A geometria limita a impressão à face externa:
+ * chanfro inferior incluído; lábio arredondado, interior e apoio ficam limpos. */
 export const PRINT_BOTTOM_MIN = 0;
 export const PRINT_TOP_MAX = MUG.height;
 /** vão mínimo escondido atrás da alça (cm) — mesmo no modo forno */
@@ -71,7 +70,7 @@ export const AREA_PRESETS: { id: AreaMode; label: string; desc: string }[] = [
   {
     id: "alta",
     label: "Altura cheia",
-    desc: "Arte do pé até a borda da caneca — sem espaço em branco em cima nem embaixo",
+    desc: "Toda a parede externa até o limite do lábio, sem faixa branca no pé",
   },
   {
     id: "forno",

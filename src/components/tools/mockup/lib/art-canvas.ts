@@ -4,10 +4,9 @@
 
    A folha cobre a parede INTEIRA (0 → 9,6 cm de altura × 360°) com a
    cor-base, e a arte é desenhada num retângulo exato dentro dela.
-   Os UVs da geometria são CONTÍNUOS (sem anéis nem saltos), então não
-   existe mais esticamento de textura nas bordas: a fronteira da arte é
-   só a borda do retângulo na textura. Por isso a área de impressão pode
-   ir do pé até a borda da caneca (ver config.ts) sem nenhuma marcação.
+   Os UVs são contínuos na parede e no chanfro inferior. O lábio e o
+   interior usam uma faixa de cerâmica separada, sem estampa. A fronteira
+   da área personalizada é desenhada na textura, dentro desses limites.
 
    Layout (cm, de cima para baixo — ver texV/V_EXT/V_INT no config):
      zona da parede  y = 9,6 … 0   → cor-base + arte
@@ -22,6 +21,7 @@ import {
   ZONE_CM,
   STRIP_CM,
   TEX_TOTAL_CM,
+  UV_PAD_PX,
   MODEL_METRICS,
   resolvePrintArea,
   type PrintArea,
@@ -177,11 +177,13 @@ export function artRectFor(W: number, H: number, a: PrintArea): ArtRect {
   const ppcX = W / CIRC_CM;
   const ppcY = H / TEX_TOTAL_CM;
   const w = Math.round(a.arcCm * ppcX);
+  const top = Math.floor((ZONE_CM - a.printTop) * ppcY);
+  const bottom = Math.ceil((ZONE_CM - a.printBottom) * ppcY);
   return {
     x: Math.round((W - w) / 2),
-    y: Math.round((ZONE_CM - a.printTop) * ppcY),
+    y: top,
     w,
-    h: Math.round(a.heightCm * ppcY),
+    h: bottom - top,
   };
 }
 
@@ -346,7 +348,13 @@ export function renderArtCanvas(
   ctx.restore();
 
   if (isMagic) applyMagicReveal(canvas, rect, mug);
-  void zoneBottom;
+  // A borda y=0 cai entre texels. Repete a última linha para a filtragem
+  // não puxar cerâmica branca para o pé, sem aumentar a área física impressa.
+  if (a.printBottom <= 0) {
+    const guard = Math.min(UV_PAD_PX, Math.floor(STRIP_CM * ppcY / 4));
+    if (guard > 0) ctx.drawImage(canvas, rect.x, rect.y + rect.h - 1, rect.w, 1,
+      rect.x, rect.y + rect.h, rect.w, guard);
+  }
 }
 
 /** Cria a CanvasTexture com flags corretas de cor/filtragem */

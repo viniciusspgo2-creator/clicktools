@@ -1,3 +1,11 @@
+## Mockup Studio — ajustes finais (27/10/2026)
+
+- Estampa somente na parede externa e no chanfro inferior; lábio e interior limpos.
+- Duo centralizado, enquadramento do conjunto e comando visível para mover o cenário.
+- Giro sincronizado de todas as canecas, incluindo vídeo/GIF, com pausa preservando a pose.
+- Acabamentos Acetinado, Sublimação, Alto brilho e Vitrificado; controles de verniz e aplicação em todas as peças.
+- 25 regressões passaram; TypeScript, build e lint sem erros. Relatório: `docs/mockup-studio/VALIDACAO_FINAL.md`.
+
 ## 27/10/2026 — Mockup Studio V2
 
 Caneca Clássica cilíndrica de 8,2 × 9,55 cm com borda arredondada, fundo rebaixado e alça com junções alargadas. Material cerâmico compartilhado, gestão sRGB, estúdio neutro, sombras suaves, vistas e giro acessíveis no palco. Painel simplificado, exportação por destino e PNG com metadados reais de 300 DPI.

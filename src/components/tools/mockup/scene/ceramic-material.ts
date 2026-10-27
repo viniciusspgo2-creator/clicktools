@@ -14,7 +14,7 @@ export const CERAMIC_PBR = {
 } as const;
 
 export function createCeramicMaterial(
-  mug: Pick<MugState, "roughness" | "clearcoat" | "reflection" | "faithfulColor">,
+  mug: Pick<MugState, "roughness" | "clearcoat" | "reflection" | "faithfulColor" | "clearcoatRoughness" | "specularIntensity" | "glazeStrength">,
   options: { color?: THREE.ColorRepresentation; map?: THREE.Texture; metalMask?: THREE.Texture } = {},
 ): THREE.MeshPhysicalMaterial {
   const material = new THREE.MeshPhysicalMaterial({
@@ -23,6 +23,8 @@ export function createCeramicMaterial(
     specularColor: new THREE.Color(0xffffff),
     roughness: mug.roughness ?? CERAMIC_PBR.roughness,
     clearcoat: mug.clearcoat ?? CERAMIC_PBR.clearcoat,
+    clearcoatRoughness: mug.clearcoatRoughness ?? CERAMIC_PBR.clearcoatRoughness,
+    specularIntensity: mug.specularIntensity ?? CERAMIC_PBR.specularIntensity,
     envMapIntensity: mug.reflection ?? 0.8,
     map: options.map ?? null,
     metalness: options.metalMask ? 1 : 0,
@@ -34,6 +36,8 @@ export function createCeramicMaterial(
 
   if (mug.faithfulColor && !options.metalMask) {
     material.onBeforeCompile = (shader) => {
+      shader.uniforms.ceramicGlazeStrength = { value: THREE.MathUtils.clamp(mug.glazeStrength ?? 1, 0, 3) };
+      shader.fragmentShader = "uniform float ceramicGlazeStrength;\n" + shader.fragmentShader;
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <opaque_fragment>",
         `// Neutral luminance shading retains the hue of the original ink.
@@ -43,7 +47,10 @@ export function createCeramicMaterial(
         // Compress glaze highlights smoothly; dark inks retain dark midtones.
         // Specular reflections still describe curvature, rather than a flat decal.
         float ceramicLuma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-        float ceramicLimit = mix(0.003, 0.14, smoothstep(0.0, 0.75, ceramicLuma));
+        // Acabamentos mais brilhantes ampliam só os reflexos do esmalte.
+        // O ganho extra permite highlights sobre tinta escura sem clarear sua base.
+        float ceramicLimit = max(0.00001, mix(0.003, 0.14, smoothstep(0.0, 0.75, ceramicLuma))
+          * ceramicGlazeStrength + pow(max(0.0, ceramicGlazeStrength - 1.0), 1.5) * 0.08);
         vec3 ceramicDiffuseEnergy = totalDiffuse;
         #ifdef USE_CLEARCOAT
           ceramicDiffuseEnergy *= (1.0 - material.clearcoat * Fcc);
@@ -55,7 +62,7 @@ export function createCeramicMaterial(
         #include <opaque_fragment>`,
       );
     };
-    material.customProgramCacheKey = () => "clickgruda-ceramic-faithful-v3";
+    material.customProgramCacheKey = () => "clickgruda-ceramic-faithful-v4";
   }
   return material;
 }

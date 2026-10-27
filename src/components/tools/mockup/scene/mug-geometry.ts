@@ -27,7 +27,7 @@ export function profileRadius(model: CeramicProfile, t: number): number {
 }
 
 /** Centro do fundo elevado, anel de apoio, chanfro, parede, lábio e cavidade. */
-function bodyProfile(model: CeramicProfile): { pts: P[]; iWall0: number; iArcEnd: number } {
+function bodyProfile(model: CeramicProfile): { pts: P[]; iExterior0: number; iLip0: number } {
   const baseR = profileRadius(model, 0);
   const ringOuter = baseR - MUG.baseBevel;
   const ringInner = ringOuter - MUG.footWidth;
@@ -44,20 +44,22 @@ function bodyProfile(model: CeramicProfile): { pts: P[]; iWall0: number; iArcEnd
     pts.push([dishR + 0.12 * t, (MUG.footH - 0.04) * (1 - e)]);
   }
   pts.push([ringOuter, 0]);
+  // O apoio e o fundo não recebem estampa. A face externa do chanfro sim.
+  const iExterior0 = pts.length;
+  pts.push([ringOuter, 0]);
   const bevel = arcPoints(ringOuter, MUG.baseBevel, MUG.baseBevel, -Math.PI / 2, 0, 16);
   pts.push(...bevel.slice(1));
-  const iWall0 = pts.length - 1;
-  // Duplicata de UV, sem alterar o raio da parede.
-  pts.push([baseR, MUG.baseBevel]);
   const rimR = (MUG.topOuterR - MUG.innerR) / 2;
   const rimY = MUG.height - rimR;
   for (const y of [0.4, 0.9, 1.6, 3.2, 4.775, 6, 8.7, rimY]) {
     pts.push([profileRadius(model, (y - MUG.baseBevel) / (rimY - MUG.baseBevel)), y]);
   }
   const topR = profileRadius(model, 1);
+  // Costura UV no ponto tangente: a arte termina na parede vertical.
+  // O lábio inteiro usa cerâmica limpa, inclusive na metade externa da curva.
+  const iLip0 = pts.length;
+  pts.push([topR, rimY]);
   pts.push(...arcPoints(topR - rimR, rimY, rimR, 0, Math.PI, MUG.rimSegments).slice(1));
-  const iArcEnd = pts.length - 1;
-  pts.push([topR - rimR * 2, rimY]); // início da faixa de cor do interior
   const cornerR = 0.38;
   for (const y of [8.4, 6, 3.4, 1.7, MUG.innerFloorY + cornerR]) {
     pts.push([profileRadius(model, (y - MUG.baseBevel) / (rimY - MUG.baseBevel)) - rimR * 2, y]);
@@ -65,20 +67,40 @@ function bodyProfile(model: CeramicProfile): { pts: P[]; iWall0: number; iArcEnd
   const insideR = baseR - rimR * 2;
   pts.push(...arcPoints(insideR - cornerR, MUG.innerFloorY + cornerR, cornerR, 0, -Math.PI / 2, 16).slice(1));
   pts.push([insideR * 0.6, MUG.innerFloorY], [insideR * 0.3, MUG.innerFloorY], [0, MUG.innerFloorY]);
-  return { pts, iWall0, iArcEnd };
+  return { pts, iExterior0, iLip0 };
+}
+
+/** UVs separados conservam normais contínuas nas costuras da cerâmica. */
+export function smoothBodyNormals(geo: THREE.BufferGeometry): void {
+  const p = geo.getAttribute("position"), n = geo.getAttribute("normal");
+  const groups = new Map<string, { normal: THREE.Vector3; indices: number[] }>();
+  for (let i = 0; i < p.count; i++) {
+    const key = `${p.getX(i).toFixed(5)},${p.getY(i).toFixed(5)},${p.getZ(i).toFixed(5)}`;
+    let group = groups.get(key);
+    if (!group) { group = { normal: new THREE.Vector3(), indices: [] }; groups.set(key, group); }
+    group.normal.add(new THREE.Vector3().fromBufferAttribute(n, i));
+    group.indices.push(i);
+  }
+  for (const { normal, indices } of groups.values()) {
+    if (indices.length < 2) continue;
+    normal.normalize();
+    for (const i of indices) n.setXYZ(i, normal.x, normal.y, normal.z);
+  }
+  n.needsUpdate = true;
 }
 
 export function buildMugBodyGeometry(_area?: PrintArea, model: CeramicProfile = "classic"): THREE.BufferGeometry {
-  const { pts, iWall0, iArcEnd } = bodyProfile(model);
+  const { pts, iExterior0, iLip0 } = bodyProfile(model);
   const geo = new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), MUG.segments);
   const pos = geo.getAttribute("position");
   const uv = geo.getAttribute("uv");
   for (let k = 0; k < pos.count; k++) {
     const j = k % pts.length;
-    uv.setXY(k, uv.getX(k) + 0.5, j < iWall0 ? V_EXT : j <= iArcEnd ? texV(pos.getY(k)) : V_INT);
+    uv.setXY(k, uv.getX(k) + 0.5, j < iExterior0 ? V_EXT : j < iLip0 ? texV(pos.getY(k)) : V_INT);
   }
   uv.needsUpdate = true;
   geo.computeVertexNormals();
+  smoothBodyNormals(geo);
   geo.computeBoundingBox();
   geo.computeBoundingSphere();
   return geo;

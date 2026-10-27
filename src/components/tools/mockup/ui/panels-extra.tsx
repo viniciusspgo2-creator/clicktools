@@ -67,8 +67,8 @@ export function MultiMugPanel() {
   return (
     <Section title="Multicaneca" icon={Users}>
       <p className="text-[10px] leading-relaxed text-neutral-500">
-        Monte cenas com até 4 canecas — a principal fica no centro e as
-        acompanhantes compartilham a mesma arte.
+        Monte cenas com até 4 canecas. Os presets centralizam e enquadram o
+        conjunto. Use Mover cenário para ajustar a composição livremente.
       </p>
       <div className="grid grid-cols-5 gap-1">
         {ARRANGE_OPTIONS.map((o) => {
@@ -218,8 +218,8 @@ function CompanionCard({
       <SliderRow
         label="Posição lateral"
         value={c.posX}
-        min={-18}
-        max={18}
+        min={-150}
+        max={150}
         step={0.1}
         onChange={(v) => patch(c.id, { posX: v })}
         defaultValue={10.8}
@@ -228,8 +228,8 @@ function CompanionCard({
       <SliderRow
         label="Profundidade"
         value={c.posZ}
-        min={-14}
-        max={14}
+        min={-150}
+        max={150}
         step={0.1}
         onChange={(v) => patch(c.id, { posZ: v })}
         defaultValue={0.6}

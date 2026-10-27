@@ -991,6 +991,18 @@
 .cg-spin-button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 10px 20px; border-radius: 24px; background: #171719; color: #fff; border: 1px solid #ffffff30; font-size: 12px; font-weight: 700; box-shadow: 0 4px 16px #0002; }
 .cg-workspace .cg-spin-button:hover { background: #303035; }
 .cg-spin-button[aria-pressed="true"] { background: #d94d08; }
+.cg-scene-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; }
+.cg-pan-button { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 10px 14px; background: var(--cg-panel); border: 1px solid var(--cg-line); border-radius: 24px; font-size: 11px; box-shadow: 0 4px 16px #0001; }
+.cg-pan-button svg { width: 15px; height: 15px; }
+.cg-pan-button[aria-pressed="true"] { color: var(--cg-accent); border-color: var(--cg-accent); }
+.cg-finish-controls { display: grid; gap: 9px; min-width: 0; margin-top: 12px; }
+.cg-finish-controls legend { display: flex; align-items: center; gap: 6px; padding-bottom: 10px; font-size: 11px; font-weight: 700; }
+.cg-finish-controls legend svg { width: 14px; height: 14px; color: var(--cg-accent); }
+.cg-finish-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.cg-finish-presets button, .cg-apply-finish { padding: 9px 7px; border: 1px solid var(--cg-line); border-radius: 9px; font-size: 11px; }
+.cg-finish-presets button[aria-pressed="true"] { border-color: var(--cg-accent); color: var(--cg-accent); background: var(--cg-card); }
+.cg-finish-controls p { color: var(--cg-muted); font-size: 10px; line-height: 1.5; }
+.cg-finish-controls:disabled { opacity: 0.55; }
 .cg-view-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; padding: 5px; background: var(--cg-panel); border: 1px solid var(--cg-line); border-radius: 14px; box-shadow: 0 4px 20px #0001; }
 .cg-view-buttons button { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 5px; padding: 9px 10px; min-height: 48px; border-radius: 9px; font-size: 10px; white-space: nowrap; }
 .cg-view-buttons svg { width: 17px; height: 17px; color: var(--cg-accent); }

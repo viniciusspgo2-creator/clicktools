@@ -71,6 +71,7 @@ import {
   importPortableProject,
 } from "../lib/portable-project";
 import { QuickCameraBar, QuickArtControls, CeramicPalette } from "./quick-controls";
+import { CeramicFinishControls } from "./ceramic-finish-controls";
 import "./workspace.css";
 
 type Tab = "arts" | "backgrounds" | "models" | "layers" | "scene" | "light" | "camera" | "compose" | "effects";
@@ -801,35 +802,12 @@ export function Workspace({
                     st.patchObject(active, { handleColor })
                   }
                 />
-                <SliderRow
-                  label="Verniz"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={selected.clearcoat ?? 1}
-                  onChange={(clearcoat) =>
-                    st.patchObject(active, { clearcoat })
-                  }
-                />
-                <SliderRow
-                  label="Rugosidade"
-                  min={0.04}
-                  max={1}
-                  step={0.01}
-                  value={selected.roughness ?? 0.08}
-                  onChange={(roughness) =>
-                    st.patchObject(active, { roughness })
-                  }
-                />
-                <SliderRow
-                  label="Reflexo"
-                  min={0}
-                  max={2}
-                  step={0.01}
-                  value={selected.reflection ?? 0.8}
-                  onChange={(reflection) =>
-                    st.patchObject(active, { reflection })
-                  }
+                <CeramicFinishControls mug={selected} disabled={selected.locked}
+                  onChange={values => st.patchObject(active, values)}
+                  onApplyAll={st.companions.length ? values => {
+                    st.patchObject("hero", values);
+                    for (const c of st.companions) st.patchObject(c.id, values);
+                  } : undefined}
                 />
                 <ToggleRow
                   label="Preservar cor da arte"

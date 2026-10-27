@@ -91,7 +91,7 @@ test('body and handle share one ceramic PBR recipe and the same fidelity shader'
   for(const key of ['roughness','metalness','clearcoat','clearcoatRoughness','ior','specularIntensity','envMapIntensity','toneMapped'])assert.equal(body[key],handle[key],key);
   assert.equal(body.roughness,0.08);assert.equal(body.ior,1.52);assert.equal(body.specularIntensity,0.9);
   assert.equal(body.aoMap,null);assert.equal(handle.aoMap,null);
-  const shader=()=>({fragmentShader:'#include <opaque_fragment>'});
+  const shader=()=>({uniforms:{},fragmentShader:'#include <opaque_fragment>'});
   const a=shader(),b=shader();body.onBeforeCompile(a);handle.onBeforeCompile(b);
   assert.equal(a.fragmentShader,b.fragmentShader);assert.ok(a.fragmentShader.includes('ceramicReflection'));
   body.dispose();handle.dispose();texture.dispose();
@@ -103,4 +103,91 @@ test('PNG print metadata contains real 300 DPI without changing IDAT image data'
   const before=chunks(original),after=chunks(output),physical=after.filter(c=>c.type==='pHYs');
   assert.equal(physical.length,1);const v=new DataView(physical[0].data.buffer);assert.equal(v.getUint32(0),11811);assert.equal(v.getUint32(4),11811);assert.equal(physical[0].data[8],1);
   assert.deepEqual(after.find(c=>c.type==='IDAT').data,new Uint8Array(before.find(c=>c.type==='IDAT').data));
+});
+
+
+test('full-height artwork reaches the external foot but never crosses the rounded lip or interior',()=>{
+  const {V_INT,V_EXT,texV}=require(root+'/src/components/tools/mockup/lib/config.ts');
+  const m=buildModel('classic'),p=m.body.attributes.position,uv=m.body.attributes.uv,index=m.body.index;
+  const rimY=MUG.height-(MUG.topOuterR-MUG.innerR)/2;
+  let printedFoot=0,cleanLip=0;
+  for(let i=0;i<p.count;i++){
+    const y=p.getY(i),r=Math.hypot(p.getX(i),p.getZ(i)),v=uv.getY(i);
+    if(y>rimY+1e-5){assert.ok(Math.abs(v-V_INT)<1e-6);cleanLip++;}
+    if(y<0.001&&r>3.8&&Math.abs(v-texV(0))<1e-6)printedFoot++;
+    if(y<0.001&&r<3.8)assert.ok(Math.abs(v-V_EXT)<1e-6,'support ring remains unprinted');
+  }
+  // Every non-degenerate triangle belongs to exactly one UV region.
+  const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3();
+  for(let i=0;i<index.count;i+=3){const ids=[index.getX(i),index.getX(i+1),index.getX(i+2)];
+    a.fromBufferAttribute(p,ids[0]);b.fromBufferAttribute(p,ids[1]);c.fromBufferAttribute(p,ids[2]);
+    if(b.sub(a).cross(c.sub(a)).lengthSq()<1e-12)continue;
+    const regions=ids.map(k=>Math.abs(uv.getY(k)-V_INT)<1e-6?'interior':Math.abs(uv.getY(k)-V_EXT)<1e-6?'base':'print');
+    assert.equal(new Set(regions).size,1,'UV transition must not stretch ink across a rim triangle');
+  }
+  assert.ok(printedFoot>250);assert.ok(cleanLip>250);
+  m.body.dispose();m.handle.dispose();m.basePrint.dispose();
+});
+
+test('Duo from the legacy panel creates a centered pair, keeps the ceramic finish and requests framing',()=>{
+  store.getState().resetAll();store.getState().patch('mug',{bodyColor:'#ff77aa',glazeStrength:2.2});
+  store.getState().setZoom(240);const before=store.getState().fitNonce;
+  store.getState().arrangeScene('duo');const s=store.getState(),c=s.companions[0];
+  assert.equal(s.companions.length,1);assert.equal(s.mug.posX,-c.posX);assert.equal(s.mug.posZ,c.posZ);
+  assert.equal(s.mug.scale,c.scale);assert.equal(c.bodyColor,'#ff77aa');assert.equal(c.glazeStrength,2.2);
+  assert.ok(s.fitNonce>before);assert.equal(s.zoom,100);assert.deepEqual(s.fitDirection,[0,.14,1]);
+});
+
+test('distribution centers every mug and leaves full-turn clearance at larger scales',()=>{
+  store.getState().resetAll();store.getState().patch('mug',{scale:2});store.getState().compose('row');
+  store.getState().spreadEvenly();const s=store.getState(),objects=[s.mug,...s.companions].sort((a,b)=>a.posX-b.posX);
+  assert.equal(objects[0].posX,-objects.at(-1).posX);
+  for(let i=1;i<objects.length;i++)assert.ok(objects[i].posX-objects[i-1].posX>=30);
+  assert.ok(objects.every(o=>o.posZ===0));
+});
+
+const {fitBoundsToView}=require(root+'/src/components/tools/mockup/scene/framing.ts');
+test('the entire group projects inside the canvas in landscape, square and narrow portrait views',()=>{
+  const box=new THREE.Box3(new THREE.Vector3(-24,0,-8),new THREE.Vector3(24,14,8));
+  for(const aspect of [2,1,.48])for(const dir of [new THREE.Vector3(0,.14,1),new THREE.Vector3(1,.42,.5),new THREE.Vector3(.01,1,.06)]){
+    const fit=fitBoundsToView(box,dir,16,aspect),camera=new THREE.PerspectiveCamera(16,aspect,.1,3000);
+    camera.position.copy(fit.pos);camera.lookAt(fit.target);camera.updateMatrixWorld(true);
+    for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){
+      const ndc=new THREE.Vector3(x,y,z).project(camera);assert.ok(Math.abs(ndc.x)<=.807&&Math.abs(ndc.y)<=.807,JSON.stringify({aspect,ndc}));
+    }
+  }
+});
+
+test('glossy finishes affect body and handle equally and keep legacy projects compatible',()=>{
+  const {CERAMIC_FINISHES,ceramicFinishValues}=require(root+'/src/components/tools/mockup/lib/ceramic-finishes.ts');
+  assert.equal(ceramicFinishValues({}).clearcoatRoughness,.04);
+  assert.equal(ceramicFinishValues({}).glazeStrength,1);
+  for(const f of CERAMIC_FINISHES){
+    const mug={...store.getState().mug,...f.values,faithfulColor:true};
+    const body=createCeramicMaterial(mug,{map:new THREE.Texture()}),handle=createCeramicMaterial(mug,{color:'#ffffff'});
+    for(const k of ['roughness','clearcoat','clearcoatRoughness','specularIntensity','envMapIntensity'])assert.equal(body[k],handle[k]);
+    const shader={uniforms:{},fragmentShader:'#include <opaque_fragment>'};body.onBeforeCompile(shader);
+    assert.equal(shader.uniforms.ceramicGlazeStrength.value,f.values.glazeStrength);
+    assert.ok(shader.fragmentShader.includes('ceramicBase + ceramicGlaze'),'gloss must not change diffuse ink');
+    body.map.dispose();body.dispose();handle.dispose();
+  }
+});
+
+
+test('full-turn framing stays centered when equal mugs have different Y rotations and ignores selection outlines',()=>{
+  const {framingBounds}=require(root+'/src/components/tools/mockup/scene/framing.ts');
+  const scene=new THREE.Scene(),group=new THREE.Group();group.name='mockup-mugs';scene.add(group);
+  const mugs=[];
+  for(const x of [-7.5,7.5]){
+    const mug=new THREE.Group();mug.name='mug-float';mug.position.set(x,4.775,0);group.add(mug);mugs.push(mug);
+    mug.add(new THREE.Mesh(new THREE.BoxGeometry(8.2,9.55,8.2)));
+    const handle=new THREE.Mesh(new THREE.BoxGeometry(2,5,3));handle.position.z=-5.7;mug.add(handle);
+  }
+  const outline=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(50,30,50)));outline.name='selection-outline';mugs[0].add(outline);
+  for(const angle of [0,.4,1.7,4.2]){
+    mugs[0].rotation.y=angle;mugs[1].rotation.y=angle+1.3;
+    const box=framingBounds(scene,true);assert.ok(Math.abs(box.getCenter(new THREE.Vector3()).x)<1e-6,'rotation must not offset the group center');
+    assert.ok(box.max.x<16,'outline must not widen the scene');
+  }
+  group.traverse(o=>{if(o.geometry)o.geometry.dispose()});
 });
