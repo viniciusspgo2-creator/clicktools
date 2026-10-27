@@ -1,6 +1,6 @@
 generator client {
-  provider        = "prisma-client-js"
-  binaryTargets   = ["native", "rhel-openssl-3.0.x"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -18,17 +18,26 @@ model WhatsAppLink {
   createdAt DateTime @default(now())
 }
 
-/* ---------------- Acesso PREMIUM (Mockup Studio) ---------------- */
+/**
+ * ---------------- Acesso PREMIUM (Mockup Studio) ----------------
+ */
 
 model AccessCode {
-  id        String          @id @default(cuid())
-  code      String          @unique
-  note      String          @default("")
-  maxUses   Int             @default(1)
-  active    Boolean         @default(true)
-  expiresAt DateTime?
-  createdAt DateTime        @default(now())
-  uses      AccessCodeUse[]
+  id               String          @id @default(cuid())
+  code             String          @unique
+  note             String          @default("")
+  clientName       String          @default("")
+  clientType       String          @default("library")
+  browserHash      String?
+  sessionHash      String?
+  sessionExpiresAt DateTime?
+  maxUses          Int             @default(1)
+  active           Boolean         @default(true)
+  expiresAt        DateTime?
+  createdAt        DateTime        @default(now())
+  uses             AccessCodeUse[]
+
+  @@index([sessionHash])
 }
 
 model AccessCodeUse {
@@ -42,7 +51,9 @@ model AccessCodeUse {
   @@index([usedAt])
 }
 
-/* ---------------- Contador de visitas ---------------- */
+/**
+ * ---------------- Contador de visitas ----------------
+ */
 
 model Visit {
   id        String   @id @default(cuid())
@@ -55,7 +66,9 @@ model Visit {
   @@index([day, path])
 }
 
-/* ---------------- Configurações (SEO etc.) ---------------- */
+/**
+ * ---------------- Configurações (SEO etc.) ----------------
+ */
 
 model SiteConfig {
   key       String   @id

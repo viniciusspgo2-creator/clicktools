@@ -1,5 +1,10 @@
 "use client";
-import { useEffect as ReactUseEffect, useState, useCallback, type ReactNode } from "react";
+import {
+  useEffect as ReactUseEffect,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
 import {
   ImagePlus,
   Images,
@@ -70,11 +75,24 @@ import {
   exportPortableProject,
   importPortableProject,
 } from "../lib/portable-project";
-import { QuickCameraBar, QuickArtControls, CeramicPalette } from "./quick-controls";
+import {
+  QuickCameraBar,
+  QuickArtControls,
+  CeramicPalette,
+} from "./quick-controls";
 import { CeramicFinishControls } from "./ceramic-finish-controls";
 import "./workspace.css";
 
-type Tab = "arts" | "backgrounds" | "models" | "layers" | "scene" | "light" | "camera" | "compose" | "effects";
+type Tab =
+  | "arts"
+  | "backgrounds"
+  | "models"
+  | "layers"
+  | "scene"
+  | "light"
+  | "camera"
+  | "compose"
+  | "effects";
 const NAV = [
   { id: "arts", label: "Arte", icon: ImagePlus },
   { id: "models", label: "Caneca", icon: Coffee },
@@ -115,9 +133,11 @@ function ToolButton({
 export function Workspace({
   viewport,
   onUpload,
+  onShortcuts,
 }: {
   viewport: ReactNode;
   onUpload: () => void;
+  onShortcuts: () => void;
 }) {
   const st = useMockupStore();
   const [tab, setTab] = useState<Tab>("arts");
@@ -149,7 +169,8 @@ export function Workspace({
   ReactUseEffect(() => {
     const handle = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault(); setSearchOpen(v => !v);
+        e.preventDefault();
+        setSearchOpen((v) => !v);
       }
     };
     window.addEventListener("keydown", handle);
@@ -187,7 +208,13 @@ export function Workspace({
   return (
     <div className={`cg-workspace ${light ? "cg-light" : "cg-dark"}`}>
       <header className="cg-topbar">
-        <a className="cg-icon" aria-label="Voltar ao guia" href="/mockup-caneca-3d"><ArrowLeft /></a>
+        <a
+          className="cg-icon"
+          aria-label="Voltar ao guia"
+          href="/mockup-caneca-3d"
+        >
+          <ArrowLeft />
+        </a>
         <div className="cg-brand">
           <span className="cg-logo">
             <Coffee />
@@ -235,53 +262,142 @@ export function Workspace({
             +
           </button>
         </div>
-        <a className="cg-toplink" href="https://clickgruda.vercel.app/" target="_blank" rel="noopener noreferrer" title="Biblioteca de artes">Biblioteca</a>
-        <a className="cg-top-social" href="https://instagram.com/clickgruda.digital" target="_blank" rel="noopener noreferrer" aria-label="Instagram Click&Gruda"><Instagram /></a>
-        <a className="cg-top-social" href="https://www.facebook.com/artesparacanecasoficial" target="_blank" rel="noopener noreferrer" aria-label="Facebook Click&Gruda"><Facebook /></a>
+        <a className="cg-toplink" href="/bonus">
+          Bônus grátis
+        </a>
+        <a
+          className="cg-toplink"
+          href="https://clickgruda.vercel.app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Biblioteca de artes"
+        >
+          Biblioteca
+        </a>
+        <a
+          className="cg-top-social"
+          href="https://instagram.com/clickgruda.digital"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Instagram Click&Gruda"
+        >
+          <Instagram />
+        </a>
+        <a
+          className="cg-top-social"
+          href="https://www.facebook.com/artesparacanecasoficial"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Facebook Click&Gruda"
+        >
+          <Facebook />
+        </a>
         <div className="cg-header-actions">
-        <ToolButton label="Buscar ajustes · Ctrl+K" onClick={() => setSearchOpen(true)}><Search /></ToolButton>
-        <ToolButton
-          label={light ? "Tema escuro" : "Tema claro"}
-          onClick={() => setLight(!light)}
-        >
-          {light ? <Moon /> : <Sun />}
-        </ToolButton>
-        <ToolButton
-          label="Projetos salvos"
-          onClick={() => st.setProjectsOpen(true)}
-        >
-          <FolderOpen />
-        </ToolButton>
-        <ToolButton
-          label="Salvar projeto"
-          disabled={busy}
-          onClick={() =>
-            safe(async () => {
-              await saveCurrentProject("working-project", st.projectName);
-              notify("Projeto salvo neste dispositivo.");
-            })
-          }
-        >
-          <Save />
-        </ToolButton>
-        <button className="cg-reset-btn" onClick={() => setResetOpen(true)} title="Resetar tudo">
-          <RotateCcw /> <span>Resetar tudo</span>
-        </button>
+          <ToolButton
+            label="Buscar ajustes · Ctrl+K"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search />
+          </ToolButton>
+          <ToolButton
+            label={light ? "Tema escuro" : "Tema claro"}
+            onClick={() => setLight(!light)}
+          >
+            {light ? <Moon /> : <Sun />}
+          </ToolButton>
+          <ToolButton
+            label="Projetos salvos"
+            onClick={() => st.setProjectsOpen(true)}
+          >
+            <FolderOpen />
+          </ToolButton>
+          <ToolButton
+            label="Salvar projeto"
+            disabled={busy}
+            onClick={() =>
+              safe(async () => {
+                await saveCurrentProject("working-project", st.projectName);
+                notify("Projeto salvo neste dispositivo.");
+              })
+            }
+          >
+            <Save />
+          </ToolButton>
+          <button
+            className="cg-reset-btn"
+            onClick={() => setResetOpen(true)}
+            title="Resetar tudo"
+          >
+            <RotateCcw /> <span>Resetar tudo</span>
+          </button>
         </div>
         <details className="cg-mobile-menu">
-          <summary aria-label="Mais opções do estúdio"><MoreHorizontal /></summary>
+          <summary aria-label="Mais opções do estúdio">
+            <MoreHorizontal />
+          </summary>
           <div>
-            <button type="button" onClick={e => { setSearchOpen(true); e.currentTarget.closest("details")?.removeAttribute("open"); }}><Search />Buscar ajustes</button>
-            <button type="button" onClick={e => { st.setProjectsOpen(true); e.currentTarget.closest("details")?.removeAttribute("open"); }}><FolderOpen />Projetos salvos</button>
-            <button type="button" disabled={busy} onClick={e => {
-              e.currentTarget.closest("details")?.removeAttribute("open");
-              safe(async () => { await saveCurrentProject("working-project", st.projectName); notify("Projeto salvo neste dispositivo."); });
-            }}><Save />Salvar projeto</button>
-            <button type="button" onClick={() => setLight(!light)}>{light ? <Moon /> : <Sun />}{light ? "Tema escuro" : "Tema claro"}</button>
-            <button type="button" onClick={e => { setResetOpen(true); e.currentTarget.closest("details")?.removeAttribute("open"); }}><RotateCcw />Resetar tudo</button>
+            <button
+              type="button"
+              onClick={(e) => {
+                setSearchOpen(true);
+                e.currentTarget.closest("details")?.removeAttribute("open");
+              }}
+            >
+              <Search />
+              Buscar ajustes
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                st.setProjectsOpen(true);
+                e.currentTarget.closest("details")?.removeAttribute("open");
+              }}
+            >
+              <FolderOpen />
+              Projetos salvos
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={(e) => {
+                e.currentTarget.closest("details")?.removeAttribute("open");
+                safe(async () => {
+                  await saveCurrentProject("working-project", st.projectName);
+                  notify("Projeto salvo neste dispositivo.");
+                });
+              }}
+            >
+              <Save />
+              Salvar projeto
+            </button>
+            <button type="button" onClick={() => setLight(!light)}>
+              {light ? <Moon /> : <Sun />}
+              {light ? "Tema escuro" : "Tema claro"}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                setResetOpen(true);
+                e.currentTarget.closest("details")?.removeAttribute("open");
+              }}
+            >
+              <RotateCcw />
+              Resetar tudo
+            </button>
           </div>
         </details>
-        <button className="cg-export" aria-label="Exportar imagem" onClick={() => st.setExportOpen(true)}>
+        <button
+          className="cg-toplink"
+          onClick={onShortcuts}
+          title="Atalhos de teclado (?)"
+        >
+          Atalhos <kbd>?</kbd>
+        </button>
+        <button
+          className="cg-export"
+          aria-label="Exportar imagem"
+          onClick={() => st.setExportOpen(true)}
+        >
           <Download />
           <span>Exportar imagem</span>
         </button>
@@ -403,18 +519,61 @@ export function Workspace({
           )}
           {tab === "backgrounds" && (
             <>
-              <Section title="Cenas prontas em 1 clique" icon={Sparkles} defaultOpen>
+              <Section
+                title="Cenas prontas em 1 clique"
+                icon={Sparkles}
+                defaultOpen
+              >
                 <div className="cg-preset-grid">
                   {[
-                    {label:"Estúdio branco",bg:{type:"studio-white" as const,floor:"continuo" as const},light:"suave"},
-                    {label:"Estúdio escuro",bg:{type:"studio-dark" as const,floor:"continuo" as const},light:"dramatico"},
-                    {label:"Laranja criativo",bg:{type:"solid" as const,colorA:"#ffb986",floor:"continuo" as const},light:"quente"},
-                    {label:"Fundo transparente",bg:{type:"transparent" as const,floor:"continuo" as const},light:"suave"},
-                  ].map(scene => <button key={scene.label} type="button" onClick={() => {
-                    st.patch("bg", {...scene.bg,imageId:null});
-                    const found = LIGHT_PRESETS.find(l=>l.id===scene.light);
-                    if(found) st.patch("light",{preset:found.id});
-                  }}>{scene.label}</button>)}
+                    {
+                      label: "Estúdio branco",
+                      bg: {
+                        type: "studio-white" as const,
+                        floor: "continuo" as const,
+                      },
+                      light: "suave",
+                    },
+                    {
+                      label: "Estúdio escuro",
+                      bg: {
+                        type: "studio-dark" as const,
+                        floor: "continuo" as const,
+                      },
+                      light: "dramatico",
+                    },
+                    {
+                      label: "Laranja criativo",
+                      bg: {
+                        type: "solid" as const,
+                        colorA: "#ffb986",
+                        floor: "continuo" as const,
+                      },
+                      light: "quente",
+                    },
+                    {
+                      label: "Fundo transparente",
+                      bg: {
+                        type: "transparent" as const,
+                        floor: "continuo" as const,
+                      },
+                      light: "suave",
+                    },
+                  ].map((scene) => (
+                    <button
+                      key={scene.label}
+                      type="button"
+                      onClick={() => {
+                        st.patch("bg", { ...scene.bg, imageId: null });
+                        const found = LIGHT_PRESETS.find(
+                          (l) => l.id === scene.light,
+                        );
+                        if (found) st.patch("light", { preset: found.id });
+                      }}
+                    >
+                      {scene.label}
+                    </button>
+                  ))}
                 </div>
               </Section>
               <PremiumBackgrounds notify={notify} />
@@ -429,12 +588,65 @@ export function Workspace({
               <Section title="Cores prontas" icon={Palette} defaultOpen>
                 <div className="cg-preset-grid">
                   {[
-                    { label: "Branca clássica", patch: {variant:"white" as const,bodyColor:"#ffffff",handleColor:"#ffffff",interiorColor:"#ffffff",roughness:0.08}},
-                    { label: "Alça colorida", patch: {variant:"accent" as const,bodyColor:"#ffffff",handleColor:"#e44837",interiorColor:"#e44837",accentColor:"#e44837"}},
-                    { label: "Toda colorida", patch: {variant:"accent" as const,bodyColor:"#325aaf",handleColor:"#325aaf",interiorColor:"#325aaf",accentColor:"#325aaf"}},
-                    { label: "Preta fosca", patch: {variant:"accent" as const,bodyColor:"#202024",handleColor:"#202024",interiorColor:"#202024",roughness:0.68}},
-                    { label: "Mágica", patch: {variant:"magic" as const,bodyColor:"#18181b",handleColor:"#121216",interiorColor:"#121216",magicHeat:0.2}},
-                  ].map(v => <button key={v.label} type="button" onClick={() => st.patchObject(active,v.patch)}>{v.label}</button>)}
+                    {
+                      label: "Branca clássica",
+                      patch: {
+                        variant: "white" as const,
+                        bodyColor: "#ffffff",
+                        handleColor: "#ffffff",
+                        interiorColor: "#ffffff",
+                        roughness: 0.08,
+                      },
+                    },
+                    {
+                      label: "Alça colorida",
+                      patch: {
+                        variant: "accent" as const,
+                        bodyColor: "#ffffff",
+                        handleColor: "#e44837",
+                        interiorColor: "#e44837",
+                        accentColor: "#e44837",
+                      },
+                    },
+                    {
+                      label: "Toda colorida",
+                      patch: {
+                        variant: "accent" as const,
+                        bodyColor: "#325aaf",
+                        handleColor: "#325aaf",
+                        interiorColor: "#325aaf",
+                        accentColor: "#325aaf",
+                      },
+                    },
+                    {
+                      label: "Preta fosca",
+                      patch: {
+                        variant: "accent" as const,
+                        bodyColor: "#202024",
+                        handleColor: "#202024",
+                        interiorColor: "#202024",
+                        roughness: 0.68,
+                      },
+                    },
+                    {
+                      label: "Mágica",
+                      patch: {
+                        variant: "magic" as const,
+                        bodyColor: "#18181b",
+                        handleColor: "#121216",
+                        interiorColor: "#121216",
+                        magicHeat: 0.2,
+                      },
+                    },
+                  ].map((v) => (
+                    <button
+                      key={v.label}
+                      type="button"
+                      onClick={() => st.patchObject(active, v.patch)}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
                 </div>
               </Section>
               <div className="cg-model-grid">
@@ -571,33 +783,77 @@ export function Workspace({
               </div>
             </>
           )}
-          {tab === "light" && <><LightPanel /><HDRIPanel /></>}
+          {tab === "light" && (
+            <>
+              <LightPanel />
+              <HDRIPanel />
+            </>
+          )}
           {tab === "camera" && <CameraPanel />}
           {tab === "compose" && <MultiMugPanel />}
-          {tab === "effects" && <>
-            <FXPanel />
-            <Section title="Meus presets (neste navegador)" icon={Save} defaultOpen>
-              <button className="cg-secondary" onClick={() => {
-                try {
-                  const current = {mug:st.mug,light:st.light,bg:st.bg,fx:st.fx};
-                  localStorage.setItem("cg_studio_preset",JSON.stringify(current));notify("Configuração salva neste navegador.");
-                } catch {notify("Não foi possível salvar. Verifique o espaço disponível.")}
-              }}>Salvar minha configuração</button>
-              <button className="cg-secondary" onClick={() => {
-                try {
-                  const stored = localStorage.getItem("cg_studio_preset");
-                  if(!stored) {notify("Nenhum preset salvo ainda.");return;}
-                  const parsed = JSON.parse(stored);
-                  if(parsed.mug) st.patch("mug",parsed.mug);
-                  if(parsed.light) st.patch("light",parsed.light);
-                  if(parsed.bg) st.patch("bg",parsed.bg);
-                  if(parsed.fx) st.patch("fx",parsed.fx);
-                  notify("Meu preset aplicado.");
-                } catch {notify("Este preset não pôde ser aberto.")}
-              }}>Aplicar meu preset salvo</button>
-            </Section>
-          </>}
-          {tab === "scene" && <><PremiumBackgrounds notify={notify} /><ScenePanel /></>}
+          {tab === "effects" && (
+            <>
+              <FXPanel />
+              <Section
+                title="Meus presets (neste navegador)"
+                icon={Save}
+                defaultOpen
+              >
+                <button
+                  className="cg-secondary"
+                  onClick={() => {
+                    try {
+                      const current = {
+                        mug: st.mug,
+                        light: st.light,
+                        bg: st.bg,
+                        fx: st.fx,
+                      };
+                      localStorage.setItem(
+                        "cg_studio_preset",
+                        JSON.stringify(current),
+                      );
+                      notify("Configuração salva neste navegador.");
+                    } catch {
+                      notify(
+                        "Não foi possível salvar. Verifique o espaço disponível.",
+                      );
+                    }
+                  }}
+                >
+                  Salvar minha configuração
+                </button>
+                <button
+                  className="cg-secondary"
+                  onClick={() => {
+                    try {
+                      const stored = localStorage.getItem("cg_studio_preset");
+                      if (!stored) {
+                        notify("Nenhum preset salvo ainda.");
+                        return;
+                      }
+                      const parsed = JSON.parse(stored);
+                      if (parsed.mug) st.patch("mug", parsed.mug);
+                      if (parsed.light) st.patch("light", parsed.light);
+                      if (parsed.bg) st.patch("bg", parsed.bg);
+                      if (parsed.fx) st.patch("fx", parsed.fx);
+                      notify("Meu preset aplicado.");
+                    } catch {
+                      notify("Este preset não pôde ser aberto.");
+                    }
+                  }}
+                >
+                  Aplicar meu preset salvo
+                </button>
+              </Section>
+            </>
+          )}
+          {tab === "scene" && (
+            <>
+              <PremiumBackgrounds notify={notify} />
+              <ScenePanel />
+            </>
+          )}
         </aside>
         <main className="cg-canvas" aria-label="Canvas 3D">
           <div className="cg-canvas-toolbar">
@@ -637,7 +893,9 @@ export function Workspace({
             PRÉVIA 3D EM TEMPO REAL
           </div>
           <details className="cg-scene-presets">
-            <summary><Layers /> Composição rápida</summary>
+            <summary>
+              <Layers /> Composição rápida
+            </summary>
             <div>
               {(
                 [
@@ -686,7 +944,11 @@ export function Workspace({
           </div>
           {selected ? (
             <>
-              <QuickArtControls active={active} art={art} locked={!!selected.locked} />
+              <QuickArtControls
+                active={active}
+                art={art}
+                locked={!!selected.locked}
+              />
               <CeramicPalette active={active} />
               <Section title="Poses prontas" icon={Move} defaultOpen>
                 <div className="cg-pills">
@@ -802,12 +1064,19 @@ export function Workspace({
                     st.patchObject(active, { handleColor })
                   }
                 />
-                <CeramicFinishControls mug={selected} disabled={selected.locked}
-                  onChange={values => st.patchObject(active, values)}
-                  onApplyAll={st.companions.length ? values => {
-                    st.patchObject("hero", values);
-                    for (const c of st.companions) st.patchObject(c.id, values);
-                  } : undefined}
+                <CeramicFinishControls
+                  mug={selected}
+                  disabled={selected.locked}
+                  onChange={(values) => st.patchObject(active, values)}
+                  onApplyAll={
+                    st.companions.length
+                      ? (values) => {
+                          st.patchObject("hero", values);
+                          for (const c of st.companions)
+                            st.patchObject(c.id, values);
+                        }
+                      : undefined
+                  }
                 />
                 <ToggleRow
                   label="Preservar cor da arte"
@@ -905,26 +1174,115 @@ export function Workspace({
           )}
         </aside>
       </div>
-      {searchOpen && <div className="cg-search-popover" role="dialog" aria-label="Buscar ajustes">
-        <div className="cg-search-head"><Search /><input autoFocus placeholder="Buscar ajustes: sombra, arte, giro, caneca..." value={query}
-          onChange={e => setQuery(e.target.value)}/><button onClick={() => setSearchOpen(false)} aria-label="Fechar busca"><X /></button></div>
-        <div className="cg-search-results">{NAV.filter(n => !query || n.label.toLowerCase().includes(query.toLowerCase()) ||
-          ({arts:"estampa upload encaixe impressão",models:"caneca cor cerâmica alça interior",backgrounds:"fundo cenário superfície",light:"sombra iluminação hdri",camera:"giro rotação movimento",compose:"duo trio grupo",effects:"cor brilho look",layers:"objeto camada"}[n.id] || "").includes(query.toLowerCase()))
-          .map(n => <button key={n.id} onClick={() => {setTab(n.id);setDrawer("library");setSearchOpen(false);setQuery("");}}><n.icon /> {n.label}</button>)}</div>
-      </div>}
-      {resetOpen && <div className="cg-modal-scrim" role="presentation">
-        <div className="cg-confirm" role="dialog" aria-modal="true" aria-labelledby="cg-reset-title">
-          <span className="cg-confirm-icon"><RotateCcw /></span>
-          <h2 id="cg-reset-title">Voltar tudo ao padrão?</h2>
-          <p>A caneca, a arte, a cena, a luz, a câmera e os efeitos voltam ao início. Seus projetos salvos não serão apagados.</p>
-          <label><input type="checkbox" checked={keepArt} onChange={e => setKeepArt(e.target.checked)}/> Manter a arte que enviei</label>
-          <div className="cg-confirm-actions"><button onClick={() => setResetOpen(false)}>Cancelar</button><button className="is-danger" onClick={() => {
-            st.resetAll(keepArt); setResetOpen(false); setKeepArt(false); setResetNotice(true);
-            window.setTimeout(() => setResetNotice(false), 8000);
-          }}>Resetar tudo</button></div>
+      {searchOpen && (
+        <div
+          className="cg-search-popover"
+          role="dialog"
+          aria-label="Buscar ajustes"
+        >
+          <div className="cg-search-head">
+            <Search />
+            <input
+              autoFocus
+              placeholder="Buscar ajustes: sombra, arte, giro, caneca..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <button
+              onClick={() => setSearchOpen(false)}
+              aria-label="Fechar busca"
+            >
+              <X />
+            </button>
+          </div>
+          <div className="cg-search-results">
+            {NAV.filter(
+              (n) =>
+                !query ||
+                n.label.toLowerCase().includes(query.toLowerCase()) ||
+                (
+                  {
+                    arts: "estampa upload encaixe impressão",
+                    models: "caneca cor cerâmica alça interior",
+                    backgrounds: "fundo cenário superfície",
+                    light: "sombra iluminação hdri",
+                    camera: "giro rotação movimento",
+                    compose: "duo trio grupo",
+                    effects: "cor brilho look",
+                    layers: "objeto camada",
+                  }[n.id] || ""
+                ).includes(query.toLowerCase()),
+            ).map((n) => (
+              <button
+                key={n.id}
+                onClick={() => {
+                  setTab(n.id);
+                  setDrawer("library");
+                  setSearchOpen(false);
+                  setQuery("");
+                }}
+              >
+                <n.icon /> {n.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>}
-      {resetNotice && <div className="cg-reset-toast" role="status">Tudo resetado <button onClick={() => { st.undo(); setResetNotice(false); }}>Desfazer</button></div>}
+      )}
+      {resetOpen && (
+        <div className="cg-modal-scrim" role="presentation">
+          <div
+            className="cg-confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cg-reset-title"
+          >
+            <span className="cg-confirm-icon">
+              <RotateCcw />
+            </span>
+            <h2 id="cg-reset-title">Voltar tudo ao padrão?</h2>
+            <p>
+              A caneca, a arte, a cena, a luz, a câmera e os efeitos voltam ao
+              início. Seus projetos salvos não serão apagados.
+            </p>
+            <label>
+              <input
+                type="checkbox"
+                checked={keepArt}
+                onChange={(e) => setKeepArt(e.target.checked)}
+              />{" "}
+              Manter a arte que enviei
+            </label>
+            <div className="cg-confirm-actions">
+              <button onClick={() => setResetOpen(false)}>Cancelar</button>
+              <button
+                className="is-danger"
+                onClick={() => {
+                  st.resetAll(keepArt);
+                  setResetOpen(false);
+                  setKeepArt(false);
+                  setResetNotice(true);
+                  window.setTimeout(() => setResetNotice(false), 8000);
+                }}
+              >
+                Resetar tudo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {resetNotice && (
+        <div className="cg-reset-toast" role="status">
+          Tudo resetado{" "}
+          <button
+            onClick={() => {
+              st.undo();
+              setResetNotice(false);
+            }}
+          >
+            Desfazer
+          </button>
+        </div>
+      )}
       <footer className="cg-statusbar">
         <button
           onClick={() =>
@@ -934,7 +1292,9 @@ export function Workspace({
           {st.camera.autoRotate ? <Pause /> : <Play />}
           {st.camera.autoRotate ? "Pausar giro" : "Girar 360°"}
         </button>
-        <a className="cg-guide-status" href="/mockup-caneca-3d">Ver guia rápido</a>
+        <a className="cg-guide-status" href="/mockup-caneca-3d">
+          Ver guia rápido
+        </a>
         <span className="cg-shortcuts">
           Shift + clique: seleção múltipla · Ctrl+D: duplicar · Delete: apagar ·
           Ctrl+Z: desfazer

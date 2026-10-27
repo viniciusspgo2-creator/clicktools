@@ -149,14 +149,18 @@ export function StudioLights() {
 
       {/* ambiente de estúdio procedural (softboxes refletem no verniz) */}
       {hdr ? (
-        <Environment map={hdr} environmentIntensity={light.envIntensity * 0.45} background={false} />
+        <Environment
+          map={hdr}
+          environmentIntensity={light.envIntensity * 0.7}
+          background={false}
+        />
       ) : (
         <Environment
           key={envKey}
           resolution={mobile ? 512 : 1024}
           frames={1}
           background={false}
-          environmentIntensity={light.envIntensity * 0.45}
+          environmentIntensity={light.envIntensity * 0.7}
         >
           <group
             rotation={[
@@ -165,6 +169,15 @@ export function StudioLights() {
               0,
             ]}
           >
+            {/* Faixa fotográfica vertical: torna o verniz legível sobre a arte. */}
+            <Lightformer
+              form="rect"
+              intensity={3.5 * preset.env * light.intensity}
+              color="#ffffff"
+              position={[-6, 4, 5]}
+              scale={[1.1, 9, 1]}
+              target={[0, 4, 0]}
+            />
             {/* softbox principal */}
             <Lightformer
               form="rect"
@@ -596,26 +609,26 @@ export function StudioContactShadows() {
         : 0.002;
   return (
     <group name="studio-contact-shadows">
-    <ContactShadows
-      position={[0, topY + 0.001, 0]}
-      opacity={(shadowOpacity ?? 0.44) * 0.8}
-      scale={Math.min(64, extent * 2.2)}
-      blur={0.7 + softness * 0.6}
-      far={0.8}
-      resolution={mobile ? 512 : 1024}
-      color={shadowColor ?? "#242424"}
-      frames={Infinity}
-    />
-    <ContactShadows
-      position={[0, topY, 0]}
-      opacity={(shadowOpacity ?? 0.44) * 0.6}
-      scale={Math.min(64, extent * 2.2)}
-      blur={2.2 + softness * 2.4}
-      far={4.2}
-      resolution={mobile ? 512 : 1024}
-      color={shadowColor ?? "#242424"}
-      frames={Infinity}
-    />
+      <ContactShadows
+        position={[0, topY + 0.001, 0]}
+        opacity={(shadowOpacity ?? 0.44) * 0.8}
+        scale={Math.min(64, extent * 2.2)}
+        blur={0.7 + softness * 0.6}
+        far={0.8}
+        resolution={mobile ? 512 : 1024}
+        color={shadowColor ?? "#242424"}
+        frames={Infinity}
+      />
+      <ContactShadows
+        position={[0, topY, 0]}
+        opacity={(shadowOpacity ?? 0.44) * 0.6}
+        scale={Math.min(64, extent * 2.2)}
+        blur={2.2 + softness * 2.4}
+        far={4.2}
+        resolution={mobile ? 512 : 1024}
+        color={shadowColor ?? "#242424"}
+        frames={Infinity}
+      />
     </group>
   );
 }

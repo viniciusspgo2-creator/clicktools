@@ -140,35 +140,77 @@ export function beginFrames(
   opts: Omit<FrameOpts, "width" | "height"> = {},
 ): FrameSession {
   const { gl, scene } = studioRefs;
-  if (studioRefs.exporting) throw new ExportError("Outra exportação está em andamento.");
-  if (!gl || !scene) throw new ExportError("Cena ainda não carregada. Aguarde um instante e tente de novo.");
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1)
+  if (studioRefs.exporting)
+    throw new ExportError("Outra exportação está em andamento.");
+  if (!gl || !scene)
+    throw new ExportError(
+      "Cena ainda não carregada. Aguarde um instante e tente de novo.",
+    );
+  if (
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width < 1 ||
+    height < 1
+  )
     throw new ExportError("Escolha uma largura e uma altura válidas.");
-  if (gl.getContext().isContextLost()) throw new ExportError("O 3D está sendo restaurado. Aguarde e tente novamente.");
+  if (gl.getContext().isContextLost())
+    throw new ExportError(
+      "O 3D está sendo restaurado. Aguarde e tente novamente.",
+    );
   const context = gl.getContext();
-  const maxBuffer = Math.min(gl.capabilities.maxTextureSize || 4096,
-    Number(context.getParameter(context.MAX_RENDERBUFFER_SIZE)) || 4096, 8192);
+  const maxBuffer = Math.min(
+    gl.capabilities.maxTextureSize || 4096,
+    Number(context.getParameter(context.MAX_RENDERBUFFER_SIZE)) || 4096,
+    8192,
+  );
   if (width > maxBuffer || height > maxBuffer)
-    throw new ExportError(`Este dispositivo permite até ${maxBuffer} px por lado. Reduza o tamanho da imagem.`);
+    throw new ExportError(
+      `Este dispositivo permite até ${maxBuffer} px por lado. Reduza o tamanho da imagem.`,
+    );
   const mobile = /android|iphone|ipad|mobile/i.test(navigator.userAgent);
   const fx = useMockupStore.getState().fx;
   const usingFx = !opts.transparent && fx.enabled && !!studioRefs.composer;
   // 4× por eixo quando há memória; a saída mantém o tamanho escolhido.
   // Vídeo mantém seu próprio teto. Nunca aumentamos o buffer além da GPU.
-  const ssCap = Math.max(1, Math.min(opts.ssCap ?? 2, usingFx ? 1 : 4));
-  const pixelBudget = mobile ? 8_500_000 : 40_000_000;
-  const ss = opts.noSupersample ? 1 : Math.max(1, Math.min(ssCap,
-    maxBuffer / width, maxBuffer / height, Math.sqrt(pixelBudget / (width * height))));
+  const ssCap = Math.max(1, Math.min(opts.ssCap ?? 2, usingFx ? 2 : 4));
+  const pixelBudget = mobile ? 8_500_000 : usingFx ? 20_000_000 : 40_000_000;
+  const ss = opts.noSupersample
+    ? 1
+    : Math.max(
+        1,
+        Math.min(
+          ssCap,
+          maxBuffer / width,
+          maxBuffer / height,
+          Math.sqrt(pixelBudget / (width * height)),
+        ),
+      );
   const session: FrameSession = {
-    gl, scene, width, height, ssWidth: Math.floor(width * ss), ssHeight: Math.floor(height * ss),
-    oldSize: gl.getSize(new THREE.Vector2()), oldPR: gl.getPixelRatio(), oldBg: scene.background,
-    oldClearColor: gl.getClearColor(new THREE.Color()), oldClearAlpha: gl.getClearAlpha(),
+    gl,
+    scene,
+    width,
+    height,
+    ssWidth: Math.floor(width * ss),
+    ssHeight: Math.floor(height * ss),
+    oldSize: gl.getSize(new THREE.Vector2()),
+    oldPR: gl.getPixelRatio(),
+    oldBg: scene.background,
+    oldClearColor: gl.getClearColor(new THREE.Color()),
+    oldClearAlpha: gl.getClearAlpha(),
     oldControlsEnabled: studioRefs.controls?.enabled,
-    tex: null, previewCanvas: null, artCanvas: null, hidden: [],
+    tex: null,
+    previewCanvas: null,
+    artCanvas: null,
+    hidden: [],
     ground: scene.getObjectByName("ground") as THREE.Mesh | null,
-    oldGroundMat: undefined, shadowMat: null,
-    usingTransparent: !!opts.transparent, usingWhite: !!opts.whiteBackground && !opts.transparent,
-    usingFx, mugOverride: opts.mugOverride ?? {}, lastRenderKey: "", companionTextures: [],
+    oldGroundMat: undefined,
+    shadowMat: null,
+    usingTransparent: !!opts.transparent,
+    usingWhite: !!opts.whiteBackground && !opts.transparent,
+    usingFx,
+    mugOverride: opts.mugOverride ?? {},
+    lastRenderKey: "",
+    companionTextures: [],
   };
   studioRefs.exporting = true;
   studioRefs.exportTransparent = session.usingTransparent;
@@ -178,53 +220,94 @@ export function beginFrames(
     const group = mugsGroup(scene);
     const body = group?.getObjectByName("mug-body") as THREE.Mesh | undefined;
     const material = body?.material as THREE.MeshPhysicalMaterial | undefined;
-    if (material?.map && (material.map as THREE.CanvasTexture).isCanvasTexture) {
+    if (
+      material?.map &&
+      (material.map as THREE.CanvasTexture).isCanvasTexture
+    ) {
       session.tex = material.map as THREE.CanvasTexture;
       session.previewCanvas = session.tex.image as HTMLCanvasElement;
       const canvas = document.createElement("canvas");
-      canvas.width = Math.min(gl.capabilities.maxTextureSize || 4096,
-        width * height > 1920 * 1080 && !mobile ? 8192 : CANVAS_W_EXPORT);
-      canvas.height = canvasHeightFor(canvas.width, resolvePrintArea(st.art), st.mug.model);
+      canvas.width = Math.min(
+        gl.capabilities.maxTextureSize || 4096,
+        width * height > 1920 * 1080 && !mobile ? 8192 : CANVAS_W_EXPORT,
+      );
+      canvas.height = canvasHeightFor(
+        canvas.width,
+        resolvePrintArea(st.art),
+        st.mug.model,
+      );
       renderWithOverride(canvas, session.mugOverride);
       session.artCanvas = canvas;
-      session.tex.image = canvas; session.tex.needsUpdate = true;
+      session.tex.image = canvas;
+      session.tex.needsUpdate = true;
     }
-    group?.traverse(o => {
+    group?.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (mesh.name !== "mug-body-comp") return;
       const mat = mesh.material as THREE.MeshPhysicalMaterial;
       const tex = mat.map as THREE.CanvasTexture;
       if (!tex?.isCanvasTexture) return;
-      const companion = st.companions.find(c => c.id === mesh.userData.objectId);
+      const companion = st.companions.find(
+        (c) => c.id === mesh.userData.objectId,
+      );
       if (!companion) return;
-      const art = companion.showArt ? (companion.art ?? st.art) :
-        { ...(companion.art ?? st.art), imageId: null, text: "" };
+      const art = companion.showArt
+        ? (companion.art ?? st.art)
+        : { ...(companion.art ?? st.art), imageId: null, text: "" };
       const mug = { ...st.mug, ...companion } as MugState;
       const canvas = document.createElement("canvas");
-      canvas.width = CANVAS_W_EXPORT; canvas.height = canvasHeightFor(canvas.width, undefined, mug.model);
+      canvas.width =
+        session.artCanvas?.width ??
+        Math.min(gl.capabilities.maxTextureSize || 4096, CANVAS_W_EXPORT);
+      canvas.height = canvasHeightFor(canvas.width, undefined, mug.model);
       renderArtCanvas(canvas, art, mug);
-      session.companionTextures.push({ tex, preview: tex.image as HTMLCanvasElement, canvas, art, mug });
-      tex.image = canvas; tex.needsUpdate = true;
+      session.companionTextures.push({
+        tex,
+        preview: tex.image as HTMLCanvasElement,
+        canvas,
+        art,
+        mug,
+      });
+      tex.image = canvas;
+      tex.needsUpdate = true;
     });
     const hide = (o: THREE.Object3D | undefined) => {
-      if (o?.visible) { o.visible = false; session.hidden.push(o); }
+      if (o?.visible) {
+        o.visible = false;
+        session.hidden.push(o);
+      }
     };
-    scene.traverse(o => {
-      if (["studio-gizmo", "selection-outline"].includes(o.name) || o.type === "TransformControlsRoot") hide(o);
+    scene.traverse((o) => {
+      if (
+        ["studio-gizmo", "selection-outline"].includes(o.name) ||
+        o.type === "TransformControlsRoot"
+      )
+        hide(o);
     });
     settleFloaters(scene);
     if (session.usingTransparent || session.usingWhite) {
       scene.background = session.usingWhite ? new THREE.Color("#ffffff") : null;
-      for (const name of ["backdrop", "glowboard", "bg-image"]) hide(scene.getObjectByName(name));
+      for (const name of ["backdrop", "glowboard", "bg-image"])
+        hide(scene.getObjectByName(name));
       if (session.usingTransparent) hide(scene.getObjectByName("pedestal"));
-      if (session.ground && !(session.ground.material instanceof THREE.ShadowMaterial)) {
+      if (
+        session.ground &&
+        !(session.ground.material instanceof THREE.ShadowMaterial)
+      ) {
         session.oldGroundMat = session.ground.material as THREE.Material;
-        session.shadowMat = new THREE.ShadowMaterial({ transparent: true, opacity: 0.09 });
+        session.shadowMat = new THREE.ShadowMaterial({
+          transparent: true,
+          opacity: 0.09,
+        });
         session.ground.material = session.shadowMat;
       }
     }
-    gl.setPixelRatio(1); gl.setSize(session.ssWidth, session.ssHeight, false);
-    gl.setClearColor(session.usingWhite ? 0xffffff : 0x000000, session.usingTransparent ? 0 : 1);
+    gl.setPixelRatio(1);
+    gl.setSize(session.ssWidth, session.ssHeight, false);
+    gl.setClearColor(
+      session.usingWhite ? 0xffffff : 0x000000,
+      session.usingTransparent ? 0 : 1,
+    );
     return session;
   } catch (e) {
     endFrames(session);
@@ -443,7 +526,8 @@ export function endFrames(session: FrameSession) {
     item.tex.image = item.preview;
     item.tex.needsUpdate = true;
   }
-  if (session.usingTransparent || session.usingWhite) scene.background = session.oldBg;
+  if (session.usingTransparent || session.usingWhite)
+    scene.background = session.oldBg;
   for (const o of session.hidden) o.visible = true;
   if (session.ground && session.oldGroundMat)
     session.ground.material = session.oldGroundMat;

@@ -2,7 +2,7 @@
    Configuração do site (SEO) — persistida em SiteConfig
    ============================================================ */
 
-import { db } from '@/lib/db';
+import { db } from "@/lib/db";
 
 export interface SeoConfig {
   siteName: string;
@@ -17,30 +17,30 @@ export interface SeoConfig {
 }
 
 export const DEFAULT_SEO: SeoConfig = {
-  siteName: 'Click & Gruda Tools',
-  defaultTitle: 'Click & Gruda Tools — Ferramentas Online Grátis',
-  titleTemplate: '%s | Click & Gruda Tools',
+  siteName: "Click Gruda Studio 3D",
+  defaultTitle: "Click Gruda — Studio Mockup 3D",
+  titleTemplate: "%s | Click & Gruda Tools",
   description:
-    'Suíte gratuita de ferramentas: Gerador de QR Code avançado, Links personalizados para WhatsApp, Orçamentos, Contratos, Editor de PDF, Conversor de Imagens e Mockup 3D de Canecas. Sem cadastro.',
+    "Studio premium de mockups 3D para personalizados. Incluso na Biblioteca Click Gruda ou R$ 34,90 por ano. QR Code, WhatsApp, orçamento, PDF e Excel como bônus gratuitos.",
   keywords: [
-    'ferramentas online grátis',
-    'gerador de QR Code',
-    'link personalizado WhatsApp',
-    'gerador de orçamento',
-    'gerador de contrato',
-    'editor de PDF',
-    'conversor de imagens',
-    'mockup 3D canecas',
-    'sublimação de canecas',
-    'Click e Gruda',
+    "ferramentas online grátis",
+    "gerador de QR Code",
+    "link personalizado WhatsApp",
+    "gerador de orçamento",
+    "gerador de contrato",
+    "editor de PDF",
+    "conversor de imagens",
+    "mockup 3D canecas",
+    "sublimação de canecas",
+    "Click e Gruda",
   ],
-  siteUrl: 'https://clickgruda.vercel.app',
-  ogImage: '/og/og-default.png',
-  twitterCreator: '',
-  gaId: '',
+  siteUrl: "https://clickgruda.vercel.app",
+  ogImage: "/og/og-default.png",
+  twitterCreator: "",
+  gaId: "",
 };
 
-const SEO_KEY = 'seo';
+const SEO_KEY = "seo";
 
 export async function getSeoConfig(): Promise<SeoConfig> {
   try {
@@ -55,12 +55,16 @@ export async function getSeoConfig(): Promise<SeoConfig> {
   return DEFAULT_SEO;
 }
 
-export async function saveSeoConfig(partial: Partial<SeoConfig>): Promise<SeoConfig> {
+export async function saveSeoConfig(
+  partial: Partial<SeoConfig>,
+): Promise<SeoConfig> {
   const current = await getSeoConfig();
   const next: SeoConfig = {
     ...current,
     ...partial,
-    keywords: Array.isArray(partial.keywords) ? partial.keywords : current.keywords,
+    keywords: Array.isArray(partial.keywords)
+      ? partial.keywords
+      : current.keywords,
   };
   await db.siteConfig.upsert({
     where: { key: SEO_KEY },
