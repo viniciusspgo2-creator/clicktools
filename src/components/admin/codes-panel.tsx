@@ -183,7 +183,11 @@ export function CodesPanel() {
               value={form.clientType}
               onChange={(e) => setForm({ ...form, clientType: e.target.value })}
             >
+<<<<<<< HEAD
               <option value="standalone">Avulso · R$ 12,90 / 24 horas</option>
+=======
+              <option value="standalone">Avulso · R$ 34,90 / ano</option>
+>>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
               <option value="library">Biblioteca Click Gruda · incluso</option>
             </select>
           </label>
@@ -199,7 +203,11 @@ export function CodesPanel() {
               {editing
                 ? "Mantenha a data ou escolha uma nova. Biblioteca pode ficar sem prazo."
                 : form.clientType === "standalone"
+<<<<<<< HEAD
                   ? "Em branco: 24 horas exatas a partir da liberação."
+=======
+                  ? "Em branco: 365 dias a partir da liberação."
+>>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
                   : "Em branco: sem prazo. Revogue se a assinatura for encerrada."}
             </span>
           </label>
@@ -319,7 +327,11 @@ export function CodesPanel() {
                     )}
                   </td>
                   <td className="p-4">
+<<<<<<< HEAD
                     {c.clientType === "library" ? "Biblioteca" : "Avulso 24h"}
+=======
+                    {c.clientType === "library" ? "Biblioteca" : "Avulso anual"}
+>>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
                   </td>
                   <td className="p-4">
                     <span

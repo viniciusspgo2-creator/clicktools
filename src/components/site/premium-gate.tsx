@@ -173,7 +173,11 @@ export function PremiumGate({ children }: { children: React.ReactNode }) {
             Biblioteca Click Gruda
           </a>
           . Para clientes avulsos,{" "}
+<<<<<<< HEAD
           <strong className="text-white">R$ 12,90 por 24 horas</strong>.
+=======
+          <strong className="text-white">R$ 34,90 por ano</strong>.
+>>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
         </p>
         <form onSubmit={submit} className="mt-7 space-y-3">
           <label htmlFor="premium-code" className="block text-sm">
@@ -219,10 +223,17 @@ export function PremiumGate({ children }: { children: React.ReactNode }) {
           href={SUPPORT_URL}
           target="_blank"
           rel="noopener noreferrer"
+<<<<<<< HEAD
           className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-orange-500/40 p-3 text-sm text-orange-300"
         >
           <MessageCircle className="h-4 w-4" />
           Solicitar acesso pelo WhatsApp
+=======
+          className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-green-500/40 p-3 text-sm text-green-300"
+        >
+          <MessageCircle className="h-4 w-4" />
+          Comprar, renovar ou liberar pelo WhatsApp
+>>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
         </a>
         <p className="mt-3 text-center text-xs text-neutral-500">
           Pagamento e liberação diretamente com o suporte.

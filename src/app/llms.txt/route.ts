@@ -4,13 +4,21 @@ import { BONUS_TOOLS, LIBRARY_URL, SUPPORT_URL } from "@/lib/studio-links";
 export const dynamic = "force-dynamic";
 export async function GET() {
   const seo = await getSeoConfig();
+<<<<<<< HEAD
   const base = (seo.siteUrl || "https://clicktools.vercel.app").replace(
+=======
+  const base = (seo.siteUrl || "https://clickgruda.vercel.app").replace(
+>>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
     /\/+$/,
     "",
   );
   const body = `# Click Gruda — Studio Mockup 3D
 
+<<<<<<< HEAD
 O produto principal é o Studio Mockup 3D para personalizados e sublimação. O acesso avulso custa R$ 12,90 por 24 horas, com criação de quantos mockups desejar durante esse período. A Biblioteca tem oferta vitalícia de R$ 47,90 e inclui o Studio. Assinantes da Biblioteca Click Gruda têm acesso gratuito mediante código. Pagamento, confirmação da assinatura e liberação são feitos pelo suporte no WhatsApp. O código é pessoal, vinculado a um navegador, com uma sessão ativa.
+=======
+O produto principal é o Studio Mockup 3D para personalizados e sublimação. O acesso avulso custa R$ 34,90 por ano. Assinantes da Biblioteca Click Gruda têm acesso gratuito mediante código. Pagamento, confirmação da assinatura e liberação são feitos pelo suporte no WhatsApp. O código é pessoal, vinculado a um navegador, com uma sessão ativa.
+>>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
 
 - Studio: ${base}/mockup-caneca-3d/studio
 - Guia: ${base}/mockup-caneca-3d
