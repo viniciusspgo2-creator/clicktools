@@ -89,9 +89,11 @@ export function StudioLights() {
   const matchAvg =
     bg.type === "image" && bg.matchLight ? getBackgroundAvg(bg.imageId) : null;
 
-  // Environment reconstruído apenas em mudanças discretas (preset/rotação grossa)
+  // The PMREM capture must follow every control that affects the softboxes.
   const hdr = getEnvironment(light.hdriId)?.texture;
-  const envKey = `${preset.id}-${Math.round(light.rotation / 6) * 6}-${Math.round(light.intensity * 10)}-${light.temperature}`;
+  const envKey = [preset.id, light.rotation, light.intensity, light.temperature,
+    light.keyStrength ?? 1, light.fillStrength ?? 1, light.rimStrength ?? 1,
+    light.softness].join(":");
 
   return (
     <>
@@ -138,7 +140,7 @@ export function StudioLights() {
       {/* softbox retangular real — reflexo de janela na porcelana */}
       <rectAreaLight
         position={[keyPos.x * 0.7, 8.5, keyPos.z * 0.9 + 2]}
-        width={7}
+        width={3 + light.softness * 5}
         height={10}
         intensity={
           preset.keyInt * light.intensity * 0.7 * (light.keyStrength ?? 1)
@@ -151,7 +153,8 @@ export function StudioLights() {
       {hdr ? (
         <Environment
           map={hdr}
-          environmentIntensity={light.envIntensity * 0.7}
+          environmentIntensity={light.envIntensity * light.intensity}
+          environmentRotation={[0, THREE.MathUtils.degToRad(light.rotation), 0]}
           background={false}
         />
       ) : (
@@ -160,66 +163,66 @@ export function StudioLights() {
           resolution={mobile ? 512 : 1024}
           frames={1}
           background={false}
-          environmentIntensity={light.envIntensity * 0.7}
+          environmentIntensity={light.envIntensity}
         >
           <group
             rotation={[
               0,
-              THREE.MathUtils.degToRad(Math.round(light.rotation / 6) * 6),
+              THREE.MathUtils.degToRad(light.rotation),
               0,
             ]}
           >
             {/* Faixa fotográfica vertical: torna o verniz legível sobre a arte. */}
             <Lightformer
               form="rect"
-              intensity={3.5 * preset.env * light.intensity}
+              intensity={5.5 * preset.env * light.intensity * (light.keyStrength ?? 1)}
               color="#ffffff"
-              position={[-6, 4, 5]}
-              scale={[1.1, 9, 1]}
-              target={[0, 4, 0]}
+              position={[-6, 0, 5]}
+              scale={[0.65 + light.softness * 0.6, 9, 1]}
+              target={[0, 0, 0]}
             />
             {/* softbox principal */}
             <Lightformer
               form="rect"
-              intensity={2.6 * preset.env * light.intensity}
+              intensity={2.6 * preset.env * light.intensity * (light.keyStrength ?? 1)}
               color={keyColor}
-              position={[-4, 6, 7]}
-              scale={[9, 6, 1]}
-              target={[0, 3.5, 0]}
+              position={[-4, 3, 7]}
+              scale={[3.5 + light.softness * 3, 7, 1]}
+              target={[0, 0, 0]}
             />
             {/* preenchedor vertical */}
             <Lightformer
               form="rect"
-              intensity={1.1 * preset.env * light.intensity}
+              intensity={1.1 * preset.env * light.intensity * (light.fillStrength ?? 1)}
               color={fillColor}
-              position={[7, 4, 2]}
+              position={[7, 0, 2]}
               scale={[4, 9, 1]}
-              target={[0, 3.5, 0]}
+              target={[0, 0, 0]}
             />
             {/* recorte traseiro */}
             <Lightformer
               form="rect"
-              intensity={1.8 * preset.env * light.intensity}
+              intensity={1.8 * preset.env * light.intensity * (light.rimStrength ?? 1)}
               color={rimColor}
-              position={[-2, 7, -8]}
+              position={[-2, 3, -8]}
               scale={[10, 3, 1]}
-              target={[0, 4, 0]}
+              target={[0, 0, 0]}
             />
             {/* teto suave */}
             <Lightformer
               form="rect"
-              intensity={1.5 * preset.env * light.intensity}
+              intensity={1.1 * preset.env * light.intensity * (light.fillStrength ?? 1)}
               color="#ffffff"
-              position={[0, 11, 0]}
+              position={[0, 8, 0]}
               rotation={[Math.PI / 2, 0, 0]}
               scale={[12, 12, 1]}
             />
             {/* faixa de chão clara (luz refletida) */}
             <Lightformer
               form="rect"
-              intensity={0.7 * preset.env * light.intensity}
+              intensity={0.45 * preset.env * light.intensity * (light.fillStrength ?? 1)}
               color="#ffffff"
-              position={[0, -0.5, 4]}
+              position={[0, -5, 4]}
               rotation={[-Math.PI / 2, 0, 0]}
               scale={[10, 8, 1]}
             />

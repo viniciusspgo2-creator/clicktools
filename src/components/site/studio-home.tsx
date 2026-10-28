@@ -1,119 +1,138 @@
 "use client";
 
+import { useState, type CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowRight, ArrowUpRight, BadgeCheck, BookOpen, Check,
-  ChevronDown, CircleHelp, Clock3, Coffee, Download, FileSpreadsheet,
-  FileText, Gift, HeartHandshake, Infinity as InfinityIcon, Instagram,
-  Layers3, MessageCircle, QrCode, ShieldCheck,
+  ArrowRight, ArrowUpRight, BadgeCheck, BookOpen, Check, ChevronDown,
+  CircleHelp, Coffee, Download, Gift, Infinity as InfinityIcon, Layers3,
+  Lightbulb, LockKeyhole, MessageCircle, Move, Palette, ShieldCheck,
   Sparkles, Star, WandSparkles,
 } from "lucide-react";
 import { Header } from "./header";
 import { Footer } from "./footer";
-import { LIBRARY_URL, SUPPORT_URL, DAILY_SUPPORT_URL, BONUS_TOOLS, INSTAGRAM_URL, FACEBOOK_URL } from "@/lib/studio-links";
+import {
+  LIBRARY_URL, SUPPORT_URL, DISCOVERY_SUPPORT_URL, BONUS_TOOLS,
+} from "@/lib/studio-links";
 
-const gallery = [
-  { image: "cafe", name: "Café & humor", type: "Criatividade em cada detalhe" },
-  { image: "flork", name: "Flork", type: "Arte com personalidade" },
-  { image: "gratidao", name: "Frases & flores", type: "Presentes especiais" },
-  { image: "rock", name: "Música", type: "Estilos variados" },
-  { image: "calma", name: "Leveza", type: "Ilustrações delicadas" },
-  { image: "corrida", name: "Esportes", type: "Temas para fãs" },
-  { image: "fe", name: "Fé & espiritualidade", type: "Mensagens inspiradoras" },
-  { image: "calendario", name: "Datas especiais", type: "Sazonais e ocasiões" },
-  { image: "anime", name: "Geek & diversão", type: "Arte vibrante" },
-  { image: "snoopy", name: "Ilustrações", type: "Composições únicas" },
-  { image: "jesus", name: "Mensagens de fé", type: "Presentes com significado" },
-  { image: "toy", name: "Infantil", type: "Personagens e diversão" },
-  { image: "spongebob", name: "Cultura pop", type: "Criatividade para todos os gostos" },
+const studioHref = "/mockup-caneca-3d/studio";
+const experiences = [
+  { id: "arte", icon: Palette, label: "Sua arte, em 3D", kicker: "DA IDEIA AO PRODUTO", title: "Sua criação. Outro ponto de vista.", description: "Aplique sua estampa na caneca, ajuste a posição e veja a composição ganhar volume. Experimente, gire e encontre o seu melhor ângulo.", art: "cafe", scene: "16-studio-creme", color: "#d79e55", tag: "Estampa + volume" },
+  { id: "acabamento", icon: Sparkles, label: "Acabamento", kicker: "OS DETALHES FAZEM A DIFERENÇA", title: "O brilho que valoriza cada detalhe.", description: "Explore o acabamento da cerâmica, o verniz e os reflexos. Uma apresentação com profundidade, sem deixar sua arte em segundo plano.", art: "calma", scene: "18-studio-grafite", color: "#8f92ba", tag: "Cerâmica + reflexos" },
+  { id: "luz", icon: Lightbulb, label: "Luz & cenário", kicker: "VOCÊ ASSINA A DIREÇÃO DE ARTE", title: "A atmosfera certa para a sua ideia.", description: "Combine cenários, fundos e iluminação. Do estúdio minimalista a uma cena acolhedora, dê contexto à sua criação.", art: "gratidao", scene: "15-varanda", color: "#74866a", tag: "Luz + atmosfera" },
+  { id: "composicao", icon: Move, label: "Composição", kicker: "CADA CANECA NO SEU LUGAR", title: "Uma composição com a sua assinatura.", description: "Adicione outras canecas, ajuste posições e explore enquadramentos. Crie uma apresentação que conte a história da sua coleção.", art: "flork", scene: "01-madeira-nogueira", color: "#b38557", tag: "Posição + enquadramento" },
+  { id: "exportacao", icon: Download, label: "Sua apresentação", kicker: "DA TELA PARA OS SEUS CLIENTES", title: "Pronto para fazer sua arte aparecer.", description: "Exporte imagens em alta resolução e vídeos nos formatos disponíveis. Apresente seu trabalho nas redes sociais e no WhatsApp.", art: "fe", scene: "04-marmore-branco", color: "#bfa26b", tag: "Imagem + vídeo" },
 ];
-
-const features = [
-  { icon: Layers3, title: "Mockups que valorizam", desc: "Apresente estampas em canecas 3D com cenários, enquadramentos e acabamentos ajustáveis." },
-  { icon: WandSparkles, title: "Menos tempo, mais criação", desc: "Prepare imagens de apresentação sem montar cenários físicos a cada nova arte." },
-  { icon: Download, title: "Pronto para mostrar", desc: "Exporte seus mockups para divulgar no catálogo, nas redes sociais e no WhatsApp." },
+const libraryArt = [
+  { image: "cafe", name: "Café & humor" }, { image: "flork", name: "Frases & personalidade" },
+  { image: "gratidao", name: "Flores & afeto" }, { image: "fe", name: "Fé & inspiração" },
+  { image: "corrida", name: "Esportes & paixões" }, { image: "calendario", name: "Datas especiais" },
 ];
-const bonusIcons = [QrCode, MessageCircle, FileSpreadsheet, FileText, BookOpen];
 const faqs = [
-  { q: "Quem compra a Biblioteca paga pelo Studio Mockup 3D?", a: "Não. O Studio Mockup 3D está incluso gratuitamente para assinantes da Biblioteca de Artes Click & Gruda. Solicite seu código de acesso ao suporte após a confirmação da compra." },
-  { q: "Posso usar apenas o Studio sem adquirir a Biblioteca?", a: "Sim. O acesso avulso custa R$ 12,90 por 24 horas. Durante esse período, você pode gerar quantos mockups desejar, respeitando as capacidades do navegador e dos formatos disponíveis." },
-  { q: "O acesso à Biblioteca é realmente vitalício?", a: "A oferta apresentada é de pagamento único de R$ 47,90 para acesso vitalício à Biblioteca, com o Studio 3D incluso para assinantes. Confira na página oficial as condições de compra e de utilização." },
-  { q: "Preciso instalar algum aplicativo?", a: "Não. O Studio e as ferramentas bônus funcionam no navegador. Para o Studio 3D, use um navegador atualizado e um dispositivo compatível com gráficos 3D." },
-  { q: "Como recebo meu acesso ao Studio?", a: "A liberação é realizada pelo suporte mediante código pessoal. Quem já é assinante pode solicitar o código diretamente pelo WhatsApp." },
-  { q: "As ferramentas bônus também são pagas?", a: "Não. Gerador de QR Code, links para WhatsApp, orçamentos, leitor/editor de PDF e leitor de planilhas Excel são ferramentas bônus gratuitas, sem necessidade de código." },
+  { q: "Quem pode acessar o Studio Mockup 3D?", a: "O Studio é exclusivo para assinantes da Biblioteca de Artes Click & Gruda. Se você já tem a Biblioteca, solicite seu código pessoal ao suporte e entre no Studio sem uma cobrança adicional." },
+  { q: "O que está incluso nos R$ 47,90?", a: "O valor é da Biblioteca de Artes: pagamento único e acesso vitalício a milhares de artes para canecas, organizadas por categorias, temas e datas sazonais, com atualizações. O Studio Mockup 3D está incluso para assinantes." },
+  { q: "Posso conhecer a plataforma antes?", a: "Pode, sim. Chame nosso suporte pelo WhatsApp para conhecer a Biblioteca, entender os recursos do Studio e esclarecer suas dúvidas antes de adquirir o acesso." },
+  { q: "Preciso instalar algum programa?", a: "Não. O Studio funciona direto no navegador. Para trabalhar com gráficos 3D, use um navegador atualizado e um dispositivo compatível com WebGL." },
+  { q: "Posso usar minhas próprias artes?", a: "Sim. Você pode enviar suas imagens e ajustar a aplicação na caneca. Para o melhor resultado, use arquivos de boa resolução e confira o enquadramento antes de exportar." },
+  { q: "Como recebo meu código de acesso?", a: "Após a confirmação da compra da Biblioteca, solicite seu código pessoal ao suporte. Se você já é assinante, fale com a equipe pelo WhatsApp para receber orientação de acesso." },
 ];
-
-function Reveal({ children, className = "", delay = 0, id }: { children: React.ReactNode; className?: string; delay?: number; id?: string }) {
+function Reveal({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   const reduced = useReducedMotion();
-  return <motion.div id={id} className={className} initial={reduced ? false : { opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: .12 }} transition={{ duration: .65, delay, ease: [.2,.8,.2,1] }}>{children}</motion.div>;
+  return <motion.div className={className} initial={reduced ? false : { opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: .08 }} transition={{ duration: .55, delay, ease: [.2, .8, .2, 1] }}>{children}</motion.div>;
 }
 
+/** An editorial illustration, explicitly labelled; the interactive renderer lives in the Studio. */
+function MugPreview({ art = "cafe", className = "" }: { art?: string; className?: string }) {
+  return <div className={`cg-product-mug ${className}`} aria-hidden="true" style={{ "--mug-art": `url('/cg-home/${art}.webp')` } as CSSProperties}>
+    <div className="cg-product-handle" />
+    <div className="cg-product-body"><div className="cg-product-print" /><div className="cg-product-glaze" /><div className="cg-product-rim" /></div>
+    <div className="cg-product-shadow" />
+  </div>;
+}
+function ExperiencePanels() {
+  const [active, setActive] = useState("arte");
+  return <div className="cg-experience-panels">
+    {experiences.map((item, i) => {
+      const open = active === item.id;
+      return <article className={`cg-experience-panel ${open ? "is-expanded" : ""}`} key={item.id}
+        style={{ "--panel-color": item.color } as CSSProperties} onMouseEnter={() => setActive(item.id)}>
+        <Image src={`/mockup/backgrounds/${item.scene}.jpg`} alt="" fill sizes="(max-width: 700px) 100vw, 700px" className="cg-experience-background" />
+        <div className="cg-experience-shade" />
+        <div className="cg-experience-mug"><MugPreview art={item.art} />{item.id === "composicao" && <MugPreview art="cafe" className="cg-product-secondary" />}</div>
+        <button type="button" className="cg-experience-trigger" aria-expanded={open} aria-controls={`experience-${item.id}`}
+          onFocus={() => setActive(item.id)} onClick={() => setActive(item.id)}>
+          <span className="cg-experience-index">0{i + 1}</span>
+          <span className="cg-experience-label"><item.icon size={19} />{item.label}</span>
+          <span className="cg-experience-toggle"><ArrowUpRight size={18} /></span>
+        </button>
+        <div id={`experience-${item.id}`} className="cg-experience-content" hidden={!open}>
+          <span className="cg-experience-tag">{item.tag}</span>
+          <span className="cg-eyebrow">{item.kicker}</span><h3>{item.title}</h3><p>{item.description}</p>
+          <Link href={studioHref} className="cg-experience-link">Explorar no Studio <ArrowRight size={16} /></Link>
+        </div>
+      </article>;
+    })}
+  </div>;
+}
 export function StudioHome() {
-  return (
-    <div className="cg-landing min-h-screen text-white">
-      <Header />
-      <main>
-        <section id="inicio" className="cg-hero relative isolate overflow-hidden">
-          <div className="cg-hero-grid" aria-hidden="true" />
-          <div className="cg-hero-glow cg-hero-glow-a" aria-hidden="true" />
-          <div className="cg-hero-glow cg-hero-glow-b" aria-hidden="true" />
-          <div className="cg-container cg-hero-inner">
-            <div className="cg-hero-content">
-              <Reveal>
-                <span className="cg-kicker"><span className="cg-kicker-dot" /> O ESTÚDIO DA SUA PRÓXIMA GRANDE IDEIA</span>
-                <h1 className="cg-display cg-hero-title">Sua arte merece <em>aparecer.</em><br/><span>Seu negócio merece</span> <em>crescer.</em></h1>
-                <p className="cg-hero-description">Crie apresentações de canecas que impressionam com o <strong>Studio Mockup 3D</strong>. E descubra a Biblioteca Click & Gruda: milhares de artes organizadas e o Studio incluso para assinantes.</p>
-                <div className="cg-hero-actions">
-                  <Link href="/mockup-caneca-3d/studio" className="cg-button cg-button-primary"><WandSparkles size={18} /> Abrir o Studio <ArrowRight size={18}/></Link>
-                  <a href={LIBRARY_URL} target="_blank" rel="noopener noreferrer" className="cg-button cg-button-outline">Conhecer a Biblioteca <ArrowUpRight size={17}/></a>
-                </div>
-                <div className="cg-hero-proof"><span><ShieldCheck size={16}/> Acesso com código pessoal</span><span><InfinityIcon size={16}/> Biblioteca vitalícia</span><span><Gift size={16}/> 5 bônus grátis</span></div>
-              </Reveal>
-            </div>
-            <div className="cg-hero-visual" aria-label="Mascote oficial Click & Gruda em uma composição visual laranja">
-              <div className="cg-orbit" aria-hidden="true" />
-              <div className="cg-hero-mascot"><Image src="/cg-home/mascote.webp" alt="Mascote oficial da Click & Gruda, uma caneca simpática com detalhes laranja" fill priority sizes="(max-width: 780px) 85vw, 600px" className="object-contain" /></div>
-              <div className="cg-floating cg-floating-one"><Sparkles size={18}/><span>Crie. Apresente.<strong>Impressione.</strong></span></div>
-              <div className="cg-floating cg-floating-two"><span className="cg-float-icon"><Check size={20}/></span><span><strong>Studio 3D incluso</strong><small>para assinantes da Biblioteca</small></span></div>
-              <div className="cg-hero-visual-caption">CLICK & GRUDA <span>•</span> CRIATIVIDADE SEM LIMITES</div>
-            </div>
-          </div>
-          <div className="cg-hero-bottom" aria-hidden="true"><span>SEU PRÓXIMO PROJETO COMEÇA AQUI</span><span className="cg-scroll-line"/></div>
-        </section>
+  return <div className="cg-landing min-h-screen text-white">
+    <Header />
+    <main>
+      <section id="inicio" className="cg-hero cg-hero-product relative isolate overflow-hidden">
+        <div className="cg-hero-grid" aria-hidden="true" /><div className="cg-hero-glow cg-hero-glow-a" aria-hidden="true" />
+        <div className="cg-container cg-hero-inner">
+          <div className="cg-hero-content"><Reveal>
+            <span className="cg-kicker"><span className="cg-kicker-dot" /> EXCLUSIVO PARA ASSINANTES DA BIBLIOTECA</span>
+            <h1 className="cg-display cg-hero-title">Sua arte.<br />Uma caneca.<br /><em>Outra dimensão.</em></h1>
+            <p className="cg-hero-description">Transforme suas estampas em apresentações que dão vontade de ter. Seu <strong>Studio Mockup 3D</strong>, com luz, acabamento e composição nas suas mãos.</p>
+            <div className="cg-hero-actions"><Link href={studioHref} className="cg-button cg-button-primary"><WandSparkles size={18} /> Já sou assinante <ArrowRight size={18} /></Link><a href="#studio" className="cg-button cg-button-outline">Conhecer os recursos <ArrowRight size={17} /></a></div>
+            <a href={DISCOVERY_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="cg-hero-discovery"><MessageCircle size={15} /> Quer conhecer antes? Chame o suporte <ArrowUpRight size={14} /></a>
+            <div className="cg-hero-proof"><span><ShieldCheck size={15} /> Código pessoal</span><span><InfinityIcon size={15} /> Biblioteca vitalícia</span><span><Coffee size={15} /> Studio incluso</span></div>
+          </Reveal></div>
+          <Reveal className="cg-product-stage">
+            <div className="cg-stage-top"><span><span className="cg-live-dot" /> CLICK & GRUDA STUDIO</span><span>03 / CRIAR SEM LIMITES</span></div>
+            <div className="cg-stage-orbit" aria-hidden="true" /><div className="cg-stage-ring" aria-hidden="true" />
+            <div className="cg-stage-product"><MugPreview art="cafe" /><MugPreview art="gratidao" className="cg-product-companion" /></div>
+            <div className="cg-stage-pills" aria-hidden="true"><span><Sparkles size={13} /> Esmalte polido</span><span><Lightbulb size={13} /> Luz de estúdio</span></div>
+            <div className="cg-stage-caption"><div><span>SUA ARTE É A PROTAGONISTA</span><strong>O próximo detalhe faz a diferença.</strong></div><span className="cg-stage-mark">3D</span></div>
+            <p className="cg-stage-disclaimer">Composição ilustrativa · crie sua versão no Studio</p>
+          </Reveal>
+        </div>
+        <div className="cg-container cg-hero-footnote"><span>FEITO PARA QUEM VIVE DE PERSONALIZAR.</span><a href="#studio">Explore as possibilidades <ChevronDown size={14} /></a></div>
+      </section>
 
-        <div className="cg-marquee" aria-label="Recursos da Click & Gruda"><div className="cg-marquee-track">{[0,1].map((i) => <div key={i} className="cg-marquee-items" aria-hidden={i===1}>{["STUDIO MOCKUP 3D", "BIBLIOTECA DE ARTES", "ACESSO VITALÍCIO", "ARTES ORGANIZADAS", "CRIAÇÃO SEM COMPLICAÇÃO", "BÔNUS GRATUITOS"].map((item) => <span key={item}><Star size={13} fill="currentColor"/>{item}</span>)}</div>)}</div></div>
+      <div className="cg-marquee" aria-label="Recursos do Studio"><div className="cg-marquee-track">{[0, 1].map(i => <div key={i} className="cg-marquee-items" aria-hidden={i === 1}>{["STUDIO MOCKUP 3D", "CERÂMICA & REFLEXOS", "LUZ DE ESTÚDIO", "SUA ARTE EM DESTAQUE", "COMPOSIÇÃO CRIATIVA", "BIBLIOTECA VITALÍCIA"].map(item => <span key={item}><Star size={12} fill="currentColor" />{item}</span>)}</div>)}</div></div>
 
-        <section className="cg-section cg-studio-section" id="studio">
-          <div className="cg-container">
-            <Reveal className="cg-section-heading cg-heading-center"><span className="cg-eyebrow"><Coffee size={16}/> STUDIO MOCKUP 3D</span><h2 className="cg-display">Uma arte bonita merece uma <em>apresentação à altura.</em></h2><p>Da estampa ao produto: monte a sua cena, ajuste os detalhes e apresente suas ideias de forma profissional.</p></Reveal>
-            <div className="cg-feature-grid">{features.map((f,i) => <Reveal key={f.title} delay={i*.08} className="cg-feature-card"><span className="cg-feature-num">0{i+1} / 03</span><div className="cg-feature-icon"><f.icon size={27} strokeWidth={1.7}/></div><h3>{f.title}</h3><p>{f.desc}</p><span className="cg-feature-corner"><ArrowUpRight size={17}/></span></Reveal>)}</div>
-            <Reveal className="cg-studio-showcase"><div className="cg-showcase-art"><div className="cg-showcase-lines" aria-hidden="true"/><Image src="/cg-home/mascote.webp" alt="Mascote Click & Gruda" width={380} height={500} className="cg-showcase-mascot" /></div><div className="cg-showcase-copy"><span className="cg-eyebrow">SEM ESTÚDIO FÍSICO. SEM COMPLICAÇÃO.</span><h3 className="cg-display">Seu trabalho ganha <em>outra dimensão.</em></h3><p>Escolha a arte, personalize a caneca virtual, experimente os cenários e leve a apresentação para onde seus clientes estão.</p><Link href="/mockup-caneca-3d/studio" className="cg-button cg-button-primary">Experimentar o Studio <ArrowRight size={17}/></Link></div></Reveal>
-          </div>
-        </section>
+      <section id="studio" className="cg-section cg-experience-section"><div className="cg-container">
+        <Reveal className="cg-experience-heading"><div><span className="cg-eyebrow"><Coffee size={16} /> SEU ESTÚDIO, SUAS POSSIBILIDADES</span><h2 className="cg-display">Mais do que mostrar.<br /><em>Faça sentir.</em></h2></div><p>Uma boa apresentação começa nos detalhes. Explore cada etapa e descubra o que você pode criar.<span>Passe o mouse, toque ou navegue com Tab.</span></p></Reveal>
+        <ExperiencePanels />
+        <p className="cg-experience-note">Imagens ilustrativas com artes da Biblioteca. A aparência no Studio depende da sua arte, da cena e dos ajustes escolhidos.</p>
+      </div></section>
 
-        <section className="cg-section cg-library-section" id="biblioteca">
-          <div className="cg-container">
-            <Reveal className="cg-library-intro"><div><span className="cg-eyebrow"><BookOpen size={16}/> A BIBLIOTECA DA CLICK & GRUDA</span><h2 className="cg-display">Chega de procurar.<br/><em>Comece a criar.</em></h2><p>Quem trabalha com sublimação sabe: não adianta ter milhares de arquivos perdidos em pastas. O que faz diferença é encontrar uma arte que você realmente queira usar — sem perder tempo.</p><p>Na <strong>Biblioteca de Artes Click & Gruda</strong>, você encontra um acervo selecionado, organizado por temas, categorias e datas especiais, com novas artes adicionadas regularmente.</p><div className="cg-library-tags"><span>Artes para canecas</span><span>Datas comemorativas</span><span>Flork</span><span>Frases</span><span>Geek</span><span>Fé</span><span>Esportes</span><span>e muito mais</span></div><a href={LIBRARY_URL} target="_blank" rel="noopener noreferrer" className="cg-button cg-button-primary">Explorar a Biblioteca <ArrowUpRight size={18}/></a></div><div className="cg-library-poster"><div className="cg-library-poster-light"/><Image src="/cg-home/mascote.webp" alt="Mascote da Biblioteca Click & Gruda" fill sizes="(max-width: 900px) 80vw, 450px" className="object-contain"/><span className="cg-library-stamp">ACESSO<br/><strong>VITALÍCIO</strong></span></div></Reveal>
-          </div>
-          <div className="cg-gallery-strip"><div className="cg-container cg-gallery-top"><div><span className="cg-eyebrow">UMA PEQUENA AMOSTRA DO ACERVO</span><h3>Ideias para todos os estilos.</h3></div><span>Artes enviadas pela Click & Gruda</span></div><div className="cg-art-marquee"><div className="cg-art-track">{[0,1].map((repeat)=><div className="cg-art-series" key={repeat} aria-hidden={repeat===1}>{gallery.map((item)=><div className="cg-art-card" key={item.image}><div className="cg-art-image"><Image src={`/cg-home/${item.image}.webp`} alt={repeat===0 ? `Arte de caneca: ${item.name}` : ""} fill sizes="300px" className="object-contain"/></div><div className="cg-art-caption"><strong>{item.name}</strong><span>{item.type}</span></div></div>)}</div>)}</div></div></div>
-          <div className="cg-container"><Reveal className="cg-library-benefits">{[{icon:BadgeCheck,title:"Seleção cuidadosa",desc:"Mais qualidade, menos arquivos sem utilidade"},{icon:BookOpen,title:"Tudo organizado",desc:"Encontre por tema, categoria ou ocasião"},{icon:Sparkles,title:"Novidades constantes",desc:"Acervo atualizado regularmente"},{icon:Coffee,title:"Studio incluso",desc:"Mockup 3D gratuito para assinantes"}].map((f)=><div key={f.title}><f.icon size={23}/><strong>{f.title}</strong><p>{f.desc}</p></div>)}</Reveal><Reveal className="cg-community-bar"><div><span className="cg-eyebrow">FAÇA PARTE DA NOSSA COMUNIDADE</span><h3>Acompanhe ideias, lançamentos e novidades.</h3></div><div className="cg-community-social"><a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer"><Instagram size={21}/> Acompanhar no Instagram <ArrowUpRight size={17}/></a><a href={FACEBOOK_URL} target="_blank" rel="noopener noreferrer"><span className="cg-facebook-mark">f</span> Seguir no Facebook <ArrowUpRight size={17}/></a></div></Reveal></div>
-        </section>
+      <section className="cg-process-section"><div className="cg-container cg-process-layout"><Reveal><span className="cg-eyebrow"><WandSparkles size={16} /> MENOS ETAPAS. MAIS CRIATIVIDADE.</span><h2 className="cg-display">Sua ideia pronta<br />para <em>ser vista.</em></h2><p>Sem fotografar uma caneca a cada nova estampa. Teste combinações no navegador e encontre uma apresentação com a sua identidade.</p><Link href={studioHref} className="cg-text-link">Entrar com meu código <ArrowRight size={17} /></Link></Reveal><div className="cg-process-steps">{[
+        { n: "01", title: "Traga sua arte", desc: "Envie uma imagem sua ou escolha uma arte da Biblioteca para começar." },
+        { n: "02", title: "Encontre seu estilo", desc: "Ajuste a aplicação, experimente o acabamento e componha a luz da cena." },
+        { n: "03", title: "Apresente com confiança", desc: "Confira os detalhes e exporte o resultado para mostrar aos seus clientes." },
+      ].map(step => <Reveal key={step.n} className="cg-process-step"><span>{step.n}</span><div><h3>{step.title}</h3><p>{step.desc}</p></div><ArrowUpRight size={20} /></Reveal>)}</div></div></section>
 
-        <section className="cg-section cg-pricing-section" id="acessos"><div className="cg-container"><Reveal className="cg-section-heading cg-heading-center"><span className="cg-eyebrow"><InfinityIcon size={16}/> ESCOLHA COMO COMEÇAR</span><h2 className="cg-display">Um dia para testar. <em>Uma vida para aproveitar.</em></h2><p>O Studio Mockup 3D é gratuito para assinantes da Biblioteca de Artes. Se você quer apenas usar o Studio por um dia, também tem essa opção.</p></Reveal>
-          <div className="cg-pricing-grid"><Reveal className="cg-price-card cg-price-featured"><div className="cg-price-glow" aria-hidden="true"/><div className="cg-price-top"><span className="cg-price-tag"><Star size={14} fill="currentColor"/> MELHOR CUSTO-BENEFÍCIO</span><BookOpen size={29}/></div><h3>Biblioteca Click & Gruda</h3><p className="cg-price-sub">A melhor escolha para quem trabalha com personalização.</p><div className="cg-price"><span>R$</span>47<sup>,90</sup></div><p className="cg-price-cadence">Pagamento único · ACESSO VITALÍCIO</p><div className="cg-price-rule"/><ul><li><Check/> Biblioteca com milhares de artes</li><li><Check/> Studio Mockup 3D incluso gratuitamente</li><li><Check/> Novas artes e temas especiais</li><li><Check/> Acervo organizado para encontrar rápido</li><li><Check/> Acesso vitalício à Biblioteca</li></ul><a href={LIBRARY_URL} target="_blank" rel="noopener noreferrer" className="cg-button cg-button-primary cg-price-button">Quero acesso vitalício <ArrowUpRight size={18}/></a><small>Conheça todos os detalhes da oferta no site oficial.</small></Reveal>
-          <Reveal className="cg-price-card cg-price-daily" delay={.12}><div className="cg-price-top"><span className="cg-price-tag cg-tag-neutral"><Clock3 size={14}/> PARA USO PONTUAL</span><Clock3 size={28}/></div><h3>Studio por 24 horas</h3><p className="cg-price-sub">Precisa criar seus mockups apenas hoje? Entre e produza.</p><div className="cg-price"><span>R$</span>12<sup>,90</sup></div><p className="cg-price-cadence">Acesso avulso · válido por 24 horas</p><div className="cg-price-rule"/><ul><li><Check/> Acesso ao Studio Mockup 3D</li><li><Check/> Gere quantos mockups quiser em 24h</li><li><Check/> Ferramentas de edição e exportação do Studio</li><li><Check/> Liberação por código via suporte</li></ul><a href={DAILY_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="cg-button cg-button-secondary cg-price-button">Liberar 24h pelo WhatsApp <ArrowUpRight size={18}/></a><div className="cg-upgrade-note"><Sparkles size={17}/><span>Vai usar de novo? Por apenas <strong>R$ 47,90</strong> você leva a Biblioteca inteira, com acesso vitalício e Studio incluso.</span></div></Reveal></div>
-          <Reveal className="cg-subscriber-note"><BadgeCheck size={21}/><div><strong>Já é assinante da Biblioteca?</strong><span>Você já tem direito ao Studio sem pagar nada a mais. Solicite seu código ao suporte.</span></div><a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">Pedir meu código <ArrowUpRight size={16}/></a></Reveal>
-          </div></section>
+      <section className="cg-section cg-library-section" id="biblioteca"><div className="cg-container">
+        <Reveal className="cg-library-heading"><div><span className="cg-eyebrow"><BookOpen size={16} /> BIBLIOTECA DE ARTES CLICK & GRUDA</span><h2 className="cg-display">Milhares de ideias.<br /><em>Todas no seu lugar.</em></h2></div><div><p>Artes para canecas organizadas por categorias, temas e datas sazonais. Encontre aquela ideia para o Dia das Mães, uma frase para presentear ou o tema que o seu cliente pediu.</p><p><strong>Com atualizações e acesso vitalício.</strong> Mais tempo criando, menos tempo procurando arquivos.</p></div></Reveal>
+        <div className="cg-library-preview-grid">{libraryArt.map((item, i) => <Reveal key={item.image} delay={i % 3 * .04} className="cg-library-preview"><div className="cg-library-preview-image"><Image src={`/cg-home/${item.image}.webp`} alt={`Exemplo de arte para canecas: ${item.name}`} fill sizes="(max-width: 600px) 90vw, (max-width: 900px) 45vw, 380px" className="object-cover" /></div><div><strong>{item.name}</strong><span>EXEMPLO DO ACERVO <ArrowUpRight size={13} /></span></div></Reveal>)}</div>
+        <div className="cg-library-preview-foot"><span>Uma pequena amostra. Muitas outras possibilidades na Biblioteca.</span><a href={LIBRARY_URL} target="_blank" rel="noopener noreferrer" className="cg-text-link">Conhecer o acervo <ArrowUpRight size={16} /></a></div>
+        <Reveal className="cg-library-benefits">{[{ icon: Layers3, title: "Milhares de artes", desc: "Um acervo para explorar e criar" }, { icon: BookOpen, title: "Tudo organizado", desc: "Categorias, temas e datas sazonais" }, { icon: Sparkles, title: "Com atualizações", desc: "Novas ideias para o seu trabalho" }, { icon: Coffee, title: "Studio incluso", desc: "Exclusivo para assinantes" }].map(f => <div key={f.title}><f.icon size={23} /><strong>{f.title}</strong><p>{f.desc}</p></div>)}</Reveal>
+      </div></section>
 
-        <section className="cg-section cg-bonus-section" id="bonus"><div className="cg-container"><Reveal className="cg-bonus-heading"><div><span className="cg-eyebrow"><Gift size={16}/> NOSSO PRESENTE PARA VOCÊ</span><h2 className="cg-display">5 ferramentas bônus. <em>Grátis de verdade.</em></h2><p>Recursos úteis para quem cria, atende e vende. Sem assinatura, sem código e sem complicação.</p></div><Link href="/bonus" className="cg-button cg-button-outline">Ver todos os bônus <ArrowRight size={17}/></Link></Reveal><div className="cg-bonus-grid">{BONUS_TOOLS.map((t,i)=>{const Icon=bonusIcons[i];return <Reveal key={t.id} delay={i*.05} className="cg-bonus-card"><Link href={`/bonus/${t.id}`} aria-label={`Abrir ${t.title}`} className="cg-bonus-card-link"><span className="cg-bonus-numeral">0{i+1}</span><span className="cg-bonus-icon"><Icon size={30} strokeWidth={1.6}/></span><strong>{t.title}</strong><p>{t.description}</p><span className="cg-bonus-bottom"><span>ACESSAR GRÁTIS</span><ArrowUpRight size={20}/></span></Link></Reveal>})}</div></div></section>
+      <section className="cg-section cg-access-section" id="acessos"><div className="cg-container cg-access-layout">
+        <Reveal className="cg-access-copy"><span className="cg-eyebrow"><LockKeyhole size={16} /> UM ACESSO. MUITAS POSSIBILIDADES.</span><h2 className="cg-display">A Biblioteca é sua.<br />O Studio <em>vem junto.</em></h2><p>O Studio Mockup 3D é um benefício exclusivo para assinantes da Biblioteca de Artes. Um lugar para encontrar suas próximas estampas e uma ferramenta para apresentá-las.</p><ul>{["Milhares de artes para canecas", "Categorias, temas e datas sazonais", "Atualizações do acervo", "Studio Mockup 3D incluso para assinantes"].map(item => <li key={item}><Check size={17} />{item}</li>)}</ul><div className="cg-access-existing"><BadgeCheck size={23} /><div><strong>Já faz parte da Biblioteca?</strong><span>Solicite seu código pessoal e entre no Studio.</span><a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">Pedir meu código <ArrowUpRight size={14} /></a></div></div></Reveal>
+        <Reveal className="cg-membership-card"><span className="cg-membership-tag"><InfinityIcon size={16} /> ACESSO VITALÍCIO À BIBLIOTECA</span><div className="cg-membership-art"><Image src="/cg-home/logo-clickgruda.webp" alt="Click & Gruda" width={180} height={42} /><BookOpen size={43} strokeWidth={1.2} /></div><h3>Biblioteca de Artes</h3><p>Seu próximo projeto começa aqui.</p><div className="cg-membership-price" aria-label="47 reais e 90 centavos"><span>R$</span>47<sup>,90</sup></div><span className="cg-membership-cadence">Pagamento único · sem mensalidade</span><a href={LIBRARY_URL} target="_blank" rel="noopener noreferrer" className="cg-button cg-button-primary">Quero conhecer a Biblioteca <ArrowUpRight size={18} /></a><div className="cg-membership-note"><ShieldCheck size={16} /><span>Studio 3D incluso para assinantes.<br />Confira os detalhes na página da Biblioteca.</span></div></Reveal>
+      </div></section>
 
-        <section className="cg-section cg-faq-section" id="faq"><div className="cg-container cg-faq-layout"><Reveal><span className="cg-eyebrow"><CircleHelp size={16}/> DÚVIDAS FREQUENTES</span><h2 className="cg-display">Sem dúvidas.<br/><em>Só possibilidades.</em></h2><p>O que você precisa saber para começar a usar a plataforma.</p><a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="cg-faq-support"><MessageCircle size={19}/> Falar com o suporte <ArrowUpRight size={15}/></a></Reveal><div className="cg-faq-list">{faqs.map((faq,i)=><details key={faq.q} className="cg-faq-item" open={i===0}><summary><span>{faq.q}</span><ChevronDown size={20}/></summary><p>{faq.a}</p></details>)}</div></div></section>
+      <section className="cg-section cg-faq-section" id="faq"><div className="cg-container cg-faq-layout"><Reveal><span className="cg-eyebrow"><CircleHelp size={16} /> ANTES DE COMEÇAR</span><h2 className="cg-display">Boas ideias.<br /><em>Nenhuma dúvida.</em></h2><p>Quer conhecer antes? Nossa equipe te ajuda a entender como tudo funciona.</p><a href={DISCOVERY_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="cg-button cg-button-outline cg-faq-discovery"><MessageCircle size={18} /> Chamar o suporte no WhatsApp <ArrowUpRight size={15} /></a></Reveal><div className="cg-faq-list">{faqs.map((faq, i) => <details key={faq.q} className="cg-faq-item" open={i === 0}><summary><span>{faq.q}</span><ChevronDown size={20} /></summary><p>{faq.a}</p></details>)}</div></div></section>
 
-        <section className="cg-container cg-bottom-space"><Reveal className="cg-final-cta"><div className="cg-final-cta-orbit" aria-hidden="true"/><div><span className="cg-eyebrow"><HeartHandshake size={16}/> SUA CRIATIVIDADE É O NOSSO NEGÓCIO</span><h2 className="cg-display">Menos tempo procurando. <em>Mais tempo criando.</em></h2><p>Entre para a Biblioteca Click & Gruda por R$ 47,90, aproveite o acesso vitalício e use o Studio Mockup 3D sem custo adicional.</p><div className="cg-final-actions"><a href={LIBRARY_URL} target="_blank" rel="noopener noreferrer" className="cg-button cg-button-primary">Quero a Biblioteca <ArrowRight size={18}/></a><Link href="/mockup-caneca-3d/studio" className="cg-button cg-button-outline">Conhecer o Studio <ArrowUpRight size={18}/></Link></div></div><div className="cg-final-mascot"><Image src="/cg-home/mascote.webp" alt="Mascote Click & Gruda" fill sizes="360px" className="object-contain"/></div></Reveal></section>
-      </main>
-      <Footer />
-    </div>
-  );
+      <section className="cg-bonus-compact"><div className="cg-container"><Reveal className="cg-bonus-compact-heading"><div><span className="cg-eyebrow"><Gift size={16} /> UM EXTRA PARA O SEU DIA A DIA</span><h2 className="cg-display">Pequenas ferramentas.<br /><em>Uma boa ajuda.</em></h2><p>Além do Studio, cinco utilitários gratuitos para facilitar sua rotina.</p></div><Link href="/bonus" className="cg-button cg-button-outline">Explorar os bônus <ArrowRight size={17} /></Link></Reveal><div className="cg-bonus-chip-list">{BONUS_TOOLS.map(t => <Link key={t.id} href={`/bonus/${t.id}`}>{t.title}<ArrowUpRight size={15} /></Link>)}</div></div></section>
+
+      <section className="cg-container cg-bottom-space"><Reveal className="cg-final-cta cg-final-product"><div><span className="cg-eyebrow"><Sparkles size={16} /> A PRÓXIMA CRIAÇÃO É SUA</span><h2 className="cg-display">Sua arte já é especial.<br /><em>Mostre isso.</em></h2><p>A Biblioteca inspira. O Studio transforma sua apresentação. E você coloca a criatividade em tudo.</p><div className="cg-final-actions"><Link href={studioHref} className="cg-button cg-button-primary">Entrar no Studio <ArrowRight size={18} /></Link><a href={DISCOVERY_SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="cg-button cg-button-outline"><MessageCircle size={17} /> Quero conhecer antes</a></div></div><div className="cg-final-mascot"><Image src="/cg-home/mascote.webp" alt="Mascote da Click & Gruda acenando para você" fill sizes="(max-width: 620px) 200px, 300px" className="object-contain" /></div></Reveal></section>
+    </main><Footer />
+  </div>;
 }

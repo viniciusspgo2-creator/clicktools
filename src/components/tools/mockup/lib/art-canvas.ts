@@ -23,6 +23,7 @@ import {
   TEX_TOTAL_CM,
   UV_PAD_PX,
   MODEL_METRICS,
+  MAX_ART_PX,
   resolvePrintArea,
   type PrintArea,
 } from "./config";
@@ -34,6 +35,8 @@ const adjustedCache = new Map<string, HTMLCanvasElement>();
 function adjustedSource(
   art: ArtState,
   entry: NonNullable<ReturnType<typeof getArtImage>>,
+  drawnWidth: number,
+  drawnHeight: number,
 ): CanvasImageSource {
   const values = [
     art.brightness,
@@ -44,18 +47,29 @@ function adjustedSource(
     art.sharpness,
   ];
   if (!values.some(Boolean)) return entry.source;
-  const key = entry.id + JSON.stringify(values);
+  // Grade only pixels needed by this output. Original files stay untouched;
+  // a 12K upload must not allocate several full-size pixel buffers per slider.
+  const desired = Math.min(entry.vector ? Infinity : 1,
+    Math.max(Math.abs(drawnWidth) / entry.width, Math.abs(drawnHeight) / entry.height),
+    MAX_ART_PX / Math.max(entry.width, entry.height),
+    Math.sqrt(16_000_000 / (entry.width * entry.height)));
+  const width = Math.max(1, Math.round(entry.width * desired));
+  const height = Math.max(1, Math.round(entry.height * desired));
+  const key = entry.id + `${width}x${height}` + JSON.stringify(values);
   const cached = adjustedCache.get(key);
   if (cached) return cached;
   const c = document.createElement("canvas");
-  c.width = entry.width;
-  c.height = entry.height;
+  c.width = width;
+  c.height = height;
   const ctx = c.getContext("2d", { willReadFrequently: true })!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(entry.source, 0, 0, c.width, c.height);
   const pixels = ctx.getImageData(0, 0, c.width, c.height);
   adjustPixels(pixels.data, c.width, c.height, art);
   ctx.putImageData(pixels, 0, 0);
-  if (adjustedCache.size > 4) adjustedCache.clear();
+  // At most two destination-size canvases retained, even during slider drags.
+  if (adjustedCache.size >= 2) adjustedCache.delete(adjustedCache.keys().next().value!);
   adjustedCache.set(key, c);
   return c;
 }
@@ -240,7 +254,6 @@ export function drawArtIntoArea(
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
-    const img = adjustedSource(art, entry);
     const iw = entry.width;
     const ih = entry.height;
     const repeat = Math.max(1, Math.round(art.repeat));
@@ -262,6 +275,7 @@ export function drawArtIntoArea(
     const bleed = 1 + (Math.max(0, art.bleed ?? 0) * 2) / 8.7;
     dw *= art.scale * bleed;
     dh *= art.scale * bleed;
+    const img = adjustedSource(art, entry, dw, dh);
 
     const wrap = Math.max(0, wrapW ?? W); // volta completa em px (0 = sem cópias)
     const phase = art.offsetX * W; // desloca em volta da caneca (com wrap)
@@ -376,23 +390,24 @@ export function makeArtTexture(
 }
 
 /** DPI efetivo da arte na área de impressão ativa */
-export function computeDpi(art: ArtState, area?: PrintArea): number | null {
+export function computeDpi(art: ArtState, area?: PrintArea, model = "classic"): number | null {
   const entry = getArtImage(art.imageId);
-  if (!entry) return null;
+  if (!entry || entry.vector) return null;
   const a = area ?? resolvePrintArea(art);
-  const printH = Math.round((CANVAS_W_PREVIEW * a.heightCm) / CIRC_CM);
-  const arcPx = Math.round(CANVAS_W_PREVIEW * (a.arcCm / CIRC_CM));
-  const slotW = arcPx / Math.max(1, Math.round(art.repeat));
+  const metrics = MODEL_METRICS[model] ?? MODEL_METRICS.classic;
+  const slotW = (a.arcCm * metrics.circumference / CIRC_CM) / Math.max(1, Math.round(art.repeat));
+  const printH = a.heightCm * metrics.height / 9.5;
   const iw = entry.naturalWidth;
   const ih = entry.naturalHeight;
-  let printedPx: number;
-  if (art.fit === "stretch") printedPx = slotW;
-  else if (art.fit === "cover") printedPx = Math.max(slotW, (iw * printH) / ih);
-  else printedPx = Math.min(slotW, (iw * printH) / ih);
-  const printedCm =
-    Math.min(a.arcCm, printedPx * (a.arcCm / arcPx)) * art.scale;
-  if (printedCm <= 0.01) return null;
-  return iw / (printedCm / 2.54);
+  const bleed = 1 + (Math.max(0, art.bleed ?? 0) * 2) / 8.7;
+  const multiplier = art.scale * bleed;
+  const base = art.fit === "cover" ? Math.max(slotW / iw, printH / ih) : Math.min(slotW / iw, printH / ih);
+  const printedWidthCm = (art.fit === "stretch" ? slotW : iw * base) * multiplier;
+  const printedHeightCm = (art.fit === "stretch" ? printH : ih * base) * multiplier;
+  if (printedWidthCm <= 0 || printedHeightCm <= 0) return null;
+  // Include cropped-away source pixels in the scale. Counting only the visible
+  // width previously overstated the DPI of artwork zoomed to cover.
+  return Math.min(iw / (printedWidthCm / 2.54), ih / (printedHeightCm / 2.54));
 }
 
 /**

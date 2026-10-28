@@ -3,7 +3,7 @@ export const INSTAGRAM_URL = "https://www.instagram.com/clickgruda.digital/";
 export const FACEBOOK_URL = "https://www.facebook.com/artesparacanecasoficial";
 export const SUPPORT_NUMBER = "5562998387816";
 export const SUPPORT_URL = "https://wa.me/" + SUPPORT_NUMBER + "?text=" + encodeURIComponent("Olá! Sou assinante da Biblioteca Click & Gruda e quero solicitar meu código para acessar o Studio Mockup 3D. Podem me ajudar?");
-export const DAILY_SUPPORT_URL = "https://wa.me/" + SUPPORT_NUMBER + "?text=" + encodeURIComponent("Olá! Quero liberar o Studio Mockup 3D por 24 horas, pelo valor de R$ 12,90. Como faço o pagamento e recebo o código?");
+export const DISCOVERY_SUPPORT_URL = "https://wa.me/" + SUPPORT_NUMBER + "?text=" + encodeURIComponent("Olá! Quero conhecer a Biblioteca de Artes Click & Gruda e o Studio Mockup 3D antes de adquirir meu acesso. Podem me mostrar como funciona?");
 export const BONUS_TOOLS = [
   { id: "qr", title: "Gerador de QR Code", description: "Crie QR Codes personalizados para links, PIX, Wi-Fi e muito mais." },
   { id: "whatsapp", title: "Links para WhatsApp", description: "Transforme seu contato em um link prático e profissional." },

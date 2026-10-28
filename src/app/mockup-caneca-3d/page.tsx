@@ -104,8 +104,8 @@ const steps = [
 ];
 const faqs = [
   [
-    "Quanto custa o Studio?",
-    "O acesso avulso custa R$ 12,90 por 24 horas, com criação de mockups sem limite de quantidade nesse período. Assinantes da Biblioteca Click Gruda têm acesso gratuito. Pagamento e liberação de código são feitos pelo suporte no WhatsApp.",
+    "Como tenho acesso ao Studio?",
+    "O Studio é exclusivo para assinantes da Biblioteca de Artes Click & Gruda, sem cobrança adicional. A Biblioteca custa R$ 47,90 em pagamento único, com acesso vitalício a milhares de artes para canecas, atualizações e organização por categorias e datas sazonais. Quer conhecer antes? Chame o suporte pelo WhatsApp.",
   ],
   [
     "Posso compartilhar meu código?",

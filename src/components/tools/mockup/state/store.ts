@@ -11,9 +11,15 @@ import {
   MUG_FULL_R,
   MUG_GAP_MIN,
   PEDESTAL_H,
+  CIRC_CM,
+  MODEL_METRICS,
+  resolvePrintArea,
   type AreaMode,
   type FloorType,
 } from "../lib/config";
+import { getArtImage } from "../lib/art-registry";
+import { suggestArtLayout } from "../lib/art-analysis";
+import { NEUTRAL_ADJUSTMENTS } from "../lib/art-adjustments";
 
 export type MugModel =
   | "classic"
@@ -283,6 +289,7 @@ interface MockupStore {
   setCompare: (v: boolean) => void;
   setZoom: (v: number) => void;
   patchObject: (id: string, partial: Partial<MugState>) => void;
+  commitObjectTransforms: (updates: Record<string, Partial<MugState>>) => void;
   patchObjectArt: (id: string, partial: Partial<ArtState>) => void;
   duplicateSelected: () => void;
   deleteSelected: () => void;
@@ -328,6 +335,7 @@ interface MockupStore {
     partial: Partial<MockupStore[K]>,
   ) => void;
   setArtImage: (meta: {
+    objectId?: string;
     imageId: string;
     name: string;
     width: number;
@@ -412,11 +420,11 @@ const initialMug: MugState = {
   interiorColor: "#ffffff",
   handleColor: "#ffffff",
   clearcoat: 1,
-  clearcoatRoughness: 0.04,
-  specularIntensity: 0.9,
-  glazeStrength: 1,
-  roughness: 0.08,
-  reflection: 0.8,
+  clearcoatRoughness: 0.025,
+  specularIntensity: 1,
+  glazeStrength: 1.45,
+  roughness: 0.055,
+  reflection: 1.25,
   faithfulColor: true,
   posX: 0,
   posZ: 0,
@@ -782,6 +790,23 @@ export const useMockupStore = create<MockupStore>((set, get) => {
           ),
         });
     },
+    commitObjectTransforms: (updates) => {
+      const st = get();
+      const eligible = Object.fromEntries(Object.entries(updates).filter(([id]) => {
+        const object = id === "hero" ? st.mug : st.companions.find(c => c.id === id);
+        return object && !object.locked && !object.hidden;
+      }));
+      if (!Object.keys(eligible).length) return;
+      // A completed pointer gesture is one undo step, regardless of its duration
+      // or how many pieces were selected. Preview transforms never enter history.
+      guardHistory(true);
+      set({
+        mug: eligible.hero ? { ...st.mug, ...eligible.hero } : st.mug,
+        companions: st.companions.map(c => eligible[c.id] ? { ...c, ...eligible[c.id] } : c),
+      });
+      if (commitTimer) clearTimeout(commitTimer);
+      commitTimer = null;
+    },
     patchObjectArt: (id, partial) => {
       const st = get();
       const object =
@@ -1010,22 +1035,25 @@ export const useMockupStore = create<MockupStore>((set, get) => {
     },
 
     setArtImage: (meta) => {
-      get().patch("art", {
+      const state = get();
+      const id = meta.objectId ?? "hero";
+      const object = id === "hero" ? state.mug : state.companions.find(c => c.id === id);
+      if (!object || object.locked) return;
+      const art = id === "hero" ? state.art : (state.companions.find(c => c.id === id)?.art ?? state.art);
+      const area = resolvePrintArea(art);
+      const metrics = MODEL_METRICS[object.model ?? state.mug.model] ?? MODEL_METRICS.classic;
+      const ratio = (area.arcCm * metrics.circumference / CIRC_CM) / (area.heightCm * metrics.height / 9.5);
+      const layout = suggestArtLayout(meta.width, meta.height, ratio, getArtImage(meta.imageId)?.analysis);
+      get().patchObjectArt(id, {
+        ...NEUTRAL_ADJUSTMENTS,
         imageId: meta.imageId,
         name: meta.name,
         width: meta.width,
         height: meta.height,
-        scale: 1,
-        offsetX: 0,
-        offsetY: 0,
-        rotation: 0,
-        mirror: false,
-        repeat: 1,
-        // toda arte inserida PREENCHE a área inteira (topo a base, como o
-        // modelo de referência) — sem espaço branco; ajustável nos controles
-        fit: "cover",
+        // Preserve the entire logo/portrait; fill only proportionate panoramas.
+        ...layout,
       });
-      set((s) => ({ artAppliedNonce: s.artAppliedNonce + 1 }));
+      set((s) => ({ artAppliedNonce: s.artAppliedNonce + 1, compareArt: false }));
     },
     clearArt: () => {
       get().patch("art", { imageId: null, name: "", width: 0, height: 0 });

@@ -1,9 +1,10 @@
 /* eslint-disable react-hooks/immutability -- Three.js GPU handles and transforms intentionally use the engine's imperative API. */
 "use client";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { TransformControls } from "@react-three/drei";
+import type { TransformControls as TransformControlsImpl } from "three-stdlib";
 import {
   useMockupStore,
   type ArtState,
@@ -22,6 +23,39 @@ import {
 import { NEUTRAL_ADJUSTMENTS } from "../lib/art-adjustments";
 import { MUG, FLOAT_LIFT, PEDESTAL_H, PLATE_H, detectMobile } from "../lib/config";
 import { studioRefs } from "./studio-refs";
+import { dragPlane, planarDragDelta, pointerOnPlane, uniformScaleFromGizmo } from "./object-interaction";
+
+// Selection updates may replace a group's userData during a drag. Keep the
+// animation pause outside React props so it survives that render.
+const transformingObjects = new WeakSet<THREE.Object3D>();
+// A canvas has one editing gesture, even when a second finger hits another mug.
+const pointerOwners = new WeakMap<HTMLCanvasElement, { id: string; pointerId: number }>();
+
+type ObjectPose = {
+  id: string;
+  node: THREE.Object3D;
+  position: THREE.Vector3;
+  rotation: THREE.Euler;
+  scale: THREE.Vector3;
+  posY: number;
+};
+type TransformGesture = {
+  kind: "move" | "gizmo";
+  tool: "move" | "rotate" | "scale";
+  pointerId?: number;
+  items: ObjectPose[];
+  primary: ObjectPose;
+  plane?: THREE.Plane;
+  anchor?: THREE.Vector3;
+  controls: typeof studioRefs.controls;
+  controlsEnabled: boolean;
+  cursor: string;
+};
+type ArtGesture = {
+  x: number; y: number; art: ArtState; pointerId: number;
+  controls: typeof studioRefs.controls; controlsEnabled: boolean; cursor: string;
+};
+
 
 function CeramicMaterial({ texture, mug, metalMask, color }: {
   texture?: THREE.Texture;
@@ -49,9 +83,12 @@ function MugObject({
   spinClock: RefObject<number>;
 }) {
   const gl = useThree((s) => s.gl);
+  const camera = useThree((s) => s.camera);
+  const scene = useThree((s) => s.scene);
   const floor = useMockupStore((s) => s.bg.floor);
   const float = useMockupStore((s) => s.bg.floatAnim);
   const selected = useMockupStore((s) => s.selectedIds.includes(id));
+  const primarySelected = useMockupStore((s) => s.selectedIds[0] === id);
   const tool = useMockupStore((s) => s.tool);
   const snap = useMockupStore((s) => s.snapEnabled);
   const compare = useMockupStore((s) => s.compareArt);
@@ -60,8 +97,17 @@ function MugObject({
   const spinBase = useRef<number | null>(null);
   const sceneCamera = useMockupStore(s => s.camera);
   const entryGroup = useRef<THREE.Group>(null);
-  const dragArt = useRef<{ x: number; y: number; art: ArtState } | null>(null);
-  const startPose = useRef<THREE.Vector3 | null>(null);
+  const dragArt = useRef<ArtGesture | null>(null);
+  const gesture = useRef<TransformGesture | null>(null);
+  const gizmo = useRef<TransformControlsImpl>(null);
+  const controlsBeforePointer = useRef(true);
+  const downPointer = useRef(0);
+  const attachGizmo = useCallback((control: TransformControlsImpl | null) => {
+    gizmo.current = control;
+    // Drei's name prop belongs to its empty children group. Name the actual
+    // primitive too so captureSceneState can hide it from PNG/video exports.
+    if (control) control.name = "studio-gizmo";
+  }, []);
   const initialized = useRef(false);
   const entranceStart = useRef<number | null>(null);
   const model = useMemo(() => buildModel(mug.model), [mug.model]);
@@ -172,7 +218,9 @@ function MugObject({
           : 0) + (mug.posY ?? 0);
   useFrame(({ clock }) => {
     if (!object) return;
-    if (!studioRefs.exporting) {
+    if (transformingObjects.has(object)) {
+      spinBase.current = null;
+    } else if (!studioRefs.exporting) {
       if (sceneCamera.autoRotate) {
         const phase = spinClock.current / Math.max(3, sceneCamera.secondsPerTurn ?? 8);
         const travel = sceneCamera.direction === "pingpong"
@@ -215,7 +263,8 @@ function MugObject({
       !studioRefs.exporting &&
       floor === "flutuante" &&
       float &&
-      tool === "select"
+      tool === "select" &&
+      !transformingObjects.has(object)
     )
       object.position.y =
         base + support + Math.sin(clock.elapsedTime * 1.35) * 0.18;
@@ -225,40 +274,207 @@ function MugObject({
       if (id === "hero") studioRefs.artRefreshFrames--;
     }
   });
-  const click = (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    if (tool === "pan") return;
-    useMockupStore.getState().select(id, e.shiftKey || e.ctrlKey || e.metaKey);
+  const finishTransform = useCallback((commit: boolean) => {
+    const active = gesture.current;
+    if (!active) return;
+    gesture.current = null;
+    if (pointerOwners.get(gl.domElement)?.id === id) pointerOwners.delete(gl.domElement);
+    const updates: Record<string, Partial<MugState>> = {};
+    for (const item of active.items) {
+      if (commit) {
+        const changed = !item.node.position.equals(item.position) ||
+          !item.node.rotation.equals(item.rotation) || !item.node.scale.equals(item.scale);
+        if (changed) updates[item.id] = {
+          posX: item.node.position.x,
+          posZ: item.node.position.z,
+          posY: item.posY + item.node.position.y - item.position.y,
+          tiltX: THREE.MathUtils.radToDeg(item.node.rotation.x),
+          rotationY: -THREE.MathUtils.radToDeg(item.node.rotation.y),
+          tiltZ: THREE.MathUtils.radToDeg(item.node.rotation.z),
+          scale: item.node.scale.x,
+        };
+      } else {
+        item.node.position.copy(item.position);
+        item.node.rotation.copy(item.rotation);
+        item.node.scale.copy(item.scale);
+      }
+      transformingObjects.delete(item.node);
+    }
+    if (Object.keys(updates).length) useMockupStore.getState().commitObjectTransforms(updates);
+    if (active.controls) active.controls.enabled = active.controlsEnabled;
+    // Drei emits dragging-changed after mouseUp and unconditionally enables
+    // OrbitControls. Restore the actual pre-gesture value after that event.
+    if (active.kind === "gizmo") queueMicrotask(() => {
+      if (active.controls) active.controls.enabled = active.controlsEnabled;
+    });
+    gl.domElement.style.cursor = active.cursor;
+    if (active.pointerId !== undefined && gl.domElement.hasPointerCapture(active.pointerId)) {
+      gl.domElement.releasePointerCapture(active.pointerId);
+    }
+  }, [gl, id]);
+  const finishArt = useCallback((cancel = false) => {
+    const active = dragArt.current;
+    if (!active) return;
+    dragArt.current = null;
+    if (pointerOwners.get(gl.domElement)?.id === id) pointerOwners.delete(gl.domElement);
+    if (cancel) useMockupStore.getState().patchObjectArt(id, {
+      offsetX: active.art.offsetX, offsetY: active.art.offsetY,
+    });
+    if (active.controls) active.controls.enabled = active.controlsEnabled;
+    gl.domElement.style.cursor = active.cursor;
+    if (gl.domElement.hasPointerCapture(active.pointerId)) gl.domElement.releasePointerCapture(active.pointerId);
+  }, [gl, id]);
+  const cancelInteraction = useCallback(() => {
+    const cancelGizmo = gesture.current?.kind === "gizmo";
+    if (cancelGizmo) gizmo.current?.reset();
+    finishTransform(false);
+    finishArt(true);
+    if (cancelGizmo) {
+      // Normal pointer-up also clears the library's private dragging/axis state
+      // and document listener. All cancellation paths use this same cleanup.
+      gl.domElement.ownerDocument.dispatchEvent(new PointerEvent("pointerup", { button: 0 }));
+    }
+  }, [gl, finishTransform, finishArt]);
+  const beginTransform = (kind: TransformGesture["kind"], pointerId = downPointer.current) => {
+    if (gesture.current || dragArt.current || pointerOwners.has(gl.domElement)) return null;
+    const st = useMockupStore.getState();
+    const items: ObjectPose[] = [];
+    scene.traverse(node => {
+      if (node.name !== "mug-float") return;
+      const objectId = node.userData.objectId as string;
+      const state = objectId === "hero" ? st.mug : st.companions.find(c => c.id === objectId);
+      if (!st.selectedIds.includes(objectId) || !state || state.locked || state.hidden) return;
+      items.push({ id: objectId, node, position: node.position.clone(), rotation: node.rotation.clone(),
+        scale: node.scale.clone(), posY: state.posY ?? 0 });
+    });
+    const primary = items.find(item => item.id === id);
+    if (!primary) return null;
+    const active: TransformGesture = {
+      kind, tool: st.tool as TransformGesture["tool"], pointerId, items, primary,
+      controls: studioRefs.controls, controlsEnabled: controlsBeforePointer.current,
+      cursor: gl.domElement.style.cursor,
+    };
+    gesture.current = active;
+    pointerOwners.set(gl.domElement, { id, pointerId });
+    for (const item of items) transformingObjects.add(item.node);
+    if (active.controls) active.controls.enabled = false;
+    gl.domElement.style.cursor = "grabbing";
+    return active;
   };
-  const startArt = (e: ThreeEvent<PointerEvent>) => {
-    click(e);
-    if (tool !== "art" || mug.locked) return;
-    dragArt.current = { x: e.clientX, y: e.clientY, art };
-    gl.domElement.setPointerCapture(e.pointerId);
-    if (studioRefs.controls) studioRefs.controls.enabled = false;
+  const startPointer = (e: ThreeEvent<PointerEvent>) => {
+    if (tool === "pan" || e.button !== 0) return;
+    e.stopPropagation();
+    // A second pointer cannot replace the original pointer's saved camera state.
+    if (gesture.current || dragArt.current || pointerOwners.has(gl.domElement)) return;
+    const st = useMockupStore.getState();
+    const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+    // Keep a group selected while dragging one of its members. Modifier clicks
+    // only change selection; they never unexpectedly start moving the group.
+    if (additive) { st.select(id, true); return; }
+    if (!st.selectedIds.includes(id)) st.select(id);
+    if (mug.locked || mug.hidden) return;
+    const point = e.point.clone();
+    const ray = e.ray.clone();
+    const { pointerId, clientX, clientY } = e;
+    // R3F and TransformControls both listen on the same canvas. Let its native
+    // picker claim the event first when a gizmo overlaps the mug silhouette.
+    // Direct body dragging starts only if no gizmo claimed that pointer-down.
+    queueMicrotask(() => {
+      if (gesture.current || dragArt.current || pointerOwners.has(gl.domElement)) return;
+      if (tool === "move") {
+        const plane = dragPlane(point);
+        const anchor = ray.intersectPlane(plane, new THREE.Vector3());
+        if (!anchor) return;
+        const active = beginTransform("move", pointerId);
+        if (!active) return;
+        active.plane = plane;
+        active.anchor = anchor;
+        gl.domElement.setPointerCapture(pointerId);
+      } else if (tool === "art") {
+        pointerOwners.set(gl.domElement, { id, pointerId });
+        dragArt.current = { x: clientX, y: clientY, art, pointerId,
+          controls: studioRefs.controls, controlsEnabled: controlsBeforePointer.current,
+          cursor: gl.domElement.style.cursor };
+        gl.domElement.setPointerCapture(pointerId);
+        if (studioRefs.controls) studioRefs.controls.enabled = false;
+        gl.domElement.style.cursor = "grabbing";
+      }
+    });
   };
   useEffect(() => {
     const move = (e: PointerEvent) => {
-      const d = dragArt.current;
-      if (!d) return;
-      useMockupStore
-        .getState()
-        .patchObjectArt(id, {
-          offsetX: d.art.offsetX + (e.clientX - d.x) / 500,
-          offsetY: d.art.offsetY - (e.clientY - d.y) / 250,
-        });
+      const active = gesture.current;
+      if (active?.kind === "move" && e.pointerId === active.pointerId && active.plane && active.anchor) {
+        const point = pointerOnPlane(e.clientX, e.clientY, gl.domElement.getBoundingClientRect(), camera, active.plane);
+        if (!point) return;
+        e.preventDefault();
+        const delta = planarDragDelta(active.primary.position, active.anchor, point,
+          active.items.map(item => item.position), useMockupStore.getState().snapEnabled && !e.altKey);
+        for (const item of active.items) {
+          item.node.position.x = item.position.x + delta.x;
+          item.node.position.z = item.position.z + delta.z;
+        }
+      }
+      const artDrag = dragArt.current;
+      if (!artDrag || artDrag.pointerId !== e.pointerId) return;
+      useMockupStore.getState().patchObjectArt(id, {
+        offsetX: artDrag.art.offsetX + (e.clientX - artDrag.x) / 500,
+        offsetY: artDrag.art.offsetY - (e.clientY - artDrag.y) / 250,
+      });
     };
-    const end = () => {
-      dragArt.current = null;
-      if (studioRefs.controls) studioRefs.controls.enabled = true;
+    const end = (e: PointerEvent) => {
+      if (gesture.current?.kind === "move" && gesture.current.pointerId === e.pointerId) finishTransform(true);
+      if (dragArt.current?.pointerId === e.pointerId) finishArt();
     };
-    gl.domElement.addEventListener("pointermove", move);
-    gl.domElement.addEventListener("pointerup", end);
+    const cancelPointer = (e: PointerEvent) => {
+      const owner = pointerOwners.get(gl.domElement);
+      if (owner && owner.pointerId !== e.pointerId) return;
+      cancelInteraction();
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && (gesture.current || dragArt.current)) {
+        e.preventDefault();
+        cancelInteraction();
+      }
+    };
+    const canvas = gl.domElement;
+    const captureControls = (e: PointerEvent) => {
+      const owner = pointerOwners.get(canvas);
+      if (owner) {
+        if (owner.pointerId !== e.pointerId) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+        return;
+      }
+      controlsBeforePointer.current = studioRefs.controls?.enabled ?? true;
+      downPointer.current = e.pointerId;
+    };
+    canvas.addEventListener("pointerdown", captureControls, true);
+    canvas.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", end);
+    canvas.addEventListener("pointercancel", cancelPointer);
+    canvas.addEventListener("lostpointercapture", cancelPointer);
+    window.addEventListener("blur", cancelInteraction);
+    window.addEventListener("keydown", key);
     return () => {
-      gl.domElement.removeEventListener("pointermove", move);
-      gl.domElement.removeEventListener("pointerup", end);
+      canvas.removeEventListener("pointerdown", captureControls, true);
+      canvas.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      canvas.removeEventListener("pointercancel", cancelPointer);
+      canvas.removeEventListener("lostpointercapture", cancelPointer);
+      window.removeEventListener("blur", cancelInteraction);
+      window.removeEventListener("keydown", key);
+      cancelInteraction();
     };
-  }, [gl, id]);
+  }, [gl, camera, id, finishTransform, finishArt, cancelInteraction]);
+  // Switching tools or locking/deleting the selected object cancels an unfinished
+  // gesture, restoring both the pose and the camera's original enabled state.
+  useEffect(() => {
+    if (mug.locked || mug.hidden || gesture.current && gesture.current.tool !== tool || dragArt.current && tool !== "art") {
+      cancelInteraction();
+    }
+  }, [tool, mug.locked, mug.hidden, cancelInteraction]);
   const handle = mug.handleColor ?? (mug.variant === "white" ? "#ffffff" : mug.accentColor);
   return (
     <>
@@ -270,7 +486,7 @@ function MugObject({
         rotation={rotation}
         scale={mug.scale}
         userData={{ baseY: base + support, objectId: id }}
-        onPointerDown={startArt}
+        onPointerDown={startPointer}
         onDoubleClick={(e) => {
           e.stopPropagation();
           useMockupStore.getState().requestFocus();
@@ -325,7 +541,7 @@ function MugObject({
         </group>
       </group>
       {object &&
-        selected &&
+        primarySelected &&
         !mug.hidden &&
         !mug.locked &&
         ["move", "rotate", "scale"].includes(tool) && (
@@ -343,37 +559,24 @@ function MugObject({
             translationSnap={snap ? 0.5 : undefined}
             rotationSnap={snap ? Math.PI / 12 : undefined}
             scaleSnap={snap ? 0.05 : undefined}
-            onMouseDown={() => {
-              startPose.current = object.position.clone();
+            ref={attachGizmo}
+            space="world"
+            onMouseDown={() => { beginTransform("gizmo"); }}
+            onObjectChange={() => {
+              const active = gesture.current;
+              if (!active || active.kind !== "gizmo") return;
+              if (active.tool === "move") {
+                const delta = planarDragDelta(active.primary.position, { x: 0, z: 0 },
+                  { x: object.position.x - active.primary.position.x, z: object.position.z - active.primary.position.z },
+                  active.items.map(item => item.position), false);
+                const dy = object.position.y - active.primary.position.y;
+                for (const item of active.items) item.node.position.set(
+                  item.position.x + delta.x, item.position.y + dy, item.position.z + delta.z);
+              } else if (active.tool === "scale") {
+                object.scale.setScalar(uniformScaleFromGizmo(object.scale, active.primary.scale));
+              }
             }}
-            onMouseUp={() => {
-              const st = useMockupStore.getState();
-              const delta = object.position
-                .clone()
-                .sub(startPose.current ?? object.position);
-              st.patchObject(id, {
-                posX: object.position.x,
-                posZ: object.position.z,
-                posY: (mug.posY ?? 0) + delta.y,
-                tiltX: THREE.MathUtils.radToDeg(object.rotation.x),
-                rotationY: -THREE.MathUtils.radToDeg(object.rotation.y),
-                tiltZ: THREE.MathUtils.radToDeg(object.rotation.z),
-                scale: Math.max(0.2, Math.min(3, object.scale.x)),
-              });
-              if (tool === "move")
-                for (const other of st.selectedIds.filter((x) => x !== id)) {
-                  const o =
-                    other === "hero"
-                      ? st.mug
-                      : st.companions.find((c) => c.id === other);
-                  if (o)
-                    st.patchObject(other, {
-                      posX: (o.posX ?? 0) + delta.x,
-                      posY: (o.posY ?? 0) + delta.y,
-                      posZ: (o.posZ ?? 0) + delta.z,
-                    });
-                }
-            }}
+            onMouseUp={() => { finishTransform(true); }}
           />
         )}
     </>

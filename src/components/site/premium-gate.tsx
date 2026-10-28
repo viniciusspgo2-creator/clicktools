@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   MessageCircle,
 } from "lucide-react";
-import { LIBRARY_URL, SUPPORT_URL } from "@/lib/studio-links";
+import { LIBRARY_URL, DISCOVERY_SUPPORT_URL } from "@/lib/studio-links";
 const SESSION = "cg_studio_session";
 function readSession() {
   try {
@@ -159,21 +159,22 @@ export function PremiumGate({ children }: { children: React.ReactNode }) {
         </Link>
         <Crown className="mb-4 mt-8 h-9 w-9 text-amber-400" />
         <p className="text-xs font-bold uppercase tracking-widest text-amber-400">
-          Seu estúdio de produtos
+          Exclusivo para assinantes
         </p>
         <h1 className="mt-2 text-3xl font-bold">Studio Mockup 3D</h1>
         <p className="mt-4 leading-relaxed text-neutral-300">
-          Acesso gratuito para assinantes da{" "}
+          O Studio está incluso para assinantes da{" "}
           <a
             href={LIBRARY_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="underline"
           >
-            Biblioteca Click Gruda
+            Biblioteca de Artes Click & Gruda
           </a>
-          . Para clientes avulsos,{" "}
-          <strong className="text-white">R$ 12,90 por 24 horas</strong>.
+          . Por <strong className="text-white">R$ 47,90</strong>, você adquire a
+          Biblioteca com acesso vitalício: milhares de artes para canecas,
+          atualizações e organização por categorias e datas sazonais.
         </p>
         <form onSubmit={submit} className="mt-7 space-y-3">
           <label htmlFor="premium-code" className="block text-sm">
@@ -216,16 +217,16 @@ export function PremiumGate({ children }: { children: React.ReactNode }) {
           o suporte.
         </p>
         <a
-          href={SUPPORT_URL}
+          href={DISCOVERY_SUPPORT_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-orange-500/40 p-3 text-sm text-orange-300"
         >
           <MessageCircle className="h-4 w-4" />
-          Solicitar acesso pelo WhatsApp
+          Quero conhecer antes · WhatsApp
         </a>
         <p className="mt-3 text-center text-xs text-neutral-500">
-          Pagamento e liberação diretamente com o suporte.
+          Já tem a Biblioteca? Peça seu código pessoal ao suporte.
         </p>
       </div>
     </div>

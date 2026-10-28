@@ -5,8 +5,8 @@ export const CERAMIC_FINISHES: { id: string; label: string; description: string;
   { id: "satin", label: "Acetinado", description: "Reflexo suave e espalhado", values: {
     roughness: 0.3, clearcoat: 0.55, clearcoatRoughness: 0.2, specularIntensity: 0.6, reflection: 0.5, glazeStrength: 0.65,
   } },
-  { id: "sublimation", label: "Sublimação", description: "Esmalte clássico de caneca sublimada", values: {
-    roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.04, specularIntensity: 0.9, reflection: 0.8, glazeStrength: 1,
+  { id: "sublimation", label: "Sublimação", description: "Porcelana polida com verniz e reflexos de softbox", values: {
+    roughness: 0.055, clearcoat: 1, clearcoatRoughness: 0.025, specularIntensity: 1, reflection: 1.25, glazeStrength: 1.45,
   } },
   { id: "gloss", label: "Alto brilho", description: "Brilho destacado com reflexos mais nítidos", values: {
     roughness: 0.045, clearcoat: 1, clearcoatRoughness: 0.025, specularIntensity: 1, reflection: 1.4, glazeStrength: 2.2,

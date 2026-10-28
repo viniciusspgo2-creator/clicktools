@@ -87,7 +87,7 @@ async function collectAssets(state: ReturnType<typeof snapshotState>) {
         assets[id] = {
           blob,
           name: a.name,
-          type: "image/png",
+          type: blob.type || "image/png",
           width: a.width,
           height: a.height,
           naturalWidth: a.width,
@@ -124,7 +124,7 @@ export async function saveCurrentProject(
     if (blob) {
       art = {
         name: state.art.name || "arte.png",
-        type: "image/png",
+        type: blob.type || "image/png",
         blob,
         width: state.art.width,
         height: state.art.height,
@@ -542,7 +542,7 @@ export async function autosaveSession() {
       if (blob) {
         art = {
           name: state.art.name || "arte.png",
-          type: "image/png",
+          type: blob.type || "image/png",
           blob,
           width: state.art.width,
           height: state.art.height,

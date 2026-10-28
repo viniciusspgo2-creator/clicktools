@@ -10,8 +10,9 @@ const nav = [
   { href: "/#inicio", label: "Início" },
   { href: "/#biblioteca", label: "Biblioteca de Artes" },
   { href: "/#studio", label: "Studio 3D" },
+  { href: "/blog", label: "Blog" },
   { href: "/bonus", label: "Bônus grátis" },
-  { href: "/#acessos", label: "Acessos" },
+  { href: "/#acessos", label: "Seu acesso" },
 ];
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);

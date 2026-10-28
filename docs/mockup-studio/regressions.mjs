@@ -286,9 +286,9 @@ test("body and handle share one ceramic PBR recipe and the same fidelity shader"
     "toneMapped",
   ])
     assert.equal(body[key], handle[key], key);
-  assert.equal(body.roughness, 0.08);
+  assert.equal(body.roughness, 0.055);
   assert.equal(body.ior, 1.52);
-  assert.equal(body.specularIntensity, 0.9);
+  assert.equal(body.specularIntensity, 1);
   assert.equal(body.aoMap, null);
   assert.equal(handle.aoMap, null);
   const shader = () => ({
@@ -465,8 +465,8 @@ test("glossy finishes affect body and handle equally and keep legacy projects co
   const { CERAMIC_FINISHES, ceramicFinishValues } = require(
     root + "/src/components/tools/mockup/lib/ceramic-finishes.ts",
   );
-  assert.equal(ceramicFinishValues({}).clearcoatRoughness, 0.04);
-  assert.equal(ceramicFinishValues({}).glazeStrength, 1);
+  assert.equal(ceramicFinishValues({}).clearcoatRoughness, 0.025);
+  assert.equal(ceramicFinishValues({}).glazeStrength, 1.45);
   for (const f of CERAMIC_FINISHES) {
     const mug = { ...store.getState().mug, ...f.values, faithfulColor: true };
     const body = createCeramicMaterial(mug, { map: new THREE.Texture() }),
@@ -490,9 +490,9 @@ test("glossy finishes affect body and handle equally and keep legacy projects co
     );
     assert.ok(
       shader.fragmentShader.includes(
-        "ceramicBase + (vec3(1.0) - ceramicBase) * ceramicGlaze",
+        "ceramicBase + ceramicReflection * ceramicGlazeStrength",
       ),
-      "glaze uses highlight headroom without tinting diffuse ink",
+      "the real HDR reflection stays visible on white ceramic and dark ink",
     );
     body.map.dispose();
     body.dispose();
@@ -538,4 +538,51 @@ test("full-turn framing stays centered when equal mugs have different Y rotation
   group.traverse((o) => {
     if (o.geometry) o.geometry.dispose();
   });
+});
+
+
+test("per-mug reflection gain, environment rotation and exposure survive Three scene-environment overrides", () => {
+  const scene = new THREE.Scene(), a = new THREE.Texture(), b = new THREE.Texture();
+  scene.environment = a;
+  scene.environmentIntensity = 0.6;
+  scene.environmentRotation.set(0, 0.8, 0);
+  const base = { ...store.getState().mug, faithfulColor: true };
+  const none = createCeramicMaterial({ ...base, reflection: 0 });
+  const glossy = createCeramicMaterial({ ...base, reflection: 2 });
+  for (const material of [none, glossy]) {
+    material.onBeforeRender(null, scene);
+    assert.equal(material.envMap, a, "an explicit envMap prevents Three replacing the per-object gain");
+    assert.equal(material.envMapRotation.y, 0.8);
+    assert.equal(material.toneMapped, true, "global exposure must reach the faithful material too");
+  }
+  assert.equal(none.envMapIntensity, 0);
+  assert.equal(glossy.envMapIntensity, 1.2);
+  scene.environment = b;
+  scene.environmentIntensity = 1.5;
+  glossy.onBeforeRender(null, scene);
+  assert.equal(glossy.envMap, b, "changing HDRI replaces the bound map");
+  assert.equal(glossy.envMapIntensity, 3);
+  none.dispose(); glossy.dispose(); a.dispose(); b.dispose();
+});
+
+test("glaze is adjustable in both faithful and physical modes and malformed saved values stay finite", () => {
+  for (const faithfulColor of [true, false]) {
+    for (const glazeStrength of [0, 3]) {
+      const material = createCeramicMaterial({ ...store.getState().mug, faithfulColor, glazeStrength });
+      const shader = { uniforms: {}, fragmentShader: "#include <opaque_fragment>" };
+      material.onBeforeCompile(shader);
+      assert.equal(shader.uniforms.ceramicGlazeStrength.value, glazeStrength);
+      assert.ok(shader.fragmentShader.includes("ceramicReflection * ceramicGlazeStrength"));
+      assert.equal(shader.fragmentShader.includes("float ceramicDiffuseGain"), faithfulColor);
+      material.dispose();
+    }
+  }
+  const invalid = createCeramicMaterial({ ...store.getState().mug, roughness: NaN,
+    clearcoat: Infinity, clearcoatRoughness: -2, specularIntensity: 9, reflection: NaN });
+  assert.ok(Number.isFinite(invalid.roughness));
+  assert.equal(invalid.clearcoat, 1);
+  assert.equal(invalid.clearcoatRoughness, 0);
+  assert.equal(invalid.specularIntensity, 1);
+  assert.equal(invalid.envMapIntensity, 1.25);
+  invalid.dispose();
 });

@@ -24,11 +24,11 @@ export default function BlogLayout({ children }: { children: React.ReactNode }) 
               href="/"
               className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              <ArrowLeft className="h-3.5 w-3.5" /> Ferramentas
+              <ArrowLeft className="h-3.5 w-3.5" /> Início
             </Link>
-            <span className="flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground">
+            <Link href="/blog" className="flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground">
               <BookOpen className="h-3.5 w-3.5" /> Blog
-            </span>
+            </Link>
           </nav>
 
           <a

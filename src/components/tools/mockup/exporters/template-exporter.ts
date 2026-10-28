@@ -9,6 +9,7 @@ import { resolvePrintArea, MODEL_METRICS, CIRC_CM } from "../lib/config";
 import { drawArtIntoArea } from "../lib/art-canvas";
 import { useMockupStore } from "../state/store";
 import { ExportError } from "./frame-capture";
+import { withPngDpi } from "./png-dpi";
 
 export interface TemplateOpts {
   dpi: 300 | 600;
@@ -97,7 +98,7 @@ export async function exportTemplate(
           ? "altura-cheia"
           : "papel-padrao";
   return {
-    blob,
+    blob: await withPngDpi(blob, opts.dpi),
     filename: `folha-sublimacao-caneca-${label}-${opts.dpi}dpi-${Date.now()}.png`,
     width: W,
     height: H,

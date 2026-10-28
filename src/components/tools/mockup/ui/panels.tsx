@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useMockupStore, type VideoState } from "../state/store";
-import { loadArtFile, makeSampleArt, getArtImage } from "../lib/art-registry";
+import { makeSampleArt, getArtImage } from "../lib/art-registry";
 import { computeDpi, computeFitScale } from "../lib/art-canvas";
 import {
   loadBgFile,
@@ -85,59 +85,9 @@ import { exportTemplate } from "../exporters/template-exporter";
 import { cn } from "@/lib/utils";
 import { getStudioPlan } from "../lib/entitlements";
 
-/* ---------------- uploader ---------------- */
-
-function useArtUploader() {
-  const { toast } = useToast();
-  const setArtImage = useMockupStore((s) => s.setArtImage);
-  const notifyArtApplied = useMockupStore((s) => s.notifyArtApplied);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-
-  const handleFiles = useCallback(
-    async (files: FileList | File[] | null) => {
-      const file = files && files[0];
-      if (!file) return;
-      setBusy(true);
-      try {
-        const entry = await loadArtFile(file);
-        useMockupStore
-          .getState()
-          .patchObjectArt(useMockupStore.getState().selectedIds[0] ?? "hero", {
-            imageId: entry.id,
-            name: entry.name,
-            width: entry.naturalWidth,
-            height: entry.naturalHeight,
-          });
-        notifyArtApplied();
-        toast({
-          title: "Arte aplicada!",
-          description: `${file.name} envolvendo a caneca.`,
-        });
-      } catch (e) {
-        toast({
-          title: "Não deu para usar essa arte",
-          description: e instanceof Error ? e.message : "Arquivo inválido.",
-          variant: "destructive",
-        });
-      } finally {
-        setBusy(false);
-      }
-    },
-    [setArtImage, notifyArtApplied, toast],
-  );
-
-  return {
-    inputRef,
-    handleFiles,
-    busy,
-    openFilePicker: () => inputRef.current?.click(),
-  };
-}
-
 /* ---------------- Arte ---------------- */
 
-export function ArtPanel() {
+export function ArtPanel({ onUpload }: { onUpload: () => void }) {
   const selectedId = useMockupStore((s) => s.selectedIds[0] ?? "hero");
   const art = useMockupStore((s) =>
     selectedId === "hero"
@@ -151,36 +101,22 @@ export function ArtPanel() {
   const clearArt = () =>
     patch("art", { imageId: null, name: "", width: 0, height: 0 });
   const notifyArtApplied = useMockupStore((s) => s.notifyArtApplied);
-  const { inputRef, handleFiles, busy, openFilePicker } = useArtUploader();
+  const locked = useMockupStore(s => selectedId === "hero" ? s.mug.locked : !!s.companions.find(c => c.id === selectedId)?.locked);
+  const model = useMockupStore(s => selectedId === "hero" ? s.mug.model : (s.companions.find(c => c.id === selectedId)?.model ?? s.mug.model));
   const hasArt = !!art.imageId;
   // área de impressão ativa (muda com o painel Arte) — resolvePrintArea é barato
   const area = useMemo(() => resolvePrintArea(art), [art]);
-  const dpi = useMemo(() => computeDpi(art, area), [art, area]);
+  const dpi = useMemo(() => computeDpi(art, area, model), [art, area, model]);
 
   return (
-    <Section title="Arte" icon={ImagePlus} defaultOpen>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml,image/avif"
-        className="hidden"
-        onChange={(e) => {
-          handleFiles(e.target.files);
-          e.target.value = "";
-        }}
-      />
-
+    <fieldset disabled={locked} className="min-w-0 border-0 p-0"><Section title="Arte" icon={ImagePlus} defaultOpen>
       {!hasArt ? (
         <button
-          onClick={openFilePicker}
-          disabled={busy}
+          onClick={onUpload}
+          disabled={locked}
           className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-white/15 bg-white/[0.02] px-4 py-6 transition-colors hover:border-primary/50 hover:bg-primary/5"
         >
-          {busy ? (
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          ) : (
-            <ImagePlus className="h-6 w-6 text-primary" />
-          )}
+          <ImagePlus className="h-6 w-6 text-primary" />
           <span className="text-xs font-semibold text-neutral-200">
             Enviar arte
           </span>
@@ -200,7 +136,7 @@ export function ArtPanel() {
                 {art.width} × {art.height} px
               </p>
             </div>
-            <MiniButton onClick={openFilePicker} className="shrink-0">
+            <MiniButton onClick={onUpload} className="shrink-0">
               Trocar
             </MiniButton>
             <MiniButton
@@ -233,14 +169,14 @@ export function ArtPanel() {
       <MiniButton
         onClick={() => {
           const s = makeSampleArt();
-          const { setArtImage, notifyArtApplied } = useMockupStore.getState();
+          const { setArtImage } = useMockupStore.getState();
           setArtImage({
+            objectId: selectedId,
             imageId: s.id,
             name: s.name,
             width: s.naturalWidth,
             height: s.naturalHeight,
           });
-          notifyArtApplied();
         }}
         className="w-full"
       >
@@ -518,7 +454,7 @@ export function ArtPanel() {
           </div>
         </>
       )}
-    </Section>
+    </Section></fieldset>
   );
 }
 

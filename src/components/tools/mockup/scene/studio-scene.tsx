@@ -88,7 +88,9 @@ export default function StudioCanvas({ paused = false }: { paused?: boolean }) {
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.type = THREE.PCFShadowMap;
-          gl.toneMapping = THREE.AgXToneMapping;
+          // Neutral is intended for product rendering: retain ink saturation while
+          // rolling off only the bright photographic reflections.
+          gl.toneMapping = THREE.NeutralToneMapping;
           gl.outputColorSpace = THREE.SRGBColorSpace;
           gl.toneMappingExposure = 1;
           gl.domElement.addEventListener("webglcontextlost", (e) => {
