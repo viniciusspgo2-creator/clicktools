@@ -25,11 +25,7 @@ function expiry(
   }
   if (creating)
     return type === "standalone"
-<<<<<<< HEAD
       ? new Date(Date.now() + 24 * 60 * 60_000)
-=======
-      ? new Date(Date.now() + 365 * 86400_000)
->>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
       : null;
   return undefined;
 }
@@ -112,11 +108,7 @@ export async function PATCH(req: Request) {
       expiresAt === undefined &&
       !row.expiresAt
     )
-<<<<<<< HEAD
       expiresAt = new Date(Date.now() + 24 * 60 * 60_000);
-=======
-      expiresAt = new Date(Date.now() + 365 * 86400_000);
->>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
     const data: Prisma.AccessCodeUpdateInput = {
       clientName,
       clientType,

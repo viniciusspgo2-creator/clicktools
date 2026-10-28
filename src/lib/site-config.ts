@@ -21,11 +21,7 @@ export const DEFAULT_SEO: SeoConfig = {
   defaultTitle: "Click Gruda — Studio Mockup 3D",
   titleTemplate: "%s | Click & Gruda Tools",
   description:
-<<<<<<< HEAD
     "Studio Mockup 3D para canecas: gratuito para assinantes da Biblioteca de Artes Click & Gruda (R$ 47,90, acesso vitalício) ou acesso avulso por R$ 12,90 durante 24 horas. Cinco ferramentas bônus gratuitas.",
-=======
-    "Studio premium de mockups 3D para personalizados. Incluso na Biblioteca Click Gruda ou R$ 34,90 por ano. QR Code, WhatsApp, orçamento, PDF e Excel como bônus gratuitos.",
->>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
   keywords: [
     "ferramentas online grátis",
     "gerador de QR Code",
@@ -38,11 +34,7 @@ export const DEFAULT_SEO: SeoConfig = {
     "sublimação de canecas",
     "Click e Gruda",
   ],
-<<<<<<< HEAD
   siteUrl: "https://clicktools.vercel.app",
-=======
-  siteUrl: "https://clickgruda.vercel.app",
->>>>>>> dd48c880e81b5a15a4de967f18493b97849f8bcb
   ogImage: "/og/og-default.png",
   twitterCreator: "",
   gaId: "",
