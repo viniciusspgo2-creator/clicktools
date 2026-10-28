@@ -1,78 +1,87 @@
-/* ============================================================
-   POST /api/access/validate
-   Valida código de acesso PREMIUM (assinantes da Biblioteca de Artes).
-   Lógica:
-   - código inexistente/revogado → invalid
-   - expirado → expired
-   - dispositivo já vinculado → ok (retorno do cliente)
-   - sem vagas → limit
-   - nova ativação → vincula dispositivo e libera
-   ============================================================ */
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/admin-auth";
+import {
+  BROWSER_COOKIE,
+  browserToken,
+  hashToken,
+  newToken,
+} from "@/lib/premium-session";
 
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { rateLimit } from '@/lib/admin-auth';
-
-export const runtime = 'nodejs';
-
-function clientIp(req: Request): string {
-  return (
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    'local'
-  );
-}
-
+export const runtime = "nodejs";
 export async function POST(req: Request) {
-  let body: { code?: string; deviceId?: string };
+  let body: { code?: unknown };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, reason: 'invalid' }, { status: 400 });
+    return NextResponse.json({ ok: false, reason: "invalid" }, { status: 400 });
   }
-
-  const code = String(body.code ?? '').trim().toUpperCase();
-  const deviceId = String(body.deviceId ?? '').trim().slice(0, 80);
-
-  if (!code || !deviceId) {
-    return NextResponse.json({ ok: false, reason: 'invalid' }, { status: 400 });
-  }
-
-  if (!rateLimit(`gate:${deviceId}:${clientIp(req)}`, 30, 10 * 60_000)) {
-    return NextResponse.json(
-      { ok: false, reason: 'rate' },
-      { status: 429 },
-    );
-  }
-
-  const row = await db.accessCode.findUnique({
-    where: { code },
-    include: { uses: { where: { deviceId } } },
-  });
-
-  if (!row || !row.active) {
-    return NextResponse.json({ ok: false, reason: 'invalid' });
-  }
-  if (row.expiresAt && row.expiresAt.getTime() < Date.now()) {
-    return NextResponse.json({ ok: false, reason: 'expired' });
-  }
-
-  // dispositivo já ativou este código → acesso garantido
-  if (row.uses.length > 0) {
-    return NextResponse.json({ ok: true, plan: 'Biblioteca de Artes' });
-  }
-
-  const usesCount = await db.accessCodeUse.count({ where: { codeId: row.id } });
-  if (usesCount >= row.maxUses) {
-    return NextResponse.json({ ok: false, reason: 'limit' });
-  }
-
+  const code = String(body.code ?? "")
+    .trim()
+    .toUpperCase();
+  if (!code || code.length > 32)
+    return NextResponse.json({ ok: false, reason: "invalid" }, { status: 400 });
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  if (!rateLimit(`studio-login:${ip}`, 30, 10 * 60_000))
+    return NextResponse.json({ ok: false, reason: "rate" }, { status: 429 });
+  const browser = browserToken(req) ?? newToken();
+  const browserHash = hashToken(browser);
+  const sessionToken = newToken();
+  const now = new Date();
   try {
-    await db.accessCodeUse.create({ data: { codeId: row.id, deviceId } });
-  } catch {
-    /* corrida: outro dispositivo ocupou a última vaga */
-    return NextResponse.json({ ok: false, reason: 'limit' });
+    // Atomic browser claim also invalidates any previous session.
+    const result = await db.$transaction(async (tx) => {
+      const row = await tx.accessCode.findUnique({ where: { code } });
+      if (!row || !row.active) return { ok: false as const, reason: "invalid" };
+      if (row.expiresAt && row.expiresAt <= now)
+        return { ok: false as const, reason: "expired" };
+      const updated = await tx.accessCode.updateMany({
+        where: {
+          id: row.id,
+          active: true,
+          AND: [
+            { OR: [{ browserHash: null }, { browserHash }] },
+            { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+          ],
+        },
+        data: {
+          browserHash,
+          sessionHash: hashToken(sessionToken),
+          sessionExpiresAt: new Date(Date.now() + 12 * 3600_000),
+          maxUses: 1,
+        },
+      });
+      if (!updated.count) return { ok: false as const, reason: "browser" };
+      await tx.accessCodeUse.upsert({
+        where: { codeId_deviceId: { codeId: row.id, deviceId: browserHash } },
+        create: { codeId: row.id, deviceId: browserHash },
+        update: { usedAt: now },
+      });
+      return {
+        ok: true as const,
+        sessionToken,
+        clientName: row.clientName,
+        plan: row.clientType === "library" ? "Biblioteca Click Gruda" : "Anual",
+      };
+    });
+    const response = NextResponse.json(result, {
+      headers: { "Cache-Control": "no-store" },
+    });
+    if (result.ok)
+      response.cookies.set(BROWSER_COOKIE, browser, {
+        httpOnly: true,
+        sameSite: "strict",
+        secure: new URL(req.url).protocol === "https:",
+        path: "/",
+        maxAge: 365 * 86400,
+      });
+    return response;
+  } catch (error) {
+    console.error(
+      "Studio access unavailable",
+      error instanceof Error ? error.name : "unknown",
+    );
+    return NextResponse.json({ ok: false, reason: "network" }, { status: 503 });
   }
-
-  return NextResponse.json({ ok: true, plan: 'Biblioteca de Artes' });
 }

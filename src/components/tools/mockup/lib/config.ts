@@ -52,7 +52,7 @@ export interface PrintArea {
 
 /** limites físicos da parede impressível */
 /** A folha cobre toda a altura. A geometria limita a impressão à face externa:
- * chanfro inferior incluído; lábio arredondado, interior e apoio ficam limpos. */
+ * chanfro inferior e metade externa do lábio incluídos; interior e apoio limpos. */
 export const PRINT_BOTTOM_MIN = 0;
 export const PRINT_TOP_MAX = MUG.height;
 /** vão mínimo escondido atrás da alça (cm) — mesmo no modo forno */
@@ -70,7 +70,7 @@ export const AREA_PRESETS: { id: AreaMode; label: string; desc: string }[] = [
   {
     id: "alta",
     label: "Altura cheia",
-    desc: "Toda a parede externa até o limite do lábio, sem faixa branca no pé",
+    desc: "Parede e borda externa até o topo, sem faixa branca",
   },
   {
     id: "forno",

@@ -659,7 +659,9 @@ export function MugPanel() {
         <ColorRow
           label="Cor da alça e interior"
           value={mug.accentColor}
-          onChange={(v) => patch("mug", { accentColor: v, handleColor: v, interiorColor: v })}
+          onChange={(v) =>
+            patch("mug", { accentColor: v, handleColor: v, interiorColor: v })
+          }
         />
       )}
       {isMagic && (
@@ -1373,10 +1375,24 @@ export function LightPanel() {
         format={(v) => `${Math.round(v)}%`}
       />
       <Section title="Sombras" icon={Lightbulb} defaultOpen>
-        <SliderRow label="Intensidade da sombra" min={0} max={100} value={(light.shadowOpacity ?? 0.44)*100}
-          defaultValue={44} onChange={v => patch("light", {shadowOpacity: v/100})} format={v=>`${Math.round(v)}%`}/>
-        <ColorRow label="Cor da sombra" value={light.shadowColor ?? "#292520"} onChange={v => patch("light", {shadowColor:v})}/>
-        <p className="text-xs text-neutral-500">A sombra acompanha a peça também ao exportar imagem e vídeo, quando habilitada na cena.</p>
+        <SliderRow
+          label="Intensidade da sombra"
+          min={0}
+          max={100}
+          value={(light.shadowOpacity ?? 0.44) * 100}
+          defaultValue={44}
+          onChange={(v) => patch("light", { shadowOpacity: v / 100 })}
+          format={(v) => `${Math.round(v)}%`}
+        />
+        <ColorRow
+          label="Cor da sombra"
+          value={light.shadowColor ?? "#292520"}
+          onChange={(v) => patch("light", { shadowColor: v })}
+        />
+        <p className="text-xs text-neutral-500">
+          A sombra acompanha a peça também ao exportar imagem e vídeo, quando
+          habilitada na cena.
+        </p>
       </Section>
       <SliderRow
         label="Reflexos do estúdio"
@@ -1424,10 +1440,16 @@ export function CameraPanel() {
         {CAMERA_PRESETS.map((p) => (
           <MiniButton
             key={p.id}
-            onClick={() => applyPreset({ ...p,
-              // Legacy camera distances were composed with a 50 mm lens.
-              pos: p.pos.map((v, i) => p.target[i] + (v - p.target[i]) * camera.lens / 50) as [number, number, number],
-            })}
+            onClick={() =>
+              applyPreset({
+                ...p,
+                // Legacy camera distances were composed with a 50 mm lens.
+                pos: p.pos.map(
+                  (v, i) =>
+                    p.target[i] + ((v - p.target[i]) * camera.lens) / 50,
+                ) as [number, number, number],
+              })
+            }
             className="!px-1 !text-[10px]"
             title={`Ver a caneca de: ${p.label}`}
           >
@@ -1463,27 +1485,53 @@ export function CameraPanel() {
         checked={camera.autoRotate}
         onChange={(v) => patch("camera", { autoRotate: v })}
       />
-      {camera.autoRotate && <>
-        <Segmented label="Sentido" value={camera.direction ?? "right"}
-          options={[{value:"right", label:"Direita"},{value:"left",label:"Esquerda"},{value:"pingpong",label:"Vai e volta"}]}
-          onChange={direction => patch("camera", {direction})}/>
-        <SliderRow label="Segundos por volta" min={3} max={20} step={1}
-          value={camera.secondsPerTurn ?? 8} defaultValue={8}
-          onChange={secondsPerTurn => patch("camera", {secondsPerTurn})}
-          format={v => `${Math.round(v)} s / volta`}/>
-        <div className="flex gap-2">{[4,6,10].map(seconds => <button key={seconds} type="button" className="rounded-lg border px-3 py-2 text-xs" onClick={() => patch("camera", {secondsPerTurn:seconds})}>{seconds}s</button>)}</div>
-        <Section title="Velocidade técnica" icon={Camera}>
-        <SliderRow
-          label="Velocidade do giro"
-          value={camera.autoRotateSpeed}
-          min={0.2}
-          max={6}
-          step={0.1}
-          onChange={(v) => patch("camera", { autoRotateSpeed: v })}
-          defaultValue={1.6}
-        />
-        </Section>
-      </>}
+      {camera.autoRotate && (
+        <>
+          <Segmented
+            label="Sentido"
+            value={camera.direction ?? "right"}
+            options={[
+              { value: "right", label: "Direita" },
+              { value: "left", label: "Esquerda" },
+              { value: "pingpong", label: "Vai e volta" },
+            ]}
+            onChange={(direction) => patch("camera", { direction })}
+          />
+          <SliderRow
+            label="Segundos por volta"
+            min={3}
+            max={20}
+            step={1}
+            value={camera.secondsPerTurn ?? 8}
+            defaultValue={8}
+            onChange={(secondsPerTurn) => patch("camera", { secondsPerTurn })}
+            format={(v) => `${Math.round(v)} s / volta`}
+          />
+          <div className="flex gap-2">
+            {[4, 6, 10].map((seconds) => (
+              <button
+                key={seconds}
+                type="button"
+                className="rounded-lg border px-3 py-2 text-xs"
+                onClick={() => patch("camera", { secondsPerTurn: seconds })}
+              >
+                {seconds}s
+              </button>
+            ))}
+          </div>
+          <Section title="Velocidade técnica" icon={Camera}>
+            <SliderRow
+              label="Velocidade do giro"
+              value={camera.autoRotateSpeed}
+              min={0.2}
+              max={6}
+              step={0.1}
+              onChange={(v) => patch("camera", { autoRotateSpeed: v })}
+              defaultValue={1.6}
+            />
+          </Section>
+        </>
+      )}
       <ToggleRow
         label="Guias de enquadramento"
         checked={showGuides}
@@ -1528,8 +1576,8 @@ export function ExportDialog() {
             <Download className="h-4 w-4 text-primary" /> Exportar
           </DialogTitle>
           <DialogDescription className="text-xs text-neutral-400">
-            Imagens em alta resolução, vídeo em MP4 ou WebM com ALFA, GIF animado, lote em ZIP e
-            a folha de sublimação.
+            Imagens em alta resolução, vídeo em MP4 ou WebM com ALFA, GIF
+            animado, lote em ZIP e a folha de sublimação.
           </DialogDescription>
         </DialogHeader>
 
@@ -1571,15 +1619,35 @@ function ImageTab() {
   const setOpen = useMockupStore((s) => s.setExportOpen);
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
-  const background = es.background ?? (es.transparent ? "transparent" : "scene");
-  const destination = es.dpi === 300 ? "print" : es.ratioId === "story" ? "story" :
-    es.ratioId === "sq" ? "social" : "custom";
+  const background =
+    es.background ?? (es.transparent ? "transparent" : "scene");
+  const destination =
+    es.dpi === 300
+      ? "print"
+      : es.ratioId === "story"
+        ? "story"
+        : es.ratioId === "sq"
+          ? "social"
+          : "custom";
   function chooseDestination(value: string) {
-    if (value === "print") setExport({ ratioId: "custom", customW: 3000, customH: 3000, scale: 1, format: "png", dpi: 300 });
-    else if (value === "custom") setExport({ ratioId: "custom", dpi: undefined });
-    else setExport({ ratioId: value === "story" ? "story" : "sq", scale: 1, dpi: undefined });
+    if (value === "print")
+      setExport({
+        ratioId: "custom",
+        customW: 3000,
+        customH: 3000,
+        scale: 1,
+        format: "png",
+        dpi: 300,
+      });
+    else if (value === "custom")
+      setExport({ ratioId: "custom", dpi: undefined });
+    else
+      setExport({
+        ratioId: value === "story" ? "story" : "sq",
+        scale: 1,
+        dpi: undefined,
+      });
   }
-
 
   const ratio = EXPORT_RATIOS.find((r) => r.id === es.ratioId);
   const width =
@@ -1618,7 +1686,7 @@ function ImageTab() {
       setOpen(false);
       toast({
         title: "Imagem exportada!",
-        description: `${res.width} × ${res.height} · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB — ${es.dpi === 300 ? "300 DPI para impressão" : "pronta para compartilhar"}.`,
+        description: `${res.width} × ${res.height} · render ${res.supersample.toFixed(1)}× · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB — ${es.dpi === 300 ? "300 DPI para impressão" : "pronta para compartilhar"}.`,
       });
     } catch (e) {
       toast({
@@ -1639,127 +1707,180 @@ function ImageTab() {
   return (
     <div className="space-y-4">
       <div className="space-y-3 rounded-xl border border-primary/25 bg-primary/5 p-3">
-        <label className="block text-sm font-semibold" htmlFor="cg-export-purpose">Onde você vai usar?</label>
-        <select id="cg-export-purpose" value={destination} disabled={busy} onChange={e => chooseDestination(e.target.value)}
-          className="w-full rounded-lg border border-white/15 bg-[#252222] p-3 text-sm text-neutral-100">
+        <label
+          className="block text-sm font-semibold"
+          htmlFor="cg-export-purpose"
+        >
+          Onde você vai usar?
+        </label>
+        <select
+          id="cg-export-purpose"
+          value={destination}
+          disabled={busy}
+          onChange={(e) => chooseDestination(e.target.value)}
+          className="w-full rounded-lg border border-white/15 bg-[#252222] p-3 text-sm text-neutral-100"
+        >
           <option value="social">WhatsApp / Redes · quadrado 1:1</option>
           <option value="story">Stories / Reels · vertical 9:16</option>
           <option value="print">Alta resolução Print · 300 DPI</option>
           <option value="custom">Personalizado / outros formatos</option>
         </select>
         <p className="text-xs leading-relaxed text-neutral-400">
-          {destination === "print" ? "PNG de 3000 × 3000 px com resolução de 300 DPI gravada no arquivo (25,4 × 25,4 cm)." :
-            destination === "story" ? "Imagem vertical de 1080 × 1920 px para suas redes." :
-            destination === "social" ? "Imagem de 1080 × 1080 px para enviar ao cliente ou publicar." : "Abra os ajustes avançados para definir as medidas."}
+          {destination === "print"
+            ? "PNG de 3000 × 3000 px com resolução de 300 DPI gravada no arquivo (25,4 × 25,4 cm)."
+            : destination === "story"
+              ? "Imagem vertical de 1080 × 1920 px para suas redes."
+              : destination === "social"
+                ? "Imagem de 1080 × 1080 px para enviar ao cliente ou publicar."
+                : "Abra os ajustes avançados para definir as medidas."}
         </p>
       </div>
-      <Segmented label="Fundo da imagem" value={background}
-        options={[{ value: "scene", label: "Cenário atual" }, { value: "white", label: "Branco" }, { value: "transparent", label: "Transparente" }]}
-        onChange={value => setExport({ background: value, transparent: value === "transparent",
-          ...(value === "transparent" ? { format: "png" as const } : {}) })} />
-      <Section key={destination === "custom" ? "custom" : "preset"} title="Avançado: tamanho e formato" icon={Settings2} defaultOpen={destination === "custom"}>
-      <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
-          Proporção
-        </p>
-        <div className="grid grid-cols-3 gap-1.5">
-          {[...EXPORT_RATIOS, { id: "custom", label: "Personalizado", w: es.customW, h: es.customH }].map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setExport({ ratioId: r.id, dpi: undefined })}
-              className={cn(
-                "rounded-lg border px-2 py-2 text-[10px] font-bold transition-all",
-                es.ratioId === r.id
-                  ? "border-primary/60 bg-primary/15 text-primary"
-                  : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
-              )}
-            >
-              {r.label}
-              <span className="block text-[9px] font-normal opacity-70">
-                {r.w}×{r.h}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {es.ratioId === "custom" && (
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <p className="mb-1 text-[11px] text-neutral-400">Largura (px)</p>
-            <input
-              type="number"
-              value={es.customW}
-              min={200}
-              max={MAX_EXPORT_PX}
-              onChange={(e) =>
-                setExport({
-                  customW: Math.max(
-                    200,
-                    Math.min(MAX_EXPORT_PX, +e.target.value || 1080),
-                  ),
-                })
-              }
-              className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
-            />
-          </div>
-          <div>
-            <p className="mb-1 text-[11px] text-neutral-400">Altura (px)</p>
-            <input
-              type="number"
-              value={es.customH}
-              min={200}
-              max={MAX_EXPORT_PX}
-              onChange={(e) =>
-                setExport({
-                  customH: Math.max(
-                    200,
-                    Math.min(MAX_EXPORT_PX, +e.target.value || 1080),
-                  ),
-                })
-              }
-              className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
-            />
+      <Segmented
+        label="Fundo da imagem"
+        value={background}
+        options={[
+          { value: "scene", label: "Cenário atual" },
+          { value: "white", label: "Branco" },
+          { value: "transparent", label: "Transparente" },
+        ]}
+        onChange={(value) =>
+          setExport({
+            background: value,
+            transparent: value === "transparent",
+            ...(value === "transparent" ? { format: "png" as const } : {}),
+          })
+        }
+      />
+      <Section
+        key={destination === "custom" ? "custom" : "preset"}
+        title="Avançado: tamanho e formato"
+        icon={Settings2}
+        defaultOpen={destination === "custom"}
+      >
+        <div>
+          <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+            Proporção
+          </p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[
+              ...EXPORT_RATIOS,
+              {
+                id: "custom",
+                label: "Personalizado",
+                w: es.customW,
+                h: es.customH,
+              },
+            ].map((r) => (
+              <button
+                key={r.id}
+                onClick={() => setExport({ ratioId: r.id, dpi: undefined })}
+                className={cn(
+                  "rounded-lg border px-2 py-2 text-[10px] font-bold transition-all",
+                  es.ratioId === r.id
+                    ? "border-primary/60 bg-primary/15 text-primary"
+                    : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
+                )}
+              >
+                {r.label}
+                <span className="block text-[9px] font-normal opacity-70">
+                  {r.w}×{r.h}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
-      )}
 
-      <Segmented
-        label="Qualidade / escala"
-        value={String(es.scale)}
-        options={[
-          { value: "1", label: "1×" },
-          { value: "2", label: "2× HD" },
-          { value: "3", label: "3×" },
-          { value: "4", label: "4×" },
-        ]}
-        onChange={(v) => setExport({ scale: Number(v) as 1 | 2 | 3 | 4 })}
-      />
+        {es.ratioId === "custom" && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="mb-1 text-[11px] text-neutral-400">Largura (px)</p>
+              <input
+                type="number"
+                value={es.customW}
+                aria-label="Largura da imagem em pixels"
+                min={200}
+                max={MAX_EXPORT_PX}
+                onChange={(e) =>
+                  setExport({
+                    customW: Math.max(
+                      200,
+                      Math.min(MAX_EXPORT_PX, +e.target.value || 1080),
+                    ),
+                  })
+                }
+                className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-[11px] text-neutral-400">Altura (px)</p>
+              <input
+                type="number"
+                value={es.customH}
+                aria-label="Altura da imagem em pixels"
+                min={200}
+                max={MAX_EXPORT_PX}
+                onChange={(e) =>
+                  setExport({
+                    customH: Math.max(
+                      200,
+                      Math.min(MAX_EXPORT_PX, +e.target.value || 1080),
+                    ),
+                  })
+                }
+                className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
+              />
+            </div>
+          </div>
+        )}
 
-      <Segmented
-        label="Formato"
-        value={es.format}
-        options={[
-          { value: "png", label: "PNG" },
-          { value: "jpeg", label: "JPG" },
-          { value: "webp", label: "WebP" },
-        ]}
-        onChange={(v) => setExport({ format: v, ...(v === "jpeg" && background === "transparent" ?
-          { background: "white", transparent: false } : {}) , ...(v !== "png" ? { dpi: undefined } : {}) })}
-      />
-
-      {es.format !== "png" && (
-        <SliderRow
-          label="Compressão"
-          value={es.quality * 100}
-          min={50}
-          max={100}
-          onChange={(v) => setExport({ quality: v / 100 })}
-          defaultValue={92}
-          format={(v) => `${Math.round(v)}%`}
+        <Segmented
+          label="Qualidade / escala"
+          value={String(es.scale)}
+          options={[
+            { value: "1", label: "1×" },
+            { value: "2", label: "2× HD" },
+            { value: "3", label: "3×" },
+            { value: "4", label: "4×" },
+          ]}
+          onChange={(v) => setExport({ scale: Number(v) as 1 | 2 | 3 | 4 })}
         />
-      )}
 
+        <Segmented
+          label="Formato"
+          value={es.format}
+          options={[
+            { value: "png", label: "PNG" },
+            { value: "jpeg", label: "JPG" },
+            { value: "webp", label: "WebP" },
+          ]}
+          onChange={(v) =>
+            setExport({
+              format: v,
+              ...(v === "jpeg" && background === "transparent"
+                ? { background: "white", transparent: false }
+                : {}),
+              ...(v !== "png" ? { dpi: undefined } : {}),
+            })
+          }
+        />
+
+        <p className="text-[11px] leading-relaxed text-neutral-400">
+          PNG é sem perda de qualidade. A resolução define o detalhe; DPI define
+          o tamanho de impressão. O render usa até 4× de suavização (até 2× com
+          efeitos), conforme a memória e a GPU. O arquivo mantém os pixels
+          escolhidos.
+        </p>
+        {es.format !== "png" && (
+          <SliderRow
+            label="Compressão"
+            value={es.quality * 100}
+            min={50}
+            max={100}
+            onChange={(v) => setExport({ quality: v / 100 })}
+            defaultValue={92}
+            format={(v) => `${Math.round(v)}%`}
+          />
+        )}
       </Section>
 
       <Section title="Marca d’água" icon={Eye}>
@@ -1964,15 +2085,15 @@ function VideoTab() {
       {video.transparent && (
         <p className="text-[11px] leading-relaxed text-neutral-400">
           Exporta em WebM com canal alfa, sem o fundo da cena. Mantém a peça e
-          as sombras transparentes para sobrepor em outras composições.
-          Efeitos de tela inteira ficam desativados nesta exportação.
-          Use um editor que aceite WebM com alfa; alguns players exibem o fundo preto.
+          as sombras transparentes para sobrepor em outras composições. Efeitos
+          de tela inteira ficam desativados nesta exportação. Use um editor que
+          aceite WebM com alfa; alguns players exibem o fundo preto.
         </p>
       )}
       {bg.type === "transparent" && !video.transparent && (
         <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
-          <TriangleAlert className="h-3.5 w-3.5" /> Ative ALFA para preservar
-          o fundo transparente. No vídeo normal, ele sai preto.
+          <TriangleAlert className="h-3.5 w-3.5" /> Ative ALFA para preservar o
+          fundo transparente. No vídeo normal, ele sai preto.
         </p>
       )}
 
@@ -1987,24 +2108,54 @@ function VideoTab() {
       />
 
       <div className="flex gap-2 flex-wrap">
-        {[5, 10, 15, 20].map(seconds => (
-          <button key={seconds} type="button" onClick={() => patch("video", { duration: seconds })}
-            className={`rounded-lg px-3 py-2 text-xs border ${video.duration === seconds ? "border-orange-500 bg-orange-100 text-orange-950" : "border-neutral-400/25"}`}>
+        {[5, 10, 15, 20].map((seconds) => (
+          <button
+            key={seconds}
+            type="button"
+            onClick={() => patch("video", { duration: seconds })}
+            className={`rounded-lg px-3 py-2 text-xs border ${video.duration === seconds ? "border-orange-500 bg-orange-100 text-orange-950" : "border-neutral-400/25"}`}
+          >
             {seconds}s
           </button>
         ))}
       </div>
-      <Segmented label="Qualidade" value={video.quality ?? "high"}
-        options={[{value:"fast",label:"Rápida"},{value:"high",label:"Alta"},{value:"ultra",label:"Ultra"}]}
-        onChange={quality => patch("video", {quality})}/>
-      {video.anim === "giro" && <>
-        <Segmented label="Sentido do giro" value={video.direction ?? "right"}
-          options={[{value:"right",label:"Direita"},{value:"left",label:"Esquerda"},{value:"pingpong",label:"Vai e volta"}]}
-          onChange={direction => patch("video", {direction})}/>
-        <Segmented label="Voltas" value={String(video.turns ?? 1)}
-          options={[{value:"0.5",label:"½"},{value:"1",label:"1"},{value:"2",label:"2"},{value:"3",label:"3"}]}
-          onChange={v => patch("video", {turns: Number(v) as 0.5|1|2|3})}/>
-      </>}
+      <Segmented
+        label="Qualidade"
+        value={video.quality ?? "high"}
+        options={[
+          { value: "fast", label: "Rápida" },
+          { value: "high", label: "Alta" },
+          { value: "ultra", label: "Ultra" },
+        ]}
+        onChange={(quality) => patch("video", { quality })}
+      />
+      {video.anim === "giro" && (
+        <>
+          <Segmented
+            label="Sentido do giro"
+            value={video.direction ?? "right"}
+            options={[
+              { value: "right", label: "Direita" },
+              { value: "left", label: "Esquerda" },
+              { value: "pingpong", label: "Vai e volta" },
+            ]}
+            onChange={(direction) => patch("video", { direction })}
+          />
+          <Segmented
+            label="Voltas"
+            value={String(video.turns ?? 1)}
+            options={[
+              { value: "0.5", label: "½" },
+              { value: "1", label: "1" },
+              { value: "2", label: "2" },
+              { value: "3", label: "3" },
+            ]}
+            onChange={(v) =>
+              patch("video", { turns: Number(v) as 0.5 | 1 | 2 | 3 })
+            }
+          />
+        </>
+      )}
       <Segmented
         label="Quadros por segundo"
         value={String(video.fps)}
@@ -2041,14 +2192,36 @@ function VideoTab() {
         </div>
       </div>
 
-      <p className="text-xs font-semibold text-neutral-400">Tamanho previsto: cerca de {(() => {
-        const r = VIDEO_RESOLUTIONS[video.res] ?? VIDEO_RESOLUTIONS.wide;
-        const pixels = r.w * r.h;
-        const factor = video.quality === "ultra" ? 1.15 : video.quality === "fast" ? 0.42 : 0.72;
-        const rate = Math.min(110_000_000, Math.max(pixels>=3840*2160?60_000_000:pixels>=2560*1440?35_000_000:20_000_000,pixels*video.fps*factor));
-        return Math.round(rate * video.duration / 8_000_000);
-      })()} MB (estimativa para MP4; o resultado varia)</p>
-      <p className="text-xs text-neutral-500">4K e 60 fps usam mais memória. Se houver limite no navegador, escolha 2K ou Full HD. O resultado depende da resolução da arte enviada.</p>
+      <p className="text-xs font-semibold text-neutral-400">
+        Tamanho previsto: cerca de{" "}
+        {(() => {
+          const r = VIDEO_RESOLUTIONS[video.res] ?? VIDEO_RESOLUTIONS.wide;
+          const pixels = r.w * r.h;
+          const factor =
+            video.quality === "ultra"
+              ? 1.15
+              : video.quality === "fast"
+                ? 0.42
+                : 0.72;
+          const rate = Math.min(
+            110_000_000,
+            Math.max(
+              pixels >= 3840 * 2160
+                ? 60_000_000
+                : pixels >= 2560 * 1440
+                  ? 35_000_000
+                  : 20_000_000,
+              pixels * video.fps * factor,
+            ),
+          );
+          return Math.round((rate * video.duration) / 8_000_000);
+        })()}{" "}
+        MB (estimativa para MP4; o resultado varia)
+      </p>
+      <p className="text-xs text-neutral-500">
+        4K e 60 fps usam mais memória. Se houver limite no navegador, escolha 2K
+        ou Full HD. O resultado depende da resolução da arte enviada.
+      </p>
       <WatermarkBox wm={wm} patch={patch} />
 
       {busy && (
@@ -2058,7 +2231,15 @@ function VideoTab() {
         />
       )}
 
-      {busy && <button type="button" onClick={() => abortRef.current?.abort()} className="w-full rounded-lg border border-red-400/40 p-2 text-xs text-red-500">Cancelar exportação</button>}
+      {busy && (
+        <button
+          type="button"
+          onClick={() => abortRef.current?.abort()}
+          className="w-full rounded-lg border border-red-400/40 p-2 text-xs text-red-500"
+        >
+          Cancelar exportação
+        </button>
+      )}
       <PrimaryButton
         onClick={doExport}
         disabled={busy || (video.anim === "revelacao" && !isMagic)}
@@ -2069,7 +2250,11 @@ function VideoTab() {
         ) : (
           <Sparkles className="h-4 w-4" />
         )}
-        {busy ? "Gravando…" : video.transparent ? "Gerar WebM com ALFA" : "Gerar vídeo"}
+        {busy
+          ? "Gravando…"
+          : video.transparent
+            ? "Gerar WebM com ALFA"
+            : "Gerar vídeo"}
       </PrimaryButton>
       <p className="text-center text-[10px] text-neutral-500">
         {video.transparent

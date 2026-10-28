@@ -3,6 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useMockupStore } from "./state/store";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { saveCurrentProject } from "./ui/projects-dialog";
+import { useToast } from "@/hooks/use-toast";
 import { Workspace } from "./ui/workspace";
 import { ExportDialog } from "./ui/panels";
 import {
@@ -22,6 +30,8 @@ const StudioCanvas = dynamic(() => import("./scene/studio-scene"), {
   ),
 });
 export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
+  const { toast } = useToast();
+  const [shortcuts, setShortcuts] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const restored = useRef(false);
   const [error, setError] = useState("");
@@ -66,6 +76,7 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
     return () => {
       clearInterval(timer);
       window.removeEventListener("pagehide", save);
+      autosaveSession().catch(() => {});
     };
   }, []);
   useEffect(() => {
@@ -91,6 +102,27 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
       if (s.exportOpen || s.projectsOpen) return;
       const mod = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
+      if (mod && k === "s") {
+        e.preventDefault();
+        void saveCurrentProject("working-project", s.projectName)
+          .then(() => toast({ title: "Projeto salvo neste dispositivo" }))
+          .catch(() =>
+            toast({
+              title: "Não foi possível salvar o projeto",
+              variant: "destructive",
+            }),
+          );
+        return;
+      }
+      if (mod && e.shiftKey && k === "e") {
+        e.preventDefault();
+        s.setExportOpen(true);
+        return;
+      }
+      if (k === "?") {
+        setShortcuts(true);
+        return;
+      }
       if (mod && k === "z") {
         e.preventDefault();
         if (e.shiftKey) s.redo();
@@ -156,7 +188,7 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
   }, []);
   const viewport = (
     <div className="relative h-full w-full">
-      <StudioCanvas />
+      <StudioCanvas paused={shortcuts} />
       {st.showGuides && (
         <div className="pointer-events-none absolute inset-0 z-10 grid grid-cols-3 grid-rows-3">
           {Array.from({ length: 9 }, (_, i) => (
@@ -215,7 +247,43 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
           e.target.value = "";
         }}
       />
-      <Workspace viewport={viewport} onUpload={() => input.current?.click()} />
+      <Workspace
+        viewport={viewport}
+        onUpload={() => input.current?.click()}
+        onShortcuts={() => setShortcuts(true)}
+      />
+      <Dialog open={shortcuts} onOpenChange={setShortcuts}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Seu Studio, mais rápido</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-3 text-sm">
+            {[
+              ["Desfazer / refazer", "Ctrl Z / Ctrl Shift Z"],
+              ["Salvar projeto no dispositivo", "Ctrl S"],
+              ["Abrir exportação", "Ctrl Shift E"],
+              ["Duplicar seleção", "Ctrl D"],
+              ["Colar estampa", "Ctrl V"],
+              ["Mover / girar / escala", "G / E / S"],
+              ["Ajustar arte / mover cenário", "A / H"],
+              ["Enquadrar tudo", "F"],
+              ["Girar 45°", "R"],
+              ["Iniciar / pausar giro", "Espaço"],
+              ["Mover com precisão", "Setas · Shift: passo maior"],
+              ["Ajuda de atalhos", "?"],
+            ].map(([label, key]) => (
+              <div key={key} className="contents">
+                <span>{label}</span>
+                <kbd className="text-xs text-orange-400">{key}</kbd>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            No Mac, use ⌘ no lugar de Ctrl. Os atalhos ficam suspensos enquanto
+            você digita em campos.
+          </p>
+        </DialogContent>
+      </Dialog>
       <ExportDialog />
       <ProjectsDialog />
     </div>

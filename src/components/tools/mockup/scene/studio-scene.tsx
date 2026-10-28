@@ -64,7 +64,8 @@ function SceneContent() {
   );
 }
 
-export default function StudioCanvas() {
+export default function StudioCanvas({ paused = false }: { paused?: boolean }) {
+  const dialogOpen = useMockupStore((s) => s.exportOpen || s.projectsOpen);
   const [contextLost, setContextLost] = useState(false);
 
   return (
@@ -72,7 +73,7 @@ export default function StudioCanvas() {
       <Canvas
         shadows
         dpr={[1, detectMobile() ? 1.5 : 2]}
-        frameloop="always"
+        frameloop={paused || dialogOpen ? "demand" : "always"}
         camera={{
           position: [0, 14, 67],
           fov: lensToFov(85),

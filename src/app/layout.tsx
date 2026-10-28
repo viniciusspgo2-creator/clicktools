@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import "@/components/site/studio-home.css";
 import { Toaster } from "@/components/ui/toaster";
 import { PageTracker } from "@/components/site/page-tracker";
 import { getSeoConfig } from "@/lib/site-config";
@@ -23,7 +24,7 @@ const display = Space_Grotesk({
 
 export async function generateMetadata(): Promise<Metadata> {
   const seo = await getSeoConfig();
-  const base = seo.siteUrl || "https://clickgruda.vercel.app";
+  const base = seo.siteUrl || "https://clicktools.vercel.app";
 
   return {
     metadataBase: new URL(base),
@@ -63,7 +64,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const seo = await getSeoConfig();
-  const base = (seo.siteUrl || "https://clickgruda.vercel.app").replace(/\/+$/, "");
+  const base = (seo.siteUrl || "https://clicktools.vercel.app").replace(/\/+$/, "");
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -84,14 +85,12 @@ export default async function RootLayout({
         alternateName: "Click e Gruda",
         url: base,
         description:
-          "Suíte brasileira de ferramentas online gratuitas para quem trabalha com personalização e sublimação de canecas: QR Code, WhatsApp, orçamentos, contratos, PDF, imagens e Mockup 3D.",
+          "Studio Mockup 3D para canecas, incluso para assinantes da Biblioteca de Artes Click & Gruda. Acesso avulso de 24 horas e cinco ferramentas bônus gratuitas.",
         logo: { "@type": "ImageObject", url: `${base}${seo.ogImage}` },
         sameAs: [
-          "https://clickgruda.vercel.app/",
+          "https://www.clickgruda.com.br/",
           "https://www.instagram.com/clickgruda.digital",
-          "https://www.instagram.com/playmedia.hub",
           "https://wa.me/62998387816",
-          "https://clickgruda.com.br/",
         ],
         contactPoint: {
           "@type": "ContactPoint",
