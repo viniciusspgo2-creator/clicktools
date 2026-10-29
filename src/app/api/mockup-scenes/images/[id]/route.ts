@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-auth";
+import { MOCKUP_SCENES_ENABLED } from "@/lib/features";
 export const runtime = "nodejs";
 export async function GET(
   req: Request,
@@ -11,6 +12,7 @@ export async function GET(
   try {
     const admin = requireAdmin(req),
       thumb = new URL(req.url).searchParams.get("thumb") === "1";
+    if (!MOCKUP_SCENES_ENABLED && !admin) return new Response(null,{status:404});
     const row = await db.mockupSceneItem.findFirst({
       where: { id, ...(admin ? {} : { status: "published" }) },
       select: {

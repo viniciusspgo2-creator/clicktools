@@ -1,5 +1,7 @@
 # Mockup de Cenários — 29/10/2026
 
+**Status: pausado por solicitação do proprietário.** O código e os dados foram preservados, mas os links e acessos públicos estão desativados por `MOCKUP_SCENES_ENABLED = false` em `src/lib/features.ts`. A reativação será feita quando o módulo estiver pronto, sem agendamento automático.
+
 Área independente do Studio 3D. O editor estático recebe uma arte pronta, aplica em canecas preparadas e monta a apresentação. Não gera nem modifica o arquivo original da arte.
 
 ## Entradas

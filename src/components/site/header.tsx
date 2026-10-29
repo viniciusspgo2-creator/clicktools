@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, ArrowUpRight, Menu, X } from "lucide-react";
 import { LIBRARY_URL } from "@/lib/studio-links";
+import { MOCKUP_SCENES_ENABLED } from "@/lib/features";
 
 const nav = [
   { href: "/#inicio", label: "Início" },
   { href: "/#biblioteca", label: "Biblioteca de Artes" },
   { href: "/#studio", label: "Studio 3D" },
-  { href: "/mockup-cenarios", label: "Mockup de Cenários" },
+  ...(MOCKUP_SCENES_ENABLED ? [{ href: "/mockup-cenarios", label: "Mockup de Cenários" }] : []),
   { href: "/blog", label: "Blog" },
   { href: "/bonus", label: "Bônus grátis" },
   { href: "/#acessos", label: "Seu acesso" },

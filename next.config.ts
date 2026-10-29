@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { MOCKUP_SCENES_ENABLED } from "./src/lib/features";
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -17,6 +18,12 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  async redirects() {
+    return [
+      { source: "/mockup-caneca-3d", destination: "/", permanent: true },
+      ...(!MOCKUP_SCENES_ENABLED ? [{source:"/mockup-cenarios/:path*",destination:"/",permanent:false}] : []),
+    ];
+  },
   async headers() {
     return [
       {

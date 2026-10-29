@@ -13,7 +13,7 @@ export async function GET() {
 O produto principal é o Studio Mockup 3D para personalizados e sublimação. O acesso avulso custa R$ 12,90 por 24 horas, com criação de quantos mockups desejar durante esse período. A Biblioteca tem oferta vitalícia de R$ 47,90 e inclui o Studio. Assinantes da Biblioteca Click Gruda têm acesso gratuito mediante código. Pagamento, confirmação da assinatura e liberação são feitos pelo suporte no WhatsApp. O código é pessoal, vinculado a um navegador, com uma sessão ativa.
 
 - Studio: ${base}/mockup-caneca-3d/studio
-- Guia: ${base}/mockup-caneca-3d
+- Apresentação do Studio: ${base}/#studio
 - Biblioteca Studio 3D: ${LIBRARY_URL}
 - Suporte: ${SUPPORT_URL}
 - Conteúdo completo dos artigos: ${base}/llms-full.txt
