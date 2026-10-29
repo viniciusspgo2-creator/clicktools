@@ -50,6 +50,7 @@ import {
   Instagram,
   Search,
   MoreHorizontal,
+  BookOpen,
 } from "lucide-react";
 import { useMockupStore, type MugState, type ArtState } from "../state/store";
 import { useToolsStore } from "@/lib/tools-store";
@@ -61,6 +62,7 @@ import {
   ScenePanel,
 } from "./panels";
 import { FXPanel, MultiMugPanel } from "./panels-extra";
+import { HandleControls } from "./handle-controls";
 import { Section, ColorRow, SliderRow, ToggleRow } from "./controls";
 import { MODELS } from "../scene/model-geometry";
 import { CAMERA_PRESETS, FLOOR_OPTIONS, LIGHT_PRESETS } from "../lib/config";
@@ -81,6 +83,9 @@ import {
   CeramicPalette,
 } from "./quick-controls";
 import { CeramicFinishControls } from "./ceramic-finish-controls";
+import { PieceEditor, PieceSwitcher } from "./piece-editor";
+import { StudioGuide, type GuideAction } from "./guide-panel";
+import { ArtAssistant } from "./art-assistant";
 import "./workspace.css";
 
 type Tab =
@@ -134,10 +139,12 @@ export function Workspace({
   viewport,
   onUpload,
   onShortcuts,
+  onGuideOpenChange,
 }: {
   viewport: ReactNode;
   onUpload: () => void;
   onShortcuts: () => void;
+  onGuideOpenChange?: (open: boolean) => void;
 }) {
   const st = useMockupStore();
   const [tab, setTab] = useState<Tab>("arts");
@@ -150,6 +157,8 @@ export function Workspace({
   const [drawer, setDrawer] = useState<"library" | "properties" | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  ReactUseEffect(() => { onGuideOpenChange?.(guideOpen); }, [guideOpen, onGuideOpenChange]);
   const active = st.selectedIds[0] ?? "hero";
   const selected =
     active === "hero" ? st.mug : st.companions.find((c) => c.id === active);
@@ -203,7 +212,16 @@ export function Workspace({
     }
   }
   function patchArt(p: Partial<ArtState>) {
+    if (st.compareArt) st.setCompare(false);
     st.patchObjectArt(active, p);
+  }
+  function openGuideAction(action: GuideAction) {
+    if (action === "upload") { onUpload(); return; }
+    if (action === "export") { st.setExportOpen(true); return; }
+    if (action === "move") { st.setTool("move"); setDrawer(null); return; }
+    if (action === "light" || action === "compose") { setTab(action); setDrawer("library"); return; }
+    setDrawer("properties");
+    requestAnimationFrame(() => document.getElementById(action === "finish" ? "cg-finish-section" : "cg-art-section")?.scrollIntoView({ block: "start", behavior: "smooth" }));
   }
   return (
     <div className={`cg-workspace ${light ? "cg-light" : "cg-dark"}`}>
@@ -293,6 +311,7 @@ export function Workspace({
           <Facebook />
         </a>
         <div className="cg-header-actions">
+          <ToolButton label="Guia do Studio" onClick={() => setGuideOpen(true)}><BookOpen /></ToolButton>
           <ToolButton
             label="Buscar ajustes · Ctrl+K"
             onClick={() => setSearchOpen(true)}
@@ -336,6 +355,7 @@ export function Workspace({
             <MoreHorizontal />
           </summary>
           <div>
+            <button type="button" onClick={(e) => { setGuideOpen(true); e.currentTarget.closest("details")?.removeAttribute("open"); }}><BookOpen />Guia do Studio</button>
             <button
               type="button"
               onClick={(e) => {
@@ -452,11 +472,12 @@ export function Workspace({
               <X />
             </button>
           </div>
+          <PieceEditor onUpload={onUpload} />
           {tab === "arts" && (
             <>
               <button className="cg-upload" onClick={onUpload}>
                 <Upload />
-                <strong>Adicionar arte</strong>
+                <strong>{art.imageId ? "Trocar arte" : "Adicionar arte"} · {selected?.name || "Caneca selecionada"}</strong>
                 <span>Arraste um arquivo ou cole com Ctrl+V</span>
               </button>
               <div className="cg-asset-preview">
@@ -470,9 +491,11 @@ export function Workspace({
               </div>
               <button
                 className="cg-secondary"
+                disabled={!!selected?.locked}
                 onClick={() => {
                   const e = makeSampleArt();
-                  st.patchObjectArt(active, {
+                  st.setArtImage({
+                    objectId: active,
                     imageId: e.id,
                     name: e.name,
                     width: e.naturalWidth,
@@ -585,6 +608,7 @@ export function Workspace({
               <p className="cg-hint">
                 Escolha a forma da peça selecionada. A arte acompanha a mudança.
               </p>
+              <HandleControls active={active} />
               <Section title="Cores prontas" icon={Palette} defaultOpen>
                 <div className="cg-preset-grid">
                   {[
@@ -888,6 +912,10 @@ export function Workspace({
             </ToolButton>
           </div>
           <div className="cg-viewport">{viewport}</div>
+          <PieceSwitcher onUpload={onUpload} />
+          {(st.tool === "move" || st.tool === "art") && <div className="cg-tool-hint" role="status">
+            {st.tool === "move" ? <><Move /><span>Arraste a caneca para posicionar.<small>Alt: sem encaixe · Escape: cancelar</small></span></> : <><ImagePlus /><span>Arraste sobre a caneca para mover a estampa.<small>Para mover a peça, use G.</small></span></>}
+          </div>}
           <div className="cg-canvas-label">
             <span className="cg-live-dot" />
             PRÉVIA 3D EM TEMPO REAL
@@ -944,12 +972,15 @@ export function Workspace({
           </div>
           {selected ? (
             <>
-              <QuickArtControls
+              {selected.locked && <div className="cg-locked-message"><Lock /><span>Esta peça está travada.</span><button type="button" onClick={() => st.patchObject(active, { locked: false })}>Destravar</button></div>}
+              <div id="cg-art-section"><QuickArtControls
                 active={active}
                 art={art}
                 locked={!!selected.locked}
-              />
+              /></div>
+              <ArtAssistant active={active} art={art} locked={!!selected.locked} onNotice={notify} />
               <CeramicPalette active={active} />
+              {tab !== "models" && <HandleControls active={active} />}
               <Section title="Poses prontas" icon={Move} defaultOpen>
                 <div className="cg-pills">
                   {[
@@ -960,6 +991,7 @@ export function Workspace({
                   ].map(([name, x, z]) => (
                     <button
                       key={name}
+                      disabled={!!selected.locked}
                       onClick={() =>
                         st.patchObject(active, {
                           tiltX: Number(x),
@@ -1020,6 +1052,7 @@ export function Workspace({
                           ][i]
                         }
                         type="number"
+                        disabled={!!selected.locked}
                         step={k === "scale" ? 0.05 : 0.5}
                         value={Number(
                           (selected[k] ?? (k === "scale" ? 1 : 0)).toFixed(2),
@@ -1035,9 +1068,10 @@ export function Workspace({
                   ))}
                 </div>
               </Section>
-              <Section title="Cerâmica e acabamento" icon={Coffee}>
+              <div id="cg-finish-section"><Section title="Cerâmica e acabamento" icon={Coffee} defaultOpen>
                 <ColorRow
                   label="Cor do corpo"
+                  disabled={!!selected.locked}
                   value={selected.bodyColor ?? "#ffffff"}
                   onChange={(bodyColor) =>
                     st.patchObject(active, { bodyColor })
@@ -1045,6 +1079,7 @@ export function Workspace({
                 />
                 <ColorRow
                   label="Cor da base"
+                  disabled={!!selected.locked}
                   value={selected.baseColor ?? selected.bodyColor ?? "#ffffff"}
                   onChange={(baseColor) =>
                     st.patchObject(active, { baseColor })
@@ -1052,6 +1087,7 @@ export function Workspace({
                 />
                 <ColorRow
                   label="Cor do interior"
+                  disabled={!!selected.locked}
                   value={selected.interiorColor ?? "#ffffff"}
                   onChange={(interiorColor) =>
                     st.patchObject(active, { interiorColor })
@@ -1059,6 +1095,7 @@ export function Workspace({
                 />
                 <ColorRow
                   label="Cor da alça"
+                  disabled={!!selected.locked}
                   value={selected.handleColor ?? "#ffffff"}
                   onChange={(handleColor) =>
                     st.patchObject(active, { handleColor })
@@ -1080,6 +1117,7 @@ export function Workspace({
                 />
                 <ToggleRow
                   label="Preservar cor da arte"
+                  disabled={!!selected.locked}
                   checked={selected.faithfulColor ?? true}
                   onChange={(faithfulColor) =>
                     st.patchObject(active, { faithfulColor })
@@ -1089,6 +1127,7 @@ export function Workspace({
                   {(["white", "accent", "magic"] as const).map((v, i) => (
                     <button
                       key={v}
+                      disabled={!!selected.locked}
                       className={selected.variant === v ? "is-active" : ""}
                       onClick={() => st.patchObject(active, { variant: v })}
                     >
@@ -1100,6 +1139,7 @@ export function Workspace({
                   <>
                     <SliderRow
                       label="Revelação térmica"
+                      disabled={!!selected.locked}
                       value={selected.magicHeat}
                       min={0}
                       max={1}
@@ -1111,8 +1151,10 @@ export function Workspace({
                     {active === "hero" && <MugPanel />}
                   </>
                 )}
-              </Section>
+              </Section></div>
               <Section title="Ajustes de cor da arte" icon={ImagePlus}>
+                <p className="cg-quick-hint">Ajusta a imagem aplicada. Para brilho da superfície, use Verniz de estúdio.</p>
+                {st.compareArt && <button type="button" className="cg-compare-banner" onClick={() => st.setCompare(false)}>Você está vendo a arte sem filtros. Voltar aos ajustes <ArrowLeft /></button>}
                 {(
                   [
                     "brightness",
@@ -1128,7 +1170,7 @@ export function Workspace({
                     key={k}
                     label={
                       [
-                        "Brilho",
+                        "Luminosidade da arte",
                         "Contraste",
                         "Saturação",
                         "Vibração",
@@ -1141,6 +1183,9 @@ export function Workspace({
                     max={1}
                     step={0.01}
                     value={art[k] ?? (k === "opacity" ? 1 : 0)}
+                    defaultValue={k === "opacity" ? 1 : 0}
+                    disabled={!!selected.locked}
+                    format={v => k === "opacity" || k === "sharpness" ? `${Math.round(v * 100)}%` : `${v > 0 ? "+" : ""}${Math.round(v * 100)}%`}
                     onChange={(v) => patchArt({ [k]: v })}
                   />
                 ))}
@@ -1150,10 +1195,12 @@ export function Workspace({
                   max={0.5}
                   step={0.01}
                   value={art.bleed ?? 0}
+                  defaultValue={0}
+                  disabled={!!selected.locked}
                   onChange={(bleed) => patchArt({ bleed })}
                 />
                 <div className="cg-pills">
-                  <button onClick={() => patchArt(NEUTRAL_ADJUSTMENTS)}>
+                  <button disabled={!!selected.locked} onClick={() => patchArt(NEUTRAL_ADJUSTMENTS)}>
                     Resetar ajustes
                   </button>
                   <button
@@ -1166,7 +1213,7 @@ export function Workspace({
               </Section>
               <Section title="Mais opções da arte" icon={ImagePlus}>
                 <PrintLayersPanel />
-                <ArtPanel />
+                <ArtPanel onUpload={onUpload} />
               </Section>
             </>
           ) : (
@@ -1292,11 +1339,9 @@ export function Workspace({
           {st.camera.autoRotate ? <Pause /> : <Play />}
           {st.camera.autoRotate ? "Pausar giro" : "Girar 360°"}
         </button>
-        <a className="cg-guide-status" href="/mockup-caneca-3d">
-          Ver guia rápido
-        </a>
+        <button type="button" className="cg-guide-status" onClick={() => setGuideOpen(true)}><BookOpen /> Guia do Studio</button>
         <span className="cg-shortcuts">
-          Shift + clique: seleção múltipla · Ctrl+D: duplicar · Delete: apagar ·
+          G: mover caneca · Shift + clique: seleção múltipla · Ctrl+D: duplicar ·
           Ctrl+Z: desfazer
         </span>
         <div>
@@ -1324,6 +1369,7 @@ export function Workspace({
           </button>
         </div>
       </footer>
+      <StudioGuide open={guideOpen} onOpenChange={setGuideOpen} onAction={openGuideAction} onShortcuts={onShortcuts} />
     </div>
   );
 }

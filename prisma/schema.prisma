@@ -32,6 +32,7 @@ model AccessCode {
   sessionHash      String?
   sessionExpiresAt DateTime?
   maxUses          Int             @default(1)
+  accessMode       String          @default("individual") // individual | universal
   active           Boolean         @default(true)
   expiresAt        DateTime?
   createdAt        DateTime        @default(now())
@@ -45,10 +46,14 @@ model AccessCodeUse {
   codeId   String
   code     AccessCode @relation(fields: [codeId], references: [id], onDelete: Cascade)
   deviceId String
-  usedAt   DateTime   @default(now())
+  usedAt           DateTime   @default(now())
+  createdAt        DateTime   @default(now())
+  sessionHash      String?
+  sessionExpiresAt DateTime?
 
   @@unique([codeId, deviceId])
   @@index([usedAt])
+  @@index([sessionHash])
 }
 
 /**

@@ -31,16 +31,23 @@ export async function POST(req: Request) {
     const oldToken = req.headers.get("authorization")!.replace(/^Bearer /, "");
     const sessionToken = newToken();
     const now = new Date();
-    const updated = await db.accessCode.updateMany({
-      where: {
-        browserHash: hashToken(browser),
-        sessionHash: hashToken(oldToken),
-        active: true,
-        sessionExpiresAt: { gt: now },
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-      },
-      data: { sessionHash: hashToken(sessionToken) },
-    });
+    const updated = access.accessMode === "universal"
+      ? await db.accessCodeUse.updateMany({
+          where: {
+            deviceId: hashToken(browser), sessionHash: hashToken(oldToken),
+            sessionExpiresAt: { gt: now },
+            code: { accessMode: "universal", active: true, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+          },
+          data: { sessionHash: hashToken(sessionToken) },
+        })
+      : await db.accessCode.updateMany({
+          where: {
+            browserHash: hashToken(browser), sessionHash: hashToken(oldToken),
+            active: true, sessionExpiresAt: { gt: now },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+          },
+          data: { sessionHash: hashToken(sessionToken) },
+        });
     return NextResponse.json(
       updated.count
         ? { ...access, sessionToken }
@@ -54,10 +61,12 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const browser = browserToken(req);
   const token = req.headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
-  if (browser && /^[a-f0-9]{64}$/.test(token))
-    await db.accessCode.updateMany({
-      where: { browserHash: hashToken(browser), sessionHash: hashToken(token) },
-      data: { sessionHash: null, sessionExpiresAt: null },
-    });
+  if (browser && /^[a-f0-9]{64}$/.test(token)) {
+    const [browserHash, sessionHash] = [hashToken(browser), hashToken(token)];
+    await db.$transaction([
+      db.accessCode.updateMany({ where: { browserHash, sessionHash }, data: { sessionHash: null, sessionExpiresAt: null } }),
+      db.accessCodeUse.updateMany({ where: { deviceId: browserHash, sessionHash }, data: { sessionHash: null, sessionExpiresAt: null } }),
+    ]);
+  }
   return NextResponse.json({ ok: true });
 }

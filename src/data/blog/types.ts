@@ -1,3 +1,5 @@
+import { LIBRARY_URL, DISCOVERY_SUPPORT_URL } from '../../lib/studio-links';
+
 /* ============================================================
    Tipos do blog do Click & Gruda — artigos SEO em pt-BR
    ============================================================ */
@@ -39,16 +41,16 @@ export interface BlogArticle {
 /** Links reais usados nos CTAs dos artigos */
 export const CTA_LINKS = {
   inicio: '/',
-  mockup: '/?tool=mockup',
-  qr: '/?tool=qr',
-  whatsapp: '/?tool=whatsapp',
-  orcamento: '/?tool=orcamento',
-  contrato: '/?tool=contrato',
-  pdf: '/?tool=pdf',
-  imagens: '/?tool=imagens',
-  ferramentas: '/?tool=extras',
+  mockup: '/mockup-caneca-3d/studio',
+  qr: '/bonus/qr',
+  whatsapp: '/bonus/whatsapp',
+  orcamento: '/bonus/orcamento',
+  contrato: '/bonus',
+  pdf: '/bonus/pdf',
+  imagens: '/bonus',
+  ferramentas: '/bonus',
   blog: '/blog',
-  biblioteca: 'https://clickgruda.vercel.app/',
-  tv: 'https://clickgruda.com.br/',
-  suporte: 'https://wa.me/62998387816',
+  biblioteca: LIBRARY_URL,
+  tv: LIBRARY_URL,
+  suporte: DISCOVERY_SUPPORT_URL,
 } as const;

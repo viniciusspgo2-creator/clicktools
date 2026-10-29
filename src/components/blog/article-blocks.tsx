@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import type { BlogBlock } from '@/data/blog';
+import { headingId, type BlogBlock } from '@/data/blog';
 
 export function ArticleBlocks({ blocks }: { blocks: BlogBlock[] }) {
   return (
@@ -15,7 +15,8 @@ export function ArticleBlocks({ blocks }: { blocks: BlogBlock[] }) {
             return (
               <h2
                 key={i}
-                className="font-display mt-10 flex items-start gap-3 text-xl font-bold leading-snug text-white sm:text-2xl"
+                id={headingId(b.text, i)}
+                className="font-display mt-10 flex scroll-mt-24 items-start gap-3 text-xl font-bold leading-snug text-white sm:text-2xl"
               >
                 <span className="mt-2 h-5 w-1.5 shrink-0 rounded-full bg-primary" />
                 {b.text}
@@ -24,7 +25,7 @@ export function ArticleBlocks({ blocks }: { blocks: BlogBlock[] }) {
 
           case 'h3':
             return (
-              <h3 key={i} className="font-display mt-7 text-lg font-semibold text-neutral-100">
+              <h3 key={i} id={headingId(b.text, i)} className="font-display mt-7 scroll-mt-24 text-lg font-semibold text-neutral-100">
                 {b.text}
               </h3>
             );

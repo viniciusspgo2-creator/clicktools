@@ -14,6 +14,7 @@ import {
   visibleMugBounds,
 } from "../scene/studio-refs";
 import { alignBackdrop } from "../scene/bg-image";
+import { isEditorOverlay } from "../scene/object-interaction";
 import { useMockupStore, type MugState } from "../state/store";
 import { renderArtCanvas, canvasHeightFor } from "../lib/art-canvas";
 import { CANVAS_W_EXPORT, resolvePrintArea } from "../lib/config";
@@ -278,11 +279,7 @@ export function beginFrames(
       }
     };
     scene.traverse((o) => {
-      if (
-        ["studio-gizmo", "selection-outline"].includes(o.name) ||
-        o.type === "TransformControlsRoot"
-      )
-        hide(o);
+      if (isEditorOverlay(o)) hide(o);
     });
     settleFloaters(scene);
     if (session.usingTransparent || session.usingWhite) {

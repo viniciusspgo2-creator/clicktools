@@ -1,423 +1,33 @@
-/* ============================================================
-   Painel Admin — login + Códigos de acesso + Visitas + SEO
-   ============================================================ */
-
 "use client";
-
-import { useEffect, useState } from "react";
-import {
-  BarChart3,
-  Check,
-  Eye,
-  EyeOff,
-  ExternalLink,
-  KeyRound,
-  Loader2,
-  LockKeyhole,
-  LogOut,
-  Settings,
-  ShieldCheck,
-  Users,
-  X,
-} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Activity, ArrowRight, BarChart3, Check, ChevronRight, ExternalLink, Eye, EyeOff, KeyRound, LayoutDashboard, Loader2, LockKeyhole, LogOut, RefreshCw, Settings, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { CodesPanel } from "./codes-panel";
-
-/* ---------------- tipos ---------------- */
-
-interface VisitStats {
-  total: number;
-  hoje: number;
-  ultimos7: number;
-  ultimos30: number;
-  sessoes7: number;
-  topPaginas: { path: string; visitas: number }[];
-  serie: { day: string; count: number }[];
+import { AdminDashboard } from "./dashboard";
+import "./admin.css";
+interface SeoForm { siteName:string; defaultTitle:string; titleTemplate:string; description:string; keywords:string; siteUrl:string; ogImage:string; twitterCreator:string; gaId:string }
+type Tab='overview'|'codigos'|'visitas'|'config';
+const inputCls='w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 focus:border-orange-400/60';
+const tabs=[{id:'overview',label:'Visão geral',icon:LayoutDashboard,description:'O essencial, sem perder os detalhes.'},{id:'codigos',label:'Códigos de acesso',icon:KeyRound,description:'Organize clientes e libere novas possibilidades.'},{id:'visitas',label:'Análise de tráfego',icon:BarChart3,description:'Transforme a navegação em informação.'},{id:'config',label:'Configurações',icon:Settings,description:'A identidade e a segurança da sua plataforma.'}]as const;
+export function AdminApp(){
+ const [authed,setAuthed]=useState<boolean|null>(null),[password,setPassword]=useState(''),[showPw,setShowPw]=useState(false),[loginBusy,setLoginBusy]=useState(false),[loginError,setLoginError]=useState(''),[tab,setTab]=useState<Tab>('overview'),[refresh,setRefresh]=useState(0);
+ const expire=useCallback(()=>setAuthed(false),[]);
+ useEffect(()=>{const abort=new AbortController();fetch('/api/admin/login',{cache:'no-store',signal:abort.signal}).then(r=>r.json()).then(d=>setAuthed(d.authed===true)).catch(()=>{if(!abort.signal.aborted)setAuthed(false)});return()=>abort.abort()},[]);
+ async function login(e:React.FormEvent){e.preventDefault();if(!password||loginBusy)return;setLoginBusy(true);setLoginError('');try{const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})}),d=await r.json();if(r.ok&&d.ok)setAuthed(true);else setLoginError(d.error||'Não foi possível entrar.')}catch{setLoginError('Falha de conexão. Tente novamente.')}finally{setLoginBusy(false);setPassword('')}}
+ async function logout(){try{const r=await fetch('/api/admin/login',{method:'DELETE'});if(!r.ok)throw new Error();setAuthed(false)}catch{setLoginError('Não foi possível encerrar a sessão. Tente novamente.')}}
+ if(authed===null)return <div className="cg-admin ad-session-loading"><Loader2 className="ad-spin"/><span>Preparando sua central…</span></div>;
+ if(!authed)return <div className="cg-admin ad-login"><div className="ad-login-art"><a className="ad-wordmark" href="/"><img src="/cg-home/logo-clickgruda.webp" width="158" height="40" alt="Click & Gruda"/><span>PAINEL DE CONTROLE</span></a><div className="ad-login-copy"><span className="ad-eyebrow">SEU TRABALHO MERECE UMA BOA VISÃO</span><h1>Crie possibilidades.<br/><em>Cuide de cada acesso.</em></h1><p>Acompanhe o movimento da plataforma, organize seus clientes e deixe a operação fluir.</p><div className="ad-login-orbit" aria-hidden="true"><span/><i><KeyRound size={42}/></i><b><ShieldCheck size={25}/></b><small><Activity size={23}/></small></div></div><span className="ad-login-foot">CLICK & GRUDA · STUDIO MOCKUP 3D</span></div><div className="ad-login-side"><form className="ad-login-card" onSubmit={login}><span className="ad-login-icon"><LockKeyhole size={25}/></span><span className="ad-eyebrow">ACESSO RESTRITO</span><h2>Bem-vindo à sua central.</h2><p>Entre com sua senha administrativa para continuar.</p><label htmlFor="admin-password">Senha do painel</label><div className="ad-password"><input id="admin-password" type={showPw?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password" autoFocus placeholder="Digite sua senha"/><button type="button" aria-label={showPw?'Ocultar senha':'Mostrar senha'} onClick={()=>setShowPw(!showPw)}>{showPw?<EyeOff size={18}/>:<Eye size={18}/>}</button></div>{loginError&&<div className="ad-error-banner" role="alert">{loginError}</div>}<button className="ad-primary" disabled={loginBusy||!password}>{loginBusy?<Loader2 className="ad-spin" size={17}/>:<ArrowRight size={17}/>}Entrar no painel</button><span className="ad-login-security"><ShieldCheck size={14}/>Sessão protegida e acesso administrativo.</span><a href="/">← Voltar para o site</a></form></div></div>;
+ const current=tabs.find(item=>item.id===tab)!;
+ return <div className="cg-admin ad-shell"><aside className="ad-sidebar"><a href="/" className="ad-wordmark"><img src="/cg-home/logo-clickgruda.webp" width="150" height="38" alt="Click & Gruda"/><span>CONTROL CENTER</span></a><div className="ad-workspace-badge"><span className="ad-workspace-icon"><Sparkles size={18}/></span><div><strong>Studio Mockup 3D</strong><span>Área administrativa</span></div><i/></div><span className="ad-nav-label">VISÃO & OPERAÇÃO</span><nav aria-label="Seções administrativas">{tabs.map(item=><button key={item.id} aria-current={tab===item.id?'page':undefined} onClick={()=>setTab(item.id)}><item.icon size={18}/><span>{item.label}</span>{tab===item.id&&<ChevronRight size={14}/>}</button>)}</nav><div className="ad-sidebar-bottom"><a href="/mockup-caneca-3d/studio"><ExternalLink size={16}/>Abrir Studio</a><a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={16}/>Visitar o site</a><div className="ad-secure-card"><ShieldCheck size={19}/><div><strong>Acesso administrativo</strong><p>Códigos e dados protegidos pela sua sessão.</p></div></div><button onClick={logout}><LogOut size={16}/>Encerrar sessão</button></div></aside>
+ <div className="ad-main"><header className="ad-main-header"><div><span className="ad-breadcrumb">Admin<ChevronRight size={12}/>{current.label}</span><strong>{current.description}</strong></div><div className="ad-header-actions"><button className="ad-icon-button" aria-label="Atualizar dados do painel" onClick={()=>setRefresh(v=>v+1)}><RefreshCw size={18}/></button><button className="ad-icon-button" aria-label="Encerrar sessão administrativa" onClick={logout}><LogOut size={17}/></button><span className="ad-header-divider"/><div className="ad-admin-profile"><span>CG</span><div><strong>Administrador</strong><small>Sessão protegida</small></div></div></div></header><main className="ad-main-content">{loginError&&<p className="ad-error-banner" role="alert">{loginError}</p>}{tab==='overview'&&<AdminDashboard refreshKey={refresh} onNavigate={()=>setTab('codigos')} onUnauthorized={expire}/>} {tab==='visitas'&&<AdminDashboard refreshKey={refresh} trafficOnly onNavigate={()=>setTab('codigos')} onUnauthorized={expire}/>} {tab==='codigos'&&<CodesPanel refreshKey={refresh} onUnauthorized={expire}/>} {tab==='config'&&<div className="ad-config" key={refresh}><div className="ad-page-intro"><div><span className="ad-eyebrow">IDENTIDADE & SEGURANÇA</span><h1>Os detalhes que sustentam o todo.</h1><p>Atualize a apresentação nos buscadores e mantenha seu acesso seguro.</p></div></div><ConfigTab onLogout={expire}/></div>}</main><footer className="ad-footer"><span>Click & Gruda · Central administrativa</span><span>Dados reais. Decisões mais claras.</span></footer></div></div>;
 }
-
-interface SeoForm {
-  siteName: string;
-  defaultTitle: string;
-  titleTemplate: string;
-  description: string;
-  keywords: string; // vírgulas
-  siteUrl: string;
-  ogImage: string;
-  twitterCreator: string;
-  gaId: string;
-}
-
-type Tab = "codigos" | "visitas" | "config";
-
-/* ---------------- helpers ---------------- */
-
-function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "2-digit",
-  });
-}
-
-const inputCls =
-  "w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 focus:border-primary/60";
-
-/* ============================================================ */
-
-export function AdminApp() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
-  const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [loginBusy, setLoginBusy] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("codigos");
-
-  /* sessão atual */
-  useEffect(() => {
-    fetch("/api/admin/login")
-      .then((r) => r.json())
-      .then((d: { authed: boolean }) => setAuthed(d.authed))
-      .catch(() => setAuthed(false));
-  }, []);
-
-  const login = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!password || loginBusy) return;
-    setLoginBusy(true);
-    setLoginError(null);
-    try {
-      const res = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      const data = (await res.json()) as { ok: boolean; error?: string };
-      if (data.ok) setAuthed(true);
-      else setLoginError(data.error ?? "Senha incorreta.");
-    } catch {
-      setLoginError("Falha de conexão. Tente novamente.");
-    } finally {
-      setLoginBusy(false);
-      setPassword("");
-    }
-  };
-
-  if (authed === null) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0908]">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!authed) {
-    return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0a0908] px-4">
-        <div className="pointer-events-none absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-primary/10 blur-[100px]" />
-        <div className="dot-grid-dark pointer-events-none absolute inset-0 opacity-30" />
-        <form
-          onSubmit={login}
-          className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-[#141110] p-7 shadow-2xl"
-        >
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-              <ShieldCheck className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="font-display text-lg font-bold text-white">
-                Painel Admin
-              </h1>
-              <p className="text-[11px] text-neutral-500">
-                Click &amp; Gruda Tools
-              </p>
-            </div>
-          </div>
-
-          <label
-            htmlFor="admin-pw"
-            className="mt-6 mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-neutral-400"
-          >
-            Senha do painel
-          </label>
-          <div className="relative">
-            <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
-            <input
-              id="admin-pw"
-              type={showPw ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={cn(inputCls, "py-2.5 pl-10 pr-10")}
-              placeholder="••••••••"
-              autoFocus
-            />
-            <button
-              type="button"
-              onClick={() => setShowPw((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 transition-colors hover:text-neutral-300"
-              aria-label={showPw ? "Ocultar senha" : "Mostrar senha"}
-            >
-              {showPw ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-
-          {loginError && (
-            <p
-              role="alert"
-              className="mt-3 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs text-red-300"
-            >
-              {loginError}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loginBusy || !password}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 font-display text-sm font-bold text-[#1d130d] transition-all hover:brightness-110 active:scale-95 disabled:opacity-40"
-          >
-            {loginBusy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <KeyRound className="h-4 w-4" />
-            )}
-            Entrar no painel
-          </button>
-
-          <a
-            href="/"
-            className="mt-4 block text-center text-[11px] text-neutral-600 transition-colors hover:text-neutral-400"
-          >
-            ← voltar para o site
-          </a>
-        </form>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[#0a0908] text-neutral-100">
-      {/* topbar */}
-      <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#0d0b0a]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-          <span className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
-              <ShieldCheck className="h-4 w-4" />
-            </span>
-            <span className="font-display text-sm font-bold">
-              Painel <span className="text-primary">Admin</span>
-            </span>
-          </span>
-
-          <nav
-            className="ml-auto flex items-center gap-1 rounded-full border border-white/10 bg-black/30 p-1"
-            aria-label="Seções"
-          >
-            {(
-              [
-                ["codigos", "Códigos", KeyRound],
-                ["visitas", "Visitas", BarChart3],
-                ["config", "SEO & Config", Settings],
-              ] as [Tab, string, React.ComponentType<{ className?: string }>][]
-            ).map(([id, label, Icon]) => (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition-all sm:px-4",
-                  tab === id
-                    ? "bg-primary text-[#1d130d]"
-                    : "text-neutral-400 hover:text-white",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" /> {label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-1">
-            <a
-              href="/"
-              className="hidden items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-[11px] font-bold text-neutral-400 transition-colors hover:text-white sm:flex"
-            >
-              <ExternalLink className="h-3 w-3" /> Ver site
-            </a>
-            <button
-              onClick={async () => {
-                await fetch("/api/admin/login", { method: "DELETE" });
-                setAuthed(false);
-              }}
-              className="flex items-center gap-1.5 rounded-full border border-red-500/25 px-3 py-1.5 text-[11px] font-bold text-red-400 transition-colors hover:bg-red-500/10"
-            >
-              <LogOut className="h-3 w-3" /> Sair
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        {tab === "codigos" && <CodesPanel />}
-        {tab === "visitas" && <VisitsTab />}
-        {tab === "config" && <ConfigTab onLogout={() => setAuthed(false)} />}
-      </main>
-    </div>
-  );
-}
-
-/* ================= ABA CÓDIGOS ================= */
-
-/* ================= ABA VISITAS ================= */
-
-function VisitsTab() {
-  const [stats, setStats] = useState<VisitStats | null>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/admin/visits")
-      .then((r) => r.json())
-      .then((d: { ok: boolean; stats?: VisitStats }) =>
-        d.ok && d.stats ? setStats(d.stats) : setError(true),
-      )
-      .catch(() => setError(true));
-  }, []);
-
-  if (error) {
-    return (
-      <p className="rounded-2xl border border-red-500/25 bg-red-500/10 p-5 text-sm text-red-300">
-        Não foi possível carregar as estatísticas.
-      </p>
-    );
-  }
-  if (!stats) {
-    return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  const max = Math.max(1, ...stats.serie.map((s) => s.count));
-
-  const cards = [
-    ["Hoje", stats.hoje],
-    ["Últimos 7 dias", stats.ultimos7],
-    ["Últimos 30 dias", stats.ultimos30],
-    ["Sessões (7d)", stats.sessoes7],
-    ["Total geral", stats.total],
-  ] as [string, number][];
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {cards.map(([label, value]) => (
-          <div
-            key={label}
-            className="rounded-2xl border border-white/10 bg-[#131010] p-4"
-          >
-            <p className="font-display text-2xl font-bold text-white">
-              {value.toLocaleString("pt-BR")}
-            </p>
-            <p className="text-[11px] text-neutral-500">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* gráfico 30 dias */}
-      <section
-        className="rounded-2xl border border-white/10 bg-[#131010] p-5"
-        aria-label="Visitas por dia"
-      >
-        <h2 className="font-display flex items-center gap-2 text-sm font-bold text-white">
-          <BarChart3 className="h-4 w-4 text-primary" /> Visitas por dia —
-          últimos 30 dias
-        </h2>
-        <div className="mt-5 flex h-40 items-end gap-[3px]">
-          {stats.serie.map((s) => (
-            <div
-              key={s.day}
-              className="group relative flex h-full flex-1 items-end"
-            >
-              <div
-                className={cn(
-                  "w-full rounded-t-[3px] transition-all",
-                  s.count > 0
-                    ? "bg-primary/70 group-hover:bg-primary"
-                    : "bg-white/5",
-                )}
-                style={{
-                  height: `${Math.max(s.count > 0 ? 6 : 2, (s.count / max) * 100)}%`,
-                }}
-              />
-              <span className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-black/90 px-2 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
-                {s.count} · {s.day.slice(8)}/{s.day.slice(5, 7)}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 flex justify-between text-[10px] text-neutral-600">
-          <span>
-            {stats.serie[0]?.day &&
-              `${stats.serie[0].day.slice(8)}/${stats.serie[0].day.slice(5, 7)}`}
-          </span>
-          <span>hoje</span>
-        </div>
-      </section>
-
-      {/* top páginas */}
-      <section
-        className="rounded-2xl border border-white/10 bg-[#131010] p-5"
-        aria-label="Páginas mais visitadas"
-      >
-        <h2 className="font-display flex items-center gap-2 text-sm font-bold text-white">
-          <Users className="h-4 w-4 text-primary" /> Páginas mais visitadas (30
-          dias)
-        </h2>
-        {stats.topPaginas.length === 0 ? (
-          <p className="py-6 text-center text-xs text-neutral-500">
-            Sem visitas registradas ainda — elas aparecem aqui conforme o site é
-            usado.
-          </p>
-        ) : (
-          <div className="mt-4 space-y-2">
-            {stats.topPaginas.map((p, i) => {
-              const maxPath = stats.topPaginas[0].visitas || 1;
-              return (
-                <div key={p.path} className="flex items-center gap-3">
-                  <span className="w-5 text-right text-[10px] font-bold text-neutral-600">
-                    {i + 1}
-                  </span>
-                  <span className="w-40 truncate font-mono text-[11px] text-neutral-300">
-                    {p.path}
-                  </span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-primary to-[#ffb488]"
-                      style={{ width: `${(p.visitas / maxPath) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-10 text-right text-[11px] font-bold text-neutral-200">
-                    {p.visitas}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
-/* ================= ABA SEO & CONFIG ================= */
 
 function ConfigTab({ onLogout }: { onLogout: () => void }) {
   const { toast } = useToast();
   const [form, setForm] = useState<SeoForm | null>(null);
   const [saving, setSaving] = useState(false);
+  const [configError, setConfigError] = useState(false);
 
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -432,10 +42,10 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
           ok: boolean;
           seo?: Omit<SeoForm, "keywords"> & { keywords: string[] };
         }) => {
-          if (d.ok && d.seo)
-            setForm({ ...d.seo, keywords: d.seo.keywords.join(", ") });
+          if (d.ok && d.seo) setForm({ ...d.seo, keywords: d.seo.keywords.join(", ") });
+          else setConfigError(true);
         },
-      );
+      ).catch(() => setConfigError(true));
   }, []);
 
   const saveSeo = async () => {
@@ -463,6 +73,8 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
             }
           : { title: data.error ?? "Falha ao salvar", variant: "destructive" },
       );
+    } catch {
+      toast({ title: "Falha de conexão ao salvar as configurações", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -496,11 +108,14 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
           variant: "destructive",
         });
       }
+    } catch {
+      toast({ title: "Falha de conexão ao alterar a senha", variant: "destructive" });
     } finally {
       setPwBusy(false);
     }
   };
 
+  if (configError) return <div className="ad-state ad-error" role="alert"><h2>Configurações indisponíveis</h2><p>Confira a conexão ou entre novamente. Use Atualizar dados do painel para tentar outra vez.</p></div>;
   if (!form) {
     return (
       <div className="flex justify-center py-16">

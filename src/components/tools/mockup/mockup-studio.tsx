@@ -18,7 +18,7 @@ import {
   autosaveSession,
   restoreLastSession,
 } from "./ui/projects-dialog";
-import { loadArtFile } from "./lib/art-registry";
+import { loadArtFile, removeArtImage } from "./lib/art-registry";
 import { loadBgFile } from "./lib/background-registry";
 import { setStudioPlan, type StudioPlan } from "./lib/entitlements";
 const StudioCanvas = dynamic(() => import("./scene/studio-scene"), {
@@ -32,7 +32,9 @@ const StudioCanvas = dynamic(() => import("./scene/studio-scene"), {
 export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
   const { toast } = useToast();
   const [shortcuts, setShortcuts] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const uploads = useRef(new Map<string, number>());
   const restored = useRef(false);
   const [error, setError] = useState("");
   const [drag, setDrag] = useState(false);
@@ -40,25 +42,41 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
   useEffect(() => {
     setStudioPlan(plan);
   }, [plan]);
+  useEffect(() => {
+    const pending = uploads.current;
+    return () => pending.clear();
+  }, []);
   async function upload(file: File) {
+    const active = useMockupStore.getState().selectedIds[0] ?? "hero";
+    const request = (uploads.current.get(active) ?? 0) + 1;
+    uploads.current.set(active, request);
     try {
       const s = useMockupStore.getState();
+      const selected = active === "hero" ? s.mug : s.companions.find(c => c.id === active);
+      if (!selected || selected.locked) throw new Error("Desbloqueie a caneca antes de trocar a arte.");
       const e = await loadArtFile(file);
-      s.patchObjectArt(s.selectedIds[0] ?? "hero", {
+      if (uploads.current.get(active) !== request) {
+        removeArtImage(e.id);
+        return;
+      }
+      // Decoding can finish after a second upload, a lock, deletion or a model change.
+      const current = useMockupStore.getState();
+      const target = active === "hero" ? current.mug : current.companions.find(c => c.id === active);
+      if (!target || target.locked) {
+        removeArtImage(e.id);
+        throw new Error("A caneca foi removida ou bloqueada durante o envio. Selecione uma caneca desbloqueada e tente novamente.");
+      }
+      current.setArtImage({
+        objectId: active,
         imageId: e.id,
         name: e.name,
         width: e.naturalWidth,
         height: e.naturalHeight,
-        scale: 1,
-        offsetX: 0,
-        offsetY: 0,
-        rotation: 0,
-        fit: "cover",
       });
-      s.notifyArtApplied();
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Imagem inválida");
+      if (uploads.current.get(active) === request)
+        setError(e instanceof Error ? e.message : "Imagem inválida");
     }
   }
   useEffect(() => {
@@ -83,7 +101,7 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
     const paste = (e: ClipboardEvent) => {
       if (
         (e.target as HTMLElement)?.closest(
-          "input,textarea,[contenteditable=true]",
+          "input,textarea,[contenteditable=true],[role=dialog],[role=alertdialog]",
         )
       )
         return;
@@ -97,7 +115,8 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
     };
     const key = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
-      if (t?.closest("input,textarea,select,[contenteditable=true]")) return;
+      if (t?.closest("input,textarea,select,[contenteditable=true],[role=dialog],[role=alertdialog]")) return;
+      if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) return;
       const s = useMockupStore.getState();
       if (s.exportOpen || s.projectsOpen) return;
       const mod = e.ctrlKey || e.metaKey;
@@ -188,7 +207,7 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
   }, []);
   const viewport = (
     <div className="relative h-full w-full">
-      <StudioCanvas paused={shortcuts} />
+      <StudioCanvas paused={shortcuts || guideOpen} />
       {st.showGuides && (
         <div className="pointer-events-none absolute inset-0 z-10 grid grid-cols-3 grid-rows-3">
           {Array.from({ length: 9 }, (_, i) => (
@@ -251,6 +270,7 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
         viewport={viewport}
         onUpload={() => input.current?.click()}
         onShortcuts={() => setShortcuts(true)}
+        onGuideOpenChange={setGuideOpen}
       />
       <Dialog open={shortcuts} onOpenChange={setShortcuts}>
         <DialogContent>

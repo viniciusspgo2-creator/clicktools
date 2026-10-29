@@ -21,17 +21,33 @@ export async function checkPremiumSession(req: Request) {
   const browser = browserToken(req);
   if (!browser || !/^[a-f0-9]{64}$/.test(token))
     return { ok: false as const, reason: "session" };
+  const now = new Date();
+  const tokenHash = hashToken(token);
+  const browserHash = hashToken(browser);
   const row = await db.accessCode.findFirst({
-    where: { sessionHash: hashToken(token), browserHash: hashToken(browser) },
+    where: { sessionHash: tokenHash, browserHash, accessMode: "individual" },
   });
-  if (!row || !row.active) return { ok: false as const, reason: "session" };
-  if (row.expiresAt && row.expiresAt <= new Date())
+  if (row) {
+    if (!row.active) return { ok: false as const, reason: "session" };
+    if (row.expiresAt && row.expiresAt <= now) return { ok: false as const, reason: "expired" };
+    if (!row.sessionExpiresAt || row.sessionExpiresAt <= now)
+      return { ok: false as const, reason: "session" };
+    return {
+      ok: true as const, plan: row.clientType === "library" ? "Biblioteca Click Gruda" : "Studio Temporário",
+      clientName: row.clientName, accessMode: "individual" as const,
+    };
+  }
+  const use = await db.accessCodeUse.findFirst({
+    where: { deviceId: browserHash, sessionHash: tokenHash, code: { accessMode: "universal" } },
+    include: { code: true },
+  });
+  if (!use || !use.code.active) return { ok: false as const, reason: "session" };
+  if (use.code.expiresAt && use.code.expiresAt <= now)
     return { ok: false as const, reason: "expired" };
-  if (!row.sessionExpiresAt || row.sessionExpiresAt <= new Date())
+  if (!use.sessionExpiresAt || use.sessionExpiresAt <= now)
     return { ok: false as const, reason: "session" };
   return {
-    ok: true as const,
-    plan: row.clientType === "library" ? "Biblioteca Click Gruda" : "Anual",
-    clientName: row.clientName,
+    ok: true as const, plan: use.code.clientType === "library" ? "Biblioteca Click Gruda" : "Studio Temporário",
+    clientName: use.code.clientName, accessMode: "universal" as const,
   };
 }

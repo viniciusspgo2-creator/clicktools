@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BookOpen, CalendarDays, Clock, Sparkles } from 'lucide-react';
+import { BookOpen, CalendarDays, Clock, Search, Sparkles, ArrowUpRight } from 'lucide-react';
 import {
   ALL_ARTICLES,
+  NEW_SUBLIMATION_ARTICLES,
   BLOG_CATEGORIES,
   countCategory,
   formatDateBR,
@@ -14,16 +15,17 @@ import { cn } from '@/lib/utils';
 
 export async function generateMetadata(): Promise<Metadata> {
   const seo = await getSeoConfig();
-  const title = 'Blog — Sublimação, Mockups, Marketing e Ferramentas Grátis';
+  const title = 'Blog de sublimação de canecas: técnicas, dicas e mockups';
   return {
     title,
     description:
-      'Guias práticos sobre sublimação de canecas, mockups 3D, precificação, marketing no WhatsApp e Instagram, e todas as ferramentas gratuitas do Click & Gruda.',
-    keywords: ['blog sublimação', 'mockups de canecas', 'marketing para artesãos', 'ferramentas grátis'],
+      'Aprenda sobre sublimação de canecas: arte em alta resolução, perfil de cor, prensa, efeito fantasma, cuidados e aprovação de mockups 3D.',
+    keywords: ['sublimação de canecas', 'dicas de sublimação', 'mockup de caneca', 'prensa de canecas'],
     alternates: { canonical: '/blog' },
     openGraph: {
       title,
-      url: `${seo.siteUrl}/blog`,
+      description: 'Guias de sublimação de canecas, preparação de artes, diagnóstico de falhas e mockups 3D.',
+      url: `${seo.siteUrl.replace(/\/+$/, '')}/blog`,
       type: 'website',
       locale: 'pt_BR',
       siteName: seo.siteName,
@@ -44,15 +46,36 @@ const CATEGORY_STYLES: Record<BlogCategory, string> = {
 export default async function BlogIndex({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string }>;
+  searchParams: Promise<{ cat?: string; q?: string }>;
 }) {
-  const { cat } = await searchParams;
+  const { cat, q } = await searchParams;
+  const query = typeof q === 'string' ? q.trim().slice(0, 120) : '';
   const active = BLOG_CATEGORIES.includes(cat as BlogCategory) ? (cat as BlogCategory) : null;
-  const list = active ? ALL_ARTICLES.filter((a) => a.category === active) : ALL_ARTICLES;
+  const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const list = ALL_ARTICLES.filter((article) => (!active || article.category === active)
+    && (!query || normalize(`${article.title} ${article.description} ${article.keywords.join(' ')}`).includes(normalize(query))));
   const [featured, ...rest] = list;
+  const seo = await getSeoConfig();
+  const base = seo.siteUrl.replace(/\/+$/, '');
+  const categoryHref = (category?: BlogCategory) => {
+    const params = new URLSearchParams();
+    if (category) params.set('cat', category);
+    if (query) params.set('q', query);
+    return params.size ? `/blog?${params.toString()}` : '/blog';
+  };
+  const collectionLd = {
+    '@context': 'https://schema.org', '@type': 'CollectionPage',
+    '@id': `${base}/blog#collection`, url: `${base}/blog`, name: 'Blog Click & Gruda', inLanguage: 'pt-BR',
+    about: { '@type': 'Blog', '@id': `${base}/blog#blog`, name: 'Blog Click & Gruda', url: `${base}/blog` },
+    description: 'Guias de sublimação de canecas, preparação de artes e apresentação em mockups 3D.',
+    mainEntity: { '@type': 'ItemList', itemListElement: list.map((article, index) => ({
+      '@type': 'ListItem', position: index + 1, url: `${base}/blog/${article.slug}`, name: article.title,
+    })) },
+  };
 
   return (
     <div className="relative">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionLd).replace(/</g, '\\u003c') }} />
       {/* brilho de fundo */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(ellipse_at_top,rgba(232,112,58,0.14),transparent_65%)]" />
 
@@ -69,16 +92,29 @@ export default async function BlogIndex({
             </span>
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-neutral-400 sm:text-base">
-            Guias práticos de sublimação, mockups, precificação e divulgação — escritos para
-            você vender mais usando as {ALL_ARTICLES.length > 0 ? 'ferramentas gratuitas' : 'ferramentas'} do site.
-            Novo artigo toda semana.
+            Da preparação da arte à peça pronta: aprenda a investigar falhas, organizar a produção
+            e apresentar suas criações. Conteúdo prático para consultar no seu ritmo.
+          </p>
+          <p className="mt-5 inline-flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-neutral-400">
+            <span className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 font-semibold text-primary">{NEW_SUBLIMATION_ARTICLES.length} novos guias de sublimação</span>
+            <span>{ALL_ARTICLES.length} artigos disponíveis</span>
+            <Link href="/mockup-caneca-3d" className="inline-flex items-center gap-1 text-neutral-200 transition-colors hover:text-primary">Conheça o Studio <ArrowUpRight className="h-3 w-3" /></Link>
           </p>
         </div>
+
+        <form action="/blog" method="get" role="search" className="mt-7 flex max-w-xl items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.03] p-2 focus-within:border-primary/60">
+          {active && <input type="hidden" name="cat" value={active} />}
+          <Search aria-hidden className="ml-2 h-4 w-4 shrink-0 text-neutral-500" />
+          <label htmlFor="blog-search" className="sr-only">Pesquisar artigos do blog</label>
+          <input id="blog-search" name="q" type="search" defaultValue={query} maxLength={120} placeholder="Busque: cores, prensa, resolução…" className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-neutral-100 outline-none placeholder:text-neutral-500" />
+          <button type="submit" className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/85">Buscar</button>
+        </form>
 
         {/* filtro por categoria */}
         <div className="thin-scroll mt-8 flex gap-2 overflow-x-auto pb-1">
           <Link
-            href="/blog"
+              href={categoryHref()}
+              aria-current={!active ? 'page' : undefined}
             className={cn(
               'shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-all',
               !active
@@ -91,7 +127,8 @@ export default async function BlogIndex({
           {BLOG_CATEGORIES.map((c) => (
             <Link
               key={c}
-              href={`/blog?cat=${encodeURIComponent(c)}`}
+              href={categoryHref(c)}
+              aria-current={active === c ? 'page' : undefined}
               className={cn(
                 'shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-all',
                 active === c
@@ -104,9 +141,11 @@ export default async function BlogIndex({
           ))}
         </div>
 
+        {query && <p className="mt-4 text-sm text-neutral-400">{list.length} resultado{list.length === 1 ? '' : 's'} para <strong className="break-words text-neutral-200">“{query}”</strong>. <Link href={active ? `/blog?cat=${encodeURIComponent(active)}` : '/blog'} className="text-primary underline underline-offset-4">Limpar busca</Link></p>}
+
         {list.length === 0 && (
           <p className="mt-16 text-center text-sm text-neutral-500">
-            Nenhum artigo nesta categoria ainda — volte em breve.
+            Nenhum artigo encontrado. Tente outro termo ou escolha uma categoria diferente.
           </p>
         )}
 
@@ -148,7 +187,7 @@ export default async function BlogIndex({
         )}
 
         {/* grade */}
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Artigos do blog">
           {rest.map((a) => (
             <Link
               key={a.slug}

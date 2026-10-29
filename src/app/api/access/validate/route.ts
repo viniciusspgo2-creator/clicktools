@@ -30,39 +30,51 @@ export async function POST(req: Request) {
   const sessionToken = newToken();
   const now = new Date();
   try {
-    // Atomic browser claim also invalidates any previous session.
+    // Acquire a row lock before assigning a browser slot; prevents concurrent
+    // requests from exceeding the shared-code limit across server instances.
     const result = await db.$transaction(async (tx) => {
       const row = await tx.accessCode.findUnique({ where: { code } });
       if (!row || !row.active) return { ok: false as const, reason: "invalid" };
       if (row.expiresAt && row.expiresAt <= now)
         return { ok: false as const, reason: "expired" };
-      const updated = await tx.accessCode.updateMany({
-        where: {
-          id: row.id,
-          active: true,
-          AND: [
-            { OR: [{ browserHash: null }, { browserHash }] },
-            { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-          ],
-        },
-        data: {
-          browserHash,
-          sessionHash: hashToken(sessionToken),
-          sessionExpiresAt: new Date(Date.now() + 12 * 3600_000),
-          maxUses: 1,
-        },
-      });
-      if (!updated.count) return { ok: false as const, reason: "browser" };
-      await tx.accessCodeUse.upsert({
-        where: { codeId_deviceId: { codeId: row.id, deviceId: browserHash } },
-        create: { codeId: row.id, deviceId: browserHash },
-        update: { usedAt: now },
-      });
+      await tx.$queryRaw`SELECT id FROM "AccessCode" WHERE id = ${row.id} FOR UPDATE`;
+      if (row.accessMode === "universal") {
+        const current = await tx.accessCodeUse.findUnique({
+          where: { codeId_deviceId: { codeId: row.id, deviceId: browserHash } },
+        });
+        if (!current) {
+          const used = await tx.accessCodeUse.count({ where: { codeId: row.id } });
+          if (used >= Math.max(1, Math.min(row.maxUses, 100)))
+            return { ok: false as const, reason: "full" };
+        }
+        const sessionExpiresAt = new Date(now.getTime() + 12 * 3600_000);
+        await tx.accessCodeUse.upsert({
+          where: { codeId_deviceId: { codeId: row.id, deviceId: browserHash } },
+          create: { codeId: row.id, deviceId: browserHash, sessionHash: hashToken(sessionToken), sessionExpiresAt },
+          update: { usedAt: now, sessionHash: hashToken(sessionToken), sessionExpiresAt },
+        });
+      } else {
+        // Preserve the original single-browser binding for personal codes.
+        const updated = await tx.accessCode.updateMany({
+          where: {
+            id: row.id, active: true,
+            AND: [
+              { OR: [{ browserHash: null }, { browserHash }] },
+              { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+            ],
+          },
+          data: { browserHash, sessionHash: hashToken(sessionToken), sessionExpiresAt: new Date(now.getTime() + 12 * 3600_000) },
+        });
+        if (!updated.count) return { ok: false as const, reason: "browser" };
+        await tx.accessCodeUse.upsert({
+          where: { codeId_deviceId: { codeId: row.id, deviceId: browserHash } },
+          create: { codeId: row.id, deviceId: browserHash },
+          update: { usedAt: now },
+        });
+      }
       return {
-        ok: true as const,
-        sessionToken,
-        clientName: row.clientName,
-        plan: row.clientType === "library" ? "Biblioteca Click Gruda" : "Anual",
+        ok: true as const, sessionToken, clientName: row.clientName,
+        plan: row.clientType === "library" ? "Biblioteca Click Gruda" : "Studio Temporário",
       };
     });
     const response = NextResponse.json(result, {

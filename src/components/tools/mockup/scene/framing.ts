@@ -1,6 +1,22 @@
 import * as THREE from "three";
 import { visibleMugBounds } from "./studio-refs";
 
+/** Orbit between views instead of travelling through the objects along a chord. */
+export function interpolateCameraView(fromPos: THREE.Vector3, fromTarget: THREE.Vector3,
+  toPos: THREE.Vector3, toTarget: THREE.Vector3, progress: number) {
+  const t = THREE.MathUtils.clamp(progress, 0, 1);
+  const start = new THREE.Spherical().setFromVector3(fromPos.clone().sub(fromTarget));
+  const end = new THREE.Spherical().setFromVector3(toPos.clone().sub(toTarget));
+  const delta = Math.atan2(Math.sin(end.theta - start.theta), Math.cos(end.theta - start.theta));
+  const target = fromTarget.clone().lerp(toTarget, t);
+  const spherical = new THREE.Spherical(
+    THREE.MathUtils.lerp(Math.max(0.1, start.radius), Math.max(0.1, end.radius), t),
+    THREE.MathUtils.clamp(THREE.MathUtils.lerp(start.phi, end.phi, t), 0.02, Math.PI / 2 - 0.01),
+    start.theta + delta * t,
+  );
+  return { pos: new THREE.Vector3().setFromSpherical(spherical).add(target), target };
+}
+
 /** Enquadra a caixa projetada, considerando perspectiva e o formato do canvas. */
 export function fitBoundsToView(
   bounds: THREE.Box3,

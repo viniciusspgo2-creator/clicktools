@@ -1,19 +1,23 @@
 /* ============================================================
    Registro de imagens da arte — 100% no dispositivo.
-   Load, validação, downsampling e arte de exemplo procedural.
+   Load, validação e fonte original preservada para salvar/exportar.
    ============================================================ */
 
-import { MAX_ART_PX, MAX_UPLOAD_MB } from "./config";
+import { MAX_UPLOAD_MB } from "./config";
+import { sampleArt, type ArtAnalysis } from "./art-analysis";
 
 export interface ArtImageEntry {
   id: string;
   source: CanvasImageSource; // ImageBitmap | HTMLImageElement | HTMLCanvasElement
-  width: number; // px naturais (após eventual downsampling)
+  width: number; // px originais; o canvas 3D limita somente a prévia
   height: number;
   naturalWidth: number; // px originais (para DPI)
   naturalHeight: number;
   name: string;
   url?: string; // objectURL (revogado ao substituir)
+  originalBlob?: Blob; // original byte-for-byte, never re-encoded on project save
+  vector?: boolean;
+  analysis?: ArtAnalysis | null;
 }
 
 const registry = new Map<string, ArtImageEntry>();
@@ -28,6 +32,7 @@ export function removeArtImage(id: string | null) {
   if (!id) return;
   const e = registry.get(id);
   if (e?.url) URL.revokeObjectURL(e.url);
+  if (e?.source && "close" in e.source && typeof e.source.close === "function") e.source.close();
   registry.delete(id);
 }
 
@@ -41,6 +46,16 @@ const ACCEPTED = [
   "image/bmp",
 ];
 
+/** Same allowlist as uploads, so saved SVG/AVIF originals reopen intact. */
+export function decodeArtDataUrl(data: string): Blob {
+  const match = /^data:([^;,]+);base64,([A-Za-z0-9+/]*={0,2})$/.exec(data);
+  if (!match || !ACCEPTED.includes(match[1])) throw new Error("Imagem de projeto inválida.");
+  try {
+    const binary = atob(match[2]);
+    return new Blob([Uint8Array.from(binary, ch => ch.charCodeAt(0))], { type: match[1] });
+  } catch { throw new Error("Imagem de projeto inválida."); }
+}
+
 export function validateFile(file: File): string | null {
   if (!ACCEPTED.includes(file.type))
     return "Formato não suportado. Use PNG, JPG, WebP, SVG ou AVIF.";
@@ -49,25 +64,12 @@ export function validateFile(file: File): string | null {
   return null;
 }
 
-/** Redimensiona via canvas se exceder MAX_ART_PX, mantendo qualidade */
-function downscale(
-  source: CanvasImageSource,
-  w: number,
-  h: number,
-): { source: CanvasImageSource; w: number; h: number } {
-  const maxSide = Math.max(w, h);
-  if (maxSide <= MAX_ART_PX) return { source, w, h };
-  const f = MAX_ART_PX / maxSide;
-  const tw = Math.round(w * f);
-  const th = Math.round(h * f);
-  const c = document.createElement("canvas");
-  c.width = tw;
-  c.height = th;
-  const ctx = c.getContext("2d")!;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(source, 0, 0, tw, th);
-  return { source: c, w: tw, h: th };
+/** Reject oversized rasters explicitly instead of silently destroying detail. */
+export function validateArtDimensions(width: number, height: number): void {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1)
+    throw new Error("A imagem não tem dimensões válidas.");
+  if (width * height > 64_000_000 || Math.max(width, height) > 32768)
+    throw new Error("Imagem acima do limite seguro de 64 megapixels. Exporte uma cópia menor; seu original não foi alterado.");
 }
 
 async function decode(
@@ -90,28 +92,19 @@ async function decode(
         img.onerror = () => rej(new Error("decode"));
         img.src = url;
       });
-      const r = downscale(
-        img,
-        img.naturalWidth || 1024,
-        img.naturalHeight || 1024,
-      );
-      // para SVG mantemos a URL viva (img precisa do src)
-      return { ...r, keepUrl: url } as {
-        source: CanvasImageSource;
-        w: number;
-        h: number;
-        keepUrl?: string;
-      };
+      const w = img.naturalWidth || 1024, h = img.naturalHeight || 1024;
+      validateArtDimensions(w, h);
+      // SVG remains vector-backed; it is rasterized only at the target canvas size.
+      return { source: img, w, h, keepUrl: url };
     } catch (e) {
       URL.revokeObjectURL(url);
       throw e;
     }
   }
   const bmp = await createImageBitmap(file);
-  const r = downscale(bmp, bmp.width, bmp.height);
-  if (r.source === bmp) return { source: bmp, w: bmp.width, h: bmp.height };
-  bmp.close();
-  return { source: r.source, w: r.w, h: r.h };
+  try { validateArtDimensions(bmp.width, bmp.height); }
+  catch (error) { bmp.close(); throw error; }
+  return { source: bmp, w: bmp.width, h: bmp.height };
 }
 
 export async function loadArtFile(file: File): Promise<ArtImageEntry> {
@@ -136,15 +129,19 @@ export async function loadArtBlob(
     naturalHeight: d.h,
     name,
     url: d.keepUrl,
+    originalBlob: blob,
+    vector: blob.type === "image/svg+xml",
+    analysis: sampleArt(d.source, d.w, d.h),
   };
   registry.set(id, entry);
   return entry;
 }
 
-/** serializa a arte atual como PNG (para salvar no projeto) */
+/** Preserve uploaded bytes and format. Only procedural sample art is encoded. */
 export async function getArtBlob(id: string | null): Promise<Blob | null> {
   const e = getArtImage(id);
   if (!e) return null;
+  if (e.originalBlob) return e.originalBlob;
   const c = document.createElement("canvas");
   c.width = e.width;
   c.height = e.height;
@@ -217,6 +214,7 @@ export function makeSampleArt(): ArtImageEntry {
     naturalWidth: W,
     naturalHeight: H,
     name: "arte-exemplo",
+    analysis: sampleArt(c, W, H),
   };
   registry.set(id, entry);
   return entry;

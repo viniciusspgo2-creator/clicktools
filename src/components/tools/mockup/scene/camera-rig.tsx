@@ -13,7 +13,8 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useMockupStore } from "../state/store";
 import { lensToFov } from "../lib/config";
 import { mugsGroup, studioRefs, visibleMugBounds } from "./studio-refs";
-import { fitBoundsToView, framingBounds } from "./framing";
+import { fitBoundsToView, framingBounds, interpolateCameraView } from "./framing";
+import { CAMERA_NEAR, CAMERA_FAR, MAX_CAMERA_DISTANCE, cameraFarFor, sceneFootprint } from "./scene-layout";
 
 type Anim = {
   fromPos: THREE.Vector3;
@@ -38,7 +39,16 @@ const MUG_RADIUS = 7.6; // bounding aproximado com alça
 /** aplica a lente na câmera three (mutação intencional do objeto 3D) */
 function applyLens(camera: THREE.PerspectiveCamera, lensMm: number) {
   camera.fov = lensToFov(lensMm);
+  camera.near = CAMERA_NEAR;
+  camera.far = CAMERA_FAR;
   camera.updateProjectionMatrix();
+}
+
+function ensureFarPlane(camera: THREE.PerspectiveCamera, far: number) {
+  if (Math.abs(camera.far - far) > 0.01) {
+    camera.far = far;
+    camera.updateProjectionMatrix();
+  }
 }
 
 /** Descarta o movimento residual do arraste antes de centralizar ou trocar a vista. */
@@ -77,6 +87,10 @@ export function CameraRig() {
   const fitNonce = useMockupStore((s) => s.fitNonce);
   const zoom = useMockupStore((s) => s.zoom);
   const tool = useMockupStore((s) => s.tool);
+  const hero = useMockupStore((s) => s.mug);
+  const companions = useMockupStore((s) => s.companions);
+  const sceneRadius = sceneFootprint(hero, companions).extent + 50;
+  const [orbitLimit, setOrbitLimit] = useState(MAX_CAMERA_DISTANCE);
   const [anim, setAnim] = useState<Anim | null>(null);
   const previousSize = useRef<string | null>(null);
   const previousFit = useRef(0);
@@ -148,6 +162,8 @@ export function CameraRig() {
   // preset de câmera
   useEffect(() => {
     if (!presetRequest) return;
+    setOrbitLimit(Math.max(MAX_CAMERA_DISTANCE, camera.position.distanceTo(controlsRef.current?.target ?? MUG_CENTER) * 1.1, new THREE.Vector3(...presetRequest.pos)
+      .distanceTo(new THREE.Vector3(...presetRequest.target)) * 2));
     if (controlsRef.current) settleControls(controlsRef.current);
     setAnim({
       fromPos: camera.position.clone(),
@@ -181,6 +197,7 @@ export function CameraRig() {
       ? new THREE.Vector3(...st.fitDirection)
       : new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
     const { pos, target } = fitBoundsToView(box, dir, camera.fov, aspect);
+    setOrbitLimit(Math.max(MAX_CAMERA_DISTANCE, camera.position.distanceTo(controls.target) * 1.1, pos.distanceTo(target) * 2));
     setAnim({
       fromPos: camera.position.clone(),
       toPos: pos,
@@ -198,13 +215,15 @@ export function CameraRig() {
     if (anim) {
       const k = anim.dur === 0 ? 1 : Math.min(1, (performance.now() - anim.t0) / anim.dur);
       const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; // easeInOutCubic
-      camera.position.lerpVectors(anim.fromPos, anim.toPos, e);
-      controls.target.lerpVectors(anim.fromTarget, anim.toTarget, e);
+      const view = interpolateCameraView(anim.fromPos, anim.fromTarget, anim.toPos, anim.toTarget, e);
+      camera.position.copy(view.pos);
+      controls.target.copy(view.target);
       if (k >= 1) {
         setAnim(null);
       }
       controls.update();
     }
+    ensureFarPlane(camera, cameraFarFor(camera.position.distanceTo(controls.target), sceneRadius));
   });
 
   // perda de foco de contexto WebGL — nada a fazer aqui, tratado no Canvas
@@ -225,7 +244,7 @@ export function CameraRig() {
       touches={{ ONE: tool === "pan" ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
       onStart={() => setAnim(null)}
       minDistance={6.5}
-      maxDistance={1500}
+      maxDistance={orbitLimit}
       maxPolarAngle={1.54}
       autoRotate={false} // o giro agora move a caneca, não a câmera
       autoRotateSpeed={autoRotateSpeed}

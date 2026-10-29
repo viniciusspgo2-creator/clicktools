@@ -1,6 +1,6 @@
 import { getEnvironment, registerEnvironment } from "./environment-registry";
 import { useMockupStore } from "../state/store";
-import { getArtBlob, loadArtBlob } from "./art-registry";
+import { decodeArtDataUrl, getArtBlob, loadArtBlob } from "./art-registry";
 import { getBgBlob, loadBgBlob, ensureScenes } from "./background-registry";
 import { blobToDataUrl } from "./projects-db";
 import { downloadBlob } from "../exporters/image-exporter";
@@ -54,14 +54,6 @@ export async function exportPortableProject() {
     "meu-mockup.cgstudio",
   );
 }
-function decodeDataUrl(data: string): Blob {
-  if (!/^data:image\/(png|jpeg|webp);base64,/.test(data))
-    throw new Error("Imagem de projeto inválida.");
-  const [header, base64] = data.split(",");
-  const binary = atob(base64);
-  const bytes = Uint8Array.from(binary, (x) => x.charCodeAt(0));
-  return new Blob([bytes], { type: header.slice(5, header.indexOf(";")) });
-}
 export async function importPortableProject(file: File) {
   if (file.size > 150 * 1024 * 1024)
     throw new Error("Projeto muito grande (máximo 150 MB).");
@@ -78,7 +70,9 @@ export async function importPortableProject(file: File) {
   const remap: Record<string, string> = {};
   for (const [id, data] of Object.entries(p.assets ?? {})) {
     if (typeof data !== "string") throw new Error("Imagem inválida");
-    const e = await loadArtBlob(decodeDataUrl(data), "arte.png");
+    const original = decodeArtDataUrl(data);
+    const extension = original.type.split("/")[1].replace("svg+xml", "svg").replace("jpeg", "jpg");
+    const e = await loadArtBlob(original, `arte.${extension}`);
     remap[id] = e.id;
   }
   if (p.environment?.data) {
@@ -108,7 +102,7 @@ export async function importPortableProject(file: File) {
       : undefined,
   }));
   if (p.background) {
-    const e = await loadBgBlob(decodeDataUrl(p.background), "fundo.png");
+    const e = await loadBgBlob(decodeArtDataUrl(p.background), "fundo.png");
     p.state.bg.imageId = e.id;
   } else if (p.state.bg?.imageId?.startsWith("scene-"))
     ensureScenes(p.state.bg.imageId);

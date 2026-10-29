@@ -85,7 +85,7 @@ export default async function RootLayout({
         alternateName: "Click e Gruda",
         url: base,
         description:
-          "Studio Mockup 3D para canecas, incluso para assinantes da Biblioteca de Artes Click & Gruda. Acesso avulso de 24 horas e cinco ferramentas bônus gratuitas.",
+          "Studio Mockup 3D exclusivo para assinantes da Biblioteca de Artes Click & Gruda. Milhares de artes para canecas, acesso vitalício, categorias, datas sazonais e atualizações. Cinco ferramentas bônus gratuitas.",
         logo: { "@type": "ImageObject", url: `${base}${seo.ogImage}` },
         sameAs: [
           "https://www.clickgruda.com.br/",

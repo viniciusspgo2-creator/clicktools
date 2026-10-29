@@ -22,6 +22,7 @@ import { PostFX } from "./postfx";
 import { studioRefs } from "./studio-refs";
 import { lensToFov, detectMobile } from "../lib/config";
 import { useMockupStore } from "../state/store";
+import { CAMERA_NEAR, CAMERA_FAR } from "./scene-layout";
 
 function SceneContent() {
   const gl = useThree((s) => s.gl);
@@ -77,8 +78,8 @@ export default function StudioCanvas({ paused = false }: { paused?: boolean }) {
         camera={{
           position: [0, 14, 67],
           fov: lensToFov(85),
-          near: 0.4,
-          far: 250,
+          near: CAMERA_NEAR,
+          far: CAMERA_FAR,
         }}
         gl={{
           antialias: true,
@@ -88,7 +89,9 @@ export default function StudioCanvas({ paused = false }: { paused?: boolean }) {
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.type = THREE.PCFShadowMap;
-          gl.toneMapping = THREE.AgXToneMapping;
+          // Neutral is intended for product rendering: retain ink saturation while
+          // rolling off only the bright photographic reflections.
+          gl.toneMapping = THREE.NeutralToneMapping;
           gl.outputColorSpace = THREE.SRGBColorSpace;
           gl.toneMappingExposure = 1;
           gl.domElement.addEventListener("webglcontextlost", (e) => {

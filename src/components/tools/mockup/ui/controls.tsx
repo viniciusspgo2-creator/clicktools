@@ -5,9 +5,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronDown, RotateCcw } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
 /* ---------------- Seção acordeão ---------------- */
@@ -24,12 +23,15 @@ export function Section({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const contentId = useId();
   return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
+    <div className="cg-control-section overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
         aria-expanded={open}
+        aria-controls={contentId}
       >
         <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
         <span className="flex-1 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-300">
@@ -42,7 +44,7 @@ export function Section({
           )}
         />
       </button>
-      {open && <div className="space-y-3.5 px-3 pb-4 pt-1">{children}</div>}
+      {open && <div id={contentId} className="space-y-3.5 px-3 pb-4 pt-1">{children}</div>}
     </div>
   );
 }
@@ -59,6 +61,7 @@ export function SliderRow({
   format,
   defaultValue,
   disabled,
+  hint,
 }: {
   label: string;
   value: number;
@@ -69,55 +72,51 @@ export function SliderRow({
   format?: (v: number) => string;
   defaultValue?: number;
   disabled?: boolean;
+  hint?: string;
 }) {
+  const id = useId();
+  const safeValue = Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min;
+  const changed = defaultValue !== undefined && Math.abs(safeValue - defaultValue) > step / 2;
+  const setValue = (v: number) => {
+    if (!disabled && Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
+  };
   return (
-    <div
-      className={cn("group/sl", disabled && "pointer-events-none opacity-40")}
-    >
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <button
-          onDoubleClick={() =>
-            defaultValue !== undefined && onChange(defaultValue)
-          }
-          title={
-            defaultValue !== undefined
-              ? "Duplo clique para restaurar"
-              : undefined
-          }
-          className="text-[11px] font-medium text-neutral-400 transition-colors hover:text-neutral-200"
-        >
-          {label}
-          {defaultValue !== undefined && (
-            <RotateCcw className="ml-1 inline h-2.5 w-2.5 opacity-0 transition-opacity group-hover/sl:opacity-60" />
-          )}
-        </button>
+    <fieldset className="cg-slider-control" disabled={disabled} aria-describedby={hint ? `${id}-hint` : undefined}>
+      <div className="cg-slider-heading">
+        <label htmlFor={id}>{label}</label>
+        {defaultValue !== undefined && <button type="button" className="cg-control-reset"
+          aria-label={`Restaurar ${label.toLowerCase()}`} title={`Restaurar: ${format ? format(defaultValue) : defaultValue}`}
+          disabled={disabled || !changed} onClick={() => setValue(defaultValue)}><RotateCcw /></button>}
         <input
-          aria-label={label}
+          aria-label={`${label}: valor numérico`}
           type="number"
-          value={Math.round(value * 100) / 100}
+          value={Math.round(safeValue * 1000) / 1000}
           min={min}
           max={max}
           step={step}
           onChange={(e) => {
             const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v)) onChange(Math.min(max, Math.max(min, v)));
+            setValue(v);
           }}
-          className="w-16 rounded-md border border-white/10 bg-black/40 px-1.5 py-0.5 text-right text-[11px] tabular-nums text-neutral-200 outline-none focus:border-primary/60"
+          disabled={disabled}
+          className="cg-control-value"
         />
       </div>
-      <Slider
-        value={[value]}
+      <input
+        id={id}
+        type="range"
+        value={safeValue}
         min={min}
         max={max}
         step={step}
-        onValueChange={(v) => onChange(v[0])}
+        onChange={e => setValue(e.target.valueAsNumber)}
+        aria-valuetext={format ? format(safeValue) : undefined}
         disabled={disabled}
-        className="*[&_[data-slot=slider-range]]:bg-primary [&_[data-slot=slider-thumb]]:border-primary"
+        className="cg-control-range"
+        style={{ "--cg-range-progress": `${max === min ? 0 : (safeValue - min) / (max - min) * 100}%` } as React.CSSProperties}
       />
-      {format && (
-        <p className="mt-1 text-[10px] text-neutral-500">{format(value)}</p>
-      )}
-    </div>
+      {(format || hint) && <div className="cg-slider-caption">{hint && <p id={`${id}-hint`}>{hint}</p>}{format && <output htmlFor={id}>{format(safeValue)}</output>}</div>}
+    </fieldset>
   );
 }
 
@@ -127,16 +126,21 @@ export function ColorRow({
   label,
   value,
   onChange,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
+  const id = useId();
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-[11px] font-medium text-neutral-400">{label}</span>
+      <label htmlFor={id} className="text-[11px] font-medium text-neutral-400">{label}</label>
       <div className="flex items-center gap-1.5">
         <input
+          id={id}
+          disabled={disabled}
           value={value}
           onChange={(e) => {
             const v = e.target.value;
@@ -150,6 +154,7 @@ export function ColorRow({
         >
           <input
             type="color"
+            disabled={disabled}
             value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "#ffffff"}
             onChange={(e) => onChange(e.target.value)}
             className="absolute inset-0 cursor-pointer opacity-0"
@@ -207,16 +212,20 @@ export function ToggleRow({
   label,
   checked,
   onChange,
+  disabled,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <button
+      type="button"
       role="switch"
       aria-label={label}
       aria-checked={checked}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
       className="flex w-full items-center justify-between gap-2 py-0.5"
     >

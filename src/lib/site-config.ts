@@ -21,7 +21,7 @@ export const DEFAULT_SEO: SeoConfig = {
   defaultTitle: "Click Gruda — Studio Mockup 3D",
   titleTemplate: "%s | Click & Gruda Tools",
   description:
-    "Studio Mockup 3D para canecas: gratuito para assinantes da Biblioteca de Artes Click & Gruda (R$ 47,90, acesso vitalício) ou acesso avulso por R$ 12,90 durante 24 horas. Cinco ferramentas bônus gratuitas.",
+    "Studio 3D exclusivo para assinantes da Biblioteca Click & Gruda. R$ 47,90, acesso vitalício, milhares de artes para canecas e atualizações por temas e datas sazonais.",
   keywords: [
     "ferramentas online grátis",
     "gerador de QR Code",
@@ -48,8 +48,8 @@ export async function getSeoConfig(): Promise<SeoConfig> {
     if (row) {
       const parsed = JSON.parse(row.value) as Partial<SeoConfig>;
       const result = { ...DEFAULT_SEO, ...parsed };
-      // A configuração salva de versões anteriores pode manter a oferta anual.
-      if (/R\$\s*34,90\s*(?:por|\/)\s*ano/i.test(result.description)) {
+      // Atualiza as antigas ofertas padrão sem manter acessos avulsos na vitrine.
+      if (/R\$\s*34,90\s*(?:por|\/)\s*ano|acesso avulso por R\$\s*12,90/i.test(result.description)) {
         result.description = DEFAULT_SEO.description;
       }
       return result;

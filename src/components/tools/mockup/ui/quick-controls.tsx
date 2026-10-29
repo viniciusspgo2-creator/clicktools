@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import * as THREE from "three";
-import { Box, CircleArrowUp, Coffee, Focus, Hand, ImagePlus, Pause, Play, RotateCcw, ScanFace } from "lucide-react";
+import { Box, CircleArrowUp, Coffee, Focus, Hand, ImagePlus, Move, Pause, Play, RotateCcw, ScanFace } from "lucide-react";
 import { useMockupStore, type ArtState } from "../state/store";
 import { studioRefs } from "../scene/studio-refs";
 import { MUG, lensToFov } from "../lib/config";
@@ -18,8 +18,9 @@ const VIEWS = [
 ] as const;
 
 export function QuickCameraBar() {
-  const rotating = useMockupStore(s => s.camera.autoRotate);
+  const rotating = useMockupStore(s => s.camera.autoRotate && !s.camera.spinIds?.length);
   const panning = useMockupStore(s => s.tool === "pan");
+  const moving = useMockupStore(s => s.tool === "move");
   const count = useMockupStore(s => s.companions.filter(c => !c.hidden).length + (s.mug.hidden ? 0 : 1));
   function showView(id: typeof VIEWS[number]["id"]) {
     const st = useMockupStore.getState();
@@ -61,12 +62,17 @@ export function QuickCameraBar() {
       <button type="button" className="cg-spin-button" aria-pressed={rotating}
         onClick={() => {
           const st = useMockupStore.getState();
-          st.patch("camera", { autoRotate: !st.camera.autoRotate });
-          if (!st.camera.autoRotate && count > 1) st.frameAll();
+          st.patch("camera", { autoRotate: !rotating, spinIds: null });
+          if (!rotating && count > 1) st.frameAll();
         }}>
         {rotating ? <Pause /> : <Play />}
         {rotating ? "Pausar giro" : count > 1 ? "Girar todas 360°" : "Girar 360°"}
       </button>
+      {count > 1 && <button type="button" className="cg-pan-button" aria-pressed={moving}
+        title="Selecione uma caneca e arraste o corpo da peça. G ativa Mover; Alt suspende o encaixe."
+        onClick={() => { const st = useMockupStore.getState(); st.patch("camera", { autoRotate: false }); st.setTool(moving ? "select" : "move"); }}>
+        <Move /><span>Mover caneca</span>
+      </button>}
       <button type="button" className="cg-pan-button" aria-pressed={panning}
         title="Arraste a cena para os lados ou para cima e para baixo. Centralizar recupera o enquadramento."
         onClick={() => useMockupStore.getState().setTool(panning ? "select" : "pan")}>
@@ -89,7 +95,7 @@ export function QuickCameraBar() {
 }
 
 export function QuickArtControls({ active, art, locked }: { active: string; art: ArtState; locked: boolean }) {
-  const patch = (value: Partial<ArtState>) => useMockupStore.getState().patchObjectArt(active, value);
+  const patch = (value: Partial<ArtState>) => { const st = useMockupStore.getState(); st.setCompare(false); st.patchObjectArt(active, value); };
   const align = (mode: "center" | "front" | "back" | "wrap") => {
     if (mode === "center") { patch({ offsetX: 0, offsetY: 0 }); return; }
     if (mode === "wrap") {
@@ -108,11 +114,16 @@ export function QuickArtControls({ active, art, locked }: { active: string; art:
         <button type="button" disabled={locked} onClick={() => align("back")}>Costas</button>
         <button type="button" disabled={locked} onClick={() => align("wrap")}>360° completo</button>
       </div>
-      <SliderRow label="Tamanho da arte" value={Math.min(100, Math.round(art.scale * 100))}
-        min={10} max={100} step={1} defaultValue={100} disabled={locked}
+      <div className="cg-fit-options" role="group" aria-label="Encaixe da imagem">
+        <button type="button" aria-pressed={art.fit === "contain"} disabled={locked} onClick={() => patch({ fit: "contain" })}>Mostrar inteira</button>
+        <button type="button" aria-pressed={art.fit === "cover"} disabled={locked} onClick={() => patch({ fit: "cover" })}>Preencher área</button>
+      </div>
+      <p className="cg-fit-note">{art.fit === "cover" ? "Preencher pode cortar as bordas. Confira a estampa na prévia." : "Mostrar inteira mantém a proporção sem cortar a imagem."}</p>
+      <SliderRow label="Tamanho da arte" value={Math.round(art.scale * 100)}
+        min={10} max={Math.max(300, Math.round(art.scale * 100))} step={1} defaultValue={100} disabled={locked}
         format={v => `${v}% da área de impressão`}
         onChange={v => patch({ scale: v / 100 })} />
-      {art.scale > 1 && <p className="cg-quick-hint">Ampliação atual: {Math.round(art.scale * 100)}%. Ajuste fino disponível no modo manual.</p>}
+      {art.scale > 1 && <p className="cg-quick-hint">Ampliação: {Math.round(art.scale * 100)}%. Confira as bordas e a resolução da arte no assistente.</p>}
     </Section>
   );
 }

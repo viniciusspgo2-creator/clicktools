@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ComponentProps } from "react";
 import * as THREE from "three";
 import {
   ContactShadows,
@@ -35,6 +35,21 @@ import {
   buildSquarePlateGeometry,
 } from "./mug-geometry";
 import { studioRefs } from "./studio-refs";
+import { MUG_CONTACT_LAYER, sceneFootprint } from "./scene-layout";
+import { createSoftboxTexture } from "./softbox";
+
+function configureContactCamera(group: THREE.Group | null) {
+  group?.traverse(object => {
+    if ((object as THREE.Camera).isCamera) object.layers.set(MUG_CONTACT_LAYER);
+  });
+}
+function ContactPass(props: ComponentProps<typeof ContactShadows>) {
+  const group = useRef<THREE.Group>(null);
+  // ContactShadows builds its camera after the forwarded group ref is attached.
+  // Configure the actual camera before either depth pass, including remounts.
+  useFrame(() => configureContactCamera(group.current), -100);
+  return <ContactShadows {...props} ref={group} />;
+}
 
 let rectAreaReady = false;
 function ensureRectArea() {
@@ -54,14 +69,19 @@ export function StudioLights() {
   const castShadow = useMockupStore((s) => s.bg.castShadow);
   const bg = useMockupStore((s) => s.bg);
   const companions = useMockupStore((s) => s.companions);
-  const mugScale = useMockupStore((s) => s.mug.scale);
+  const mug = useMockupStore((s) => s.mug);
+  const mugScale = mug.scale;
   const mobile = useMemo(() => detectMobile(), []);
   const preset =
     LIGHT_PRESETS.find((p) => p.id === light.preset) ?? LIGHT_PRESETS[0];
   ensureRectArea();
 
   // a câmera de sombra cresce junto com o grupo (nunca corta a sombra)
-  const extent = groupFootprint(companions, mugScale);
+  const footprint = sceneFootprint(mug, companions);
+  const extent = footprint.extent;
+  const shadowTarget = useMemo(() => new THREE.Object3D(), []);
+  const softbox = useMemo(() => createSoftboxTexture(), []);
+  useEffect(() => () => softbox.dispose(), [softbox]);
 
   const keyPos = useMemo(() => {
     const [x, y, z] = preset.keyDir;
@@ -89,19 +109,23 @@ export function StudioLights() {
   const matchAvg =
     bg.type === "image" && bg.matchLight ? getBackgroundAvg(bg.imageId) : null;
 
-  // Environment reconstruído apenas em mudanças discretas (preset/rotação grossa)
+  // The PMREM capture must follow every control that affects the softboxes.
   const hdr = getEnvironment(light.hdriId)?.texture;
-  const envKey = `${preset.id}-${Math.round(light.rotation / 6) * 6}-${Math.round(light.intensity * 10)}-${light.temperature}`;
+  const envKey = [preset.id, light.rotation, light.intensity, light.temperature,
+    light.keyStrength ?? 1, light.fillStrength ?? 1, light.rimStrength ?? 1,
+    light.softness].join(":");
 
   return (
     <>
+      <primitive object={shadowTarget} position={[footprint.x, 0, footprint.z]} />
       <ambientLight
         intensity={(matchAvg ? 0.26 : 0.18) * (light.ambientStrength ?? 1)}
         color={matchAvg ? rgbCss(matchAvg) : "#ffffff"}
       />
       {/* luz chave com sombra suave */}
       <directionalLight
-        position={keyPos.toArray()}
+        position={[keyPos.x + footprint.x, keyPos.y, keyPos.z + footprint.z]}
+        target={shadowTarget}
         intensity={
           preset.keyInt * light.intensity * 1.4 * (light.keyStrength ?? 1)
         }
@@ -116,7 +140,7 @@ export function StudioLights() {
       >
         <orthographicCamera
           attach="shadow-camera"
-          args={[-extent, extent, extent * 1.35 + 4, -2.4, 0.5, 90]}
+          args={[-extent, extent, extent, -extent, 0.1, Math.max(120, extent * 6)]}
         />
       </directionalLight>
       {/* preenchimento */}
@@ -138,7 +162,7 @@ export function StudioLights() {
       {/* softbox retangular real — reflexo de janela na porcelana */}
       <rectAreaLight
         position={[keyPos.x * 0.7, 8.5, keyPos.z * 0.9 + 2]}
-        width={7}
+        width={3 + light.softness * 5}
         height={10}
         intensity={
           preset.keyInt * light.intensity * 0.7 * (light.keyStrength ?? 1)
@@ -151,7 +175,8 @@ export function StudioLights() {
       {hdr ? (
         <Environment
           map={hdr}
-          environmentIntensity={light.envIntensity * 0.7}
+          environmentIntensity={light.envIntensity * light.intensity}
+          environmentRotation={[0, THREE.MathUtils.degToRad(light.rotation), 0]}
           background={false}
         />
       ) : (
@@ -160,66 +185,70 @@ export function StudioLights() {
           resolution={mobile ? 512 : 1024}
           frames={1}
           background={false}
-          environmentIntensity={light.envIntensity * 0.7}
+          environmentIntensity={light.envIntensity}
         >
           <group
             rotation={[
               0,
-              THREE.MathUtils.degToRad(Math.round(light.rotation / 6) * 6),
+              THREE.MathUtils.degToRad(light.rotation),
               0,
             ]}
           >
             {/* Faixa fotográfica vertical: torna o verniz legível sobre a arte. */}
             <Lightformer
               form="rect"
-              intensity={3.5 * preset.env * light.intensity}
+              map={softbox}
+              intensity={1.7 * preset.env * light.intensity * (light.keyStrength ?? 1)}
               color="#ffffff"
-              position={[-6, 4, 5]}
-              scale={[1.1, 9, 1]}
-              target={[0, 4, 0]}
+              position={[-6, 1, 7]}
+              scale={[2.4 + light.softness * 1.2, 7, 1]}
+              target={[0, 0, 0]}
             />
             {/* softbox principal */}
             <Lightformer
               form="rect"
-              intensity={2.6 * preset.env * light.intensity}
+              map={softbox}
+              intensity={2.2 * preset.env * light.intensity * (light.keyStrength ?? 1)}
               color={keyColor}
-              position={[-4, 6, 7]}
-              scale={[9, 6, 1]}
-              target={[0, 3.5, 0]}
+              position={[-4, 3, 7]}
+              scale={[3.5 + light.softness * 3, 7, 1]}
+              target={[0, 0, 0]}
             />
             {/* preenchedor vertical */}
             <Lightformer
               form="rect"
-              intensity={1.1 * preset.env * light.intensity}
+              map={softbox}
+              intensity={1.1 * preset.env * light.intensity * (light.fillStrength ?? 1)}
               color={fillColor}
-              position={[7, 4, 2]}
+              position={[7, 0, 2]}
               scale={[4, 9, 1]}
-              target={[0, 3.5, 0]}
+              target={[0, 0, 0]}
             />
             {/* recorte traseiro */}
             <Lightformer
               form="rect"
-              intensity={1.8 * preset.env * light.intensity}
+              map={softbox}
+              intensity={1.5 * preset.env * light.intensity * (light.rimStrength ?? 1)}
               color={rimColor}
-              position={[-2, 7, -8]}
+              position={[-2, 3, -8]}
               scale={[10, 3, 1]}
-              target={[0, 4, 0]}
+              target={[0, 0, 0]}
             />
             {/* teto suave */}
             <Lightformer
               form="rect"
-              intensity={1.5 * preset.env * light.intensity}
+              intensity={1.1 * preset.env * light.intensity * (light.fillStrength ?? 1)}
               color="#ffffff"
-              position={[0, 11, 0]}
+              position={[0, 8, 0]}
               rotation={[Math.PI / 2, 0, 0]}
               scale={[12, 12, 1]}
             />
             {/* faixa de chão clara (luz refletida) */}
             <Lightformer
               form="rect"
-              intensity={0.7 * preset.env * light.intensity}
+              intensity={0.45 * preset.env * light.intensity * (light.fillStrength ?? 1)}
               color="#ffffff"
-              position={[0, -0.5, 4]}
+              position={[0, -5, 4]}
               rotation={[-Math.PI / 2, 0, 0]}
               scale={[10, 8, 1]}
             />
@@ -306,7 +335,7 @@ export function Backdrop() {
 
   return (
     <>
-      <mesh name="backdrop" scale={70}>
+      <mesh name="backdrop" scale={1800} renderOrder={-1000} frustumCulled={false}>
         <sphereGeometry args={[1, 48, 32]} />
         <shaderMaterial
           vertexShader={backdropVert}
@@ -314,6 +343,7 @@ export function Backdrop() {
           uniforms={uniforms}
           side={THREE.BackSide}
           depthWrite={false}
+          depthTest={false}
         />
       </mesh>
       {(bg.type === "studio-dark" || bg.type === "solid") &&
@@ -375,34 +405,42 @@ function makeBlobTexture(): THREE.CanvasTexture {
 /** sombra suave no ar (modo flutuante) — mais difusa e fraca quanto mais alta */
 export function FloatShadows() {
   const floor = useMockupStore((s) => s.bg.floor);
+  const contactEnabled = useMockupStore((s) => s.bg.contactShadow);
+  const shadowOpacity = useMockupStore((s) => s.light.shadowOpacity);
   const companions = useMockupStore((s) => s.companions);
   const mug = useMockupStore((s) => s.mug);
   const mugPosY = mug.posY;
   const mugScale = useMockupStore((s) => s.mug.scale);
   const tex = useMemo(() => makeBlobTexture(), []);
   useEffect(() => () => tex.dispose(), [tex]);
-  if (floor !== "flutuante") return null;
+  const floating = floor === "flutuante";
+  if (!contactEnabled || (!floating && floor !== "continuo")) return null;
 
   const mugs = [
     {
       x: mug.posX ?? 0,
       z: mug.posZ ?? 0,
-      lift: FLOAT_LIFT + mugPosY,
+      id: "hero", hidden: mug.hidden,
+      lift: (floating ? FLOAT_LIFT : 0) + mugPosY,
       scale: mugScale,
     },
     ...companions
       .filter((c) => !c.hidden)
-      .map((c) => ({ x: c.posX, z: c.posZ, lift: FLOAT_LIFT, scale: c.scale })),
-  ];
+      .map((c) => ({ id: c.id, hidden: c.hidden, x: c.posX, z: c.posZ,
+        lift: (floating ? FLOAT_LIFT : 0) + (c.posY ?? 0), scale: c.scale })),
+  ].filter(m => !m.hidden);
 
   return (
     <group name="float-shadow">
-      {mugs.map((m, i) => {
-        const soft = 1 + m.lift * 0.16;
-        const opacity = Math.max(0.14, 0.5 / (1 + m.lift * 0.4));
+      {mugs.map((m) => {
+        const soft = 1 + Math.max(0, m.lift) * 0.16;
+        const opacity = floating ? Math.max(0.1, (shadowOpacity ?? 0.44) / (1 + m.lift * 0.4))
+          : (shadowOpacity ?? 0.44) * 0.34 / (1 + Math.max(0, m.lift) * 0.4);
         return (
           <mesh
-            key={i}
+            key={m.id}
+            name="mug-ground-shadow"
+            userData={{ objectId: m.id }}
             rotation={[-Math.PI / 2, 0, 0]}
             position={[m.x, 0.02, m.z]}
             scale={11 * m.scale * soft}
@@ -430,7 +468,7 @@ function ShadowCatcher() {
       position={[0, 0, 0]}
       receiveShadow
     >
-      <planeGeometry args={[90, 90]} />
+      <planeGeometry args={[800, 800]} />
       <shadowMaterial transparent opacity={0.09} />
     </mesh>
   );
@@ -596,11 +634,13 @@ export function StudioContactShadows() {
   const shadowOpacity = useMockupStore((s) => s.light.shadowOpacity);
   const shadowColor = useMockupStore((s) => s.light.shadowColor);
   const companions = useMockupStore((s) => s.companions);
-  const mugScale = useMockupStore((s) => s.mug.scale);
+  const mug = useMockupStore((s) => s.mug);
   const mobile = useMemo(() => detectMobile(), []);
+  const footprint = useMemo(() => sceneFootprint(mug, companions), [mug, companions]);
+  const contactScale = useMemo<[number, number]>(() => [footprint.width, footprint.depth], [footprint.width, footprint.depth]);
   const floor = bg.floor ?? "continuo";
   if (!bg.contactShadow || floor === "flutuante") return null;
-  const extent = groupFootprint(companions, mugScale);
+  const { x, z } = footprint;
   const topY =
     floor === "pedestal"
       ? PEDESTAL_H + 0.002
@@ -609,20 +649,22 @@ export function StudioContactShadows() {
         : 0.002;
   return (
     <group name="studio-contact-shadows">
-      <ContactShadows
-        position={[0, topY + 0.001, 0]}
+      <ContactPass
+        position={[x, topY + 0.001, z]}
         opacity={(shadowOpacity ?? 0.44) * 0.8}
-        scale={Math.min(64, extent * 2.2)}
+        scale={contactScale}
+        near={-0.05}
         blur={0.7 + softness * 0.6}
         far={0.8}
         resolution={mobile ? 512 : 1024}
         color={shadowColor ?? "#242424"}
         frames={Infinity}
       />
-      <ContactShadows
-        position={[0, topY, 0]}
+      <ContactPass
+        position={[x, topY, z]}
         opacity={(shadowOpacity ?? 0.44) * 0.6}
-        scale={Math.min(64, extent * 2.2)}
+        scale={contactScale}
+        near={-0.05}
         blur={2.2 + softness * 2.4}
         far={4.2}
         resolution={mobile ? 512 : 1024}
