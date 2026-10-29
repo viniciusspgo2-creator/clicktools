@@ -1,3 +1,5 @@
+IMPORTANTE: Para a atualização da home de 29/10/2026, LEIA primeiro LEIA-PRIMEIRO-INSTALACAO.txt. Este documento abaixo é histórico do reparo antigo e os scripts citados não devem ser usados para aplicar o redesign.
+
 CLICKTOOLS — REPARO DO GITHUB DESKTOP + PROJETO FULL
 =======================================================
 
