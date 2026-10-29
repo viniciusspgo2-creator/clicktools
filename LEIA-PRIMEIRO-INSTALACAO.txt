@@ -1,0 +1,44 @@
+CLICK & GRUDA — PROJETO COMPLETO CORRIGIDO
+==========================================
+
+ESTE ZIP CONTÉM TODOS OS ARQUIVOS DO PROJETO NA RAIZ DO ZIP.
+Inclui o áudio manual, galeria, home, painel Admin e códigos universais.
+
+COMO SUBSTITUIR SEM FAZER "MERGE":
+
+1. No GitHub Desktop, se estiver aparecendo a janela "Resolve conflicts before Merge",
+   clique em "Abort merge". NÃO clique em "Continue merge".
+2. No GitHub Desktop: Repository > Show in Explorer (ou "Mostrar no Explorador").
+3. Faça uma CÓPIA DE SEGURANÇA da pasta inteira do projeto.
+4. Mantenha os arquivos/diretórios .git e .env / .env.local da pasta antiga.
+5. Extraia o conteúdo DESTE ZIP diretamente na pasta raiz do projeto (aquela
+   onde já existe package.json). Substitua os arquivos existentes.
+   NÃO extraia o projeto dentro de outra pasta clicktools-main.
+6. Volte ao GitHub Desktop > Changes. Revise o que foi alterado, depois
+   "Commit to main" e "Push origin". NÃO execute "Merge".
+7. Aguarde o deploy na Vercel. A alteração Prisma requer que o banco seja
+   atualizado para suportar códigos universais; faça backup antes de migrar.
+
+IMPORTANTE: O ZIP não contém .git nem credenciais, não altera branches ou
+conflitos já iniciados no GitHub Desktop. Caso a branch possua alterações
+posteriores à cópia original enviada, essas alterações NÃO puderam ser
+inspecionadas aqui e podem ser sobrescritas. Tenha backup antes de substituir.
+
+VERIFICAÇÃO NESTE AMBIENTE:
+- 179 arquivos TS/TSX analisados sintaticamente, 0 erros de sintaxe.
+- ZIP íntegro e arquivos essenciais presentes.
+- Build Next completo NÃO executado: dependências npm no ambiente incompletas.
+- A primeira implantação requer testar Vercel/build e conexão com Neon.
+
+RECURSOS:
+- Áudio ElevenLabs na Home: reprodução apenas por clique (sem autoplay).
+- Preço R$ 47,90 e melhorias visuais no site.
+- Galeria com as artes fornecidas.
+- Admin com layout responsivo e textos maiores.
+- Códigos de acesso universais com 1–100 navegadores por código,
+  limites editáveis e bloqueio de novas ativações após atingir a capacidade.
+- Sessões individuais preservadas ao editar detalhes administrativos.
+
+OBSERVAÇÃO SOBRE USUÁRIOS: o limite universal é por navegador/dispositivo
+cadastrado, não cadastro pessoal com CPF ou identidade. Limpar cookies pode
+fazer um mesmo visitante consumir uma vaga adicional.

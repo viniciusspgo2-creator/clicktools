@@ -33,11 +33,14 @@ export async function POST(req: Request) {
     // Acquire a row lock before assigning a browser slot; prevents concurrent
     // requests from exceeding the shared-code limit across server instances.
     const result = await db.$transaction(async (tx) => {
-      const row = await tx.accessCode.findUnique({ where: { code } });
+      const lookup = await tx.accessCode.findUnique({ where: { code }, select: { id: true } });
+      if (!lookup) return { ok: false as const, reason: "invalid" };
+      // Read AFTER the row lock to see changes to quotas, revocation and dates.
+      await tx.$queryRaw`SELECT id FROM "AccessCode" WHERE id = ${lookup.id} FOR UPDATE`;
+      const row = await tx.accessCode.findUnique({ where: { id: lookup.id } });
       if (!row || !row.active) return { ok: false as const, reason: "invalid" };
       if (row.expiresAt && row.expiresAt <= now)
         return { ok: false as const, reason: "expired" };
-      await tx.$queryRaw`SELECT id FROM "AccessCode" WHERE id = ${row.id} FOR UPDATE`;
       if (row.accessMode === "universal") {
         const current = await tx.accessCodeUse.findUnique({
           where: { codeId_deviceId: { codeId: row.id, deviceId: browserHash } },

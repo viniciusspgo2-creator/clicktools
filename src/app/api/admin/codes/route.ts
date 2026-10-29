@@ -119,8 +119,9 @@ export async function PATCH(req: Request) {
       ...(typeof body.note === "string" ? { note: trim(body.note) } : {}),
     };
     if (body.resetBrowser === true) data.browserHash = null;
-    // Personal codes continue to use a single session bound to a browser.
-    if (row.accessMode !== "universal") {
+    // Only revoke individual sessions when explicitly deactivating the code
+    // or releasing the browser. Editing notes, dates or names is non-disruptive.
+    if (row.accessMode !== "universal" && (body.resetBrowser === true || body.active === false)) {
       data.sessionHash = null;
       data.sessionExpiresAt = null;
     }
@@ -131,6 +132,14 @@ export async function PATCH(req: Request) {
       if (body.resetBrowser === true) {
         await tx.accessCodeUse.deleteMany({ where: { codeId: row.id } });
       } else if (row.accessMode === "universal") {
+        // Revoking a universal code invalidates live sessions, while keeping
+        // enrolled slots for possible later reactivation.
+        if (body.active === false) {
+          await tx.accessCodeUse.updateMany({
+            where: { codeId: row.id },
+            data: { sessionHash: null, sessionExpiresAt: null },
+          });
+        }
         // When lowering the cap, preserve the earliest enrolled browsers and
         // immediately end access for all slots beyond the new limit.
         const enrolled = await tx.accessCodeUse.findMany({
