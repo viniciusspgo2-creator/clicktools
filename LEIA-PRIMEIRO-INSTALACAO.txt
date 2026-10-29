@@ -1,44 +1,53 @@
-CLICK & GRUDA — PROJETO COMPLETO CORRIGIDO
-==========================================
+CLICKTOOLS — PACOTE COMPLETO DO PROJETO
+=======================================
 
-ESTE ZIP CONTÉM TODOS OS ARQUIVOS DO PROJETO NA RAIZ DO ZIP.
-Inclui o áudio manual, galeria, home, painel Admin e códigos universais.
+PROJETO: clicktools (https://clicktools.vercel.app)
+ESTE PACOTE É DO CLICKTOOLS. "CLICK & GRUDA" É O NOME/IDENTIDADE
+COMERCIAL QUE APARECE EM PÁGINAS DA APLICAÇÃO, NÃO O NOME DO REPOSITÓRIO.
 
-COMO SUBSTITUIR SEM FAZER "MERGE":
+ATENÇÃO: CONFLITOS DO GITHUB DESKTOP
+-------------------------------------
+Se o GitHub Desktop mostra "Resolve conflicts before Merge", NÃO adianta
+apagar os arquivos e extrair este ZIP na pasta antiga: o estado do Git
+fica guardado no diretório .git e os commits de origem podem divergir.
 
-1. No GitHub Desktop, se estiver aparecendo a janela "Resolve conflicts before Merge",
-   clique em "Abort merge". NÃO clique em "Continue merge".
-2. No GitHub Desktop: Repository > Show in Explorer (ou "Mostrar no Explorador").
-3. Faça uma CÓPIA DE SEGURANÇA da pasta inteira do projeto.
-4. Mantenha os arquivos/diretórios .git e .env / .env.local da pasta antiga.
-5. Extraia o conteúdo DESTE ZIP diretamente na pasta raiz do projeto (aquela
-   onde já existe package.json). Substitua os arquivos existentes.
-   NÃO extraia o projeto dentro de outra pasta clicktools-main.
-6. Volte ao GitHub Desktop > Changes. Revise o que foi alterado, depois
-   "Commit to main" e "Push origin". NÃO execute "Merge".
-7. Aguarde o deploy na Vercel. A alteração Prisma requer que o banco seja
-   atualizado para suportar códigos universais; faça backup antes de migrar.
+COMO INSTALAR EM UMA CÓPIA LIMPA (SEM MERGE)
+--------------------------------------------
+1. Na janela de conflitos do GitHub Desktop, clique em "Abort merge".
+   Não clique em "Continue merge".
+2. Preserve a pasta antiga como BACKUP. Não apague nada dela.
+3. No GitHub Desktop, use File > Clone repository e selecione "clicktools".
+   Para Local path, escolha UMA PASTA NOVA E VAZIA, como C:\clicktools-limpo.
+   Não clone em cima da pasta antiga.
+4. Depois de clonar, abra a pasta nova pelo GitHub Desktop
+   (Repository > Show in Explorer).
+5. Extraia os ARQUIVOS deste ZIP na RAIZ da pasta nova (aquela com package.json),
+   substituindo os arquivos. NÃO coloque tudo dentro de uma subpasta extra.
+6. Mantenha a pasta .git que veio do CLONE NOVO. Não copie .git da pasta antiga.
+7. Se seu sistema precisar de .env ou .env.local, copie APENAS esses arquivos
+   da pasta antiga para a pasta nova, sem colocar segredos no Git.
+8. GitHub Desktop > Changes: revise os arquivos; depois faça Commit to main
+   e Push origin. NÃO execute Pull origin na pasta antiga com histórico divergente.
+9. Confira o resultado do deploy na Vercel. Faça backup do banco antes
+   de aplicar qualquer mudança do Prisma.
 
-IMPORTANTE: O ZIP não contém .git nem credenciais, não altera branches ou
-conflitos já iniciados no GitHub Desktop. Caso a branch possua alterações
-posteriores à cópia original enviada, essas alterações NÃO puderam ser
-inspecionadas aqui e podem ser sobrescritas. Tenha backup antes de substituir.
+AVISOS IMPORTANTES
+------------------
+- Este ZIP não inclui .git, .env ou node_modules.
+- O ZIP NÃO resolve divergências do Git automaticamente; o procedimento de
+  clone limpo é justamente para não reutilizar o histórico local conflitante.
+- Alterações que só existam na pasta antiga e não no remoto ou neste ZIP
+  podem ficar de fora. A pasta antiga deve continuar guardada como backup.
+- Não foi possível executar build Next.js completo aqui por dependências
+  incompletas; apenas a análise sintática TS/TSX foi realizada anteriormente.
 
-VERIFICAÇÃO NESTE AMBIENTE:
-- 179 arquivos TS/TSX analisados sintaticamente, 0 erros de sintaxe.
-- ZIP íntegro e arquivos essenciais presentes.
-- Build Next completo NÃO executado: dependências npm no ambiente incompletas.
-- A primeira implantação requer testar Vercel/build e conexão com Neon.
+ATUALIZAÇÕES INCLUÍDAS
+----------------------
+- Admin: melhorias de layout e criação/edição de códigos universais,
+  com limite configurável de 1 a 100 navegadores cadastrados.
+- Home: galeria de artes fornecidas e ajustes de preço/legibilidade.
+- Áudio ElevenLabs com reprodução somente após clique (sem autoplay).
+- Studio: mantidos os componentes do projeto original, conforme pacote base.
 
-RECURSOS:
-- Áudio ElevenLabs na Home: reprodução apenas por clique (sem autoplay).
-- Preço R$ 47,90 e melhorias visuais no site.
-- Galeria com as artes fornecidas.
-- Admin com layout responsivo e textos maiores.
-- Códigos de acesso universais com 1–100 navegadores por código,
-  limites editáveis e bloqueio de novas ativações após atingir a capacidade.
-- Sessões individuais preservadas ao editar detalhes administrativos.
-
-OBSERVAÇÃO SOBRE USUÁRIOS: o limite universal é por navegador/dispositivo
-cadastrado, não cadastro pessoal com CPF ou identidade. Limpar cookies pode
-fazer um mesmo visitante consumir uma vaga adicional.
+RESTRIÇÃO DO LIMITE: contagem de navegadores/dispositivos, não verificação
+individual de identidade. Limpar cookies pode ocupar uma nova vaga.
