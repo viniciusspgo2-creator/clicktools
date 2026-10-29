@@ -20,7 +20,6 @@ export function Header() {
     <div className="cg-container cg-nav-bar">
       <Link href="/" className="cg-header-logo" aria-label="Click & Gruda — início" onClick={() => setMenuOpen(false)}>
         <Image src="/cg-home/logo-clickgruda.webp" alt="Click & Gruda" width={175} height={44} priority className="object-contain" />
-        <span>STUDIO MOCKUP 3D</span>
       </Link>
       <nav className="cg-desktop-nav" aria-label="Navegação principal">
         {nav.map((item) => <Link key={item.label} href={item.href}>{item.label}</Link>)}

@@ -1,6 +1,6 @@
 CLICKTOOLS / CLICK & GRUDA — ATUALIZAÇÃO DA HOME — 29/10/2026
 
-Este é o projeto completo com a nova hero HORIZONTAL, 2 artes ilustrativas,
+Este é o projeto completo com a hero HORIZONTAL MAIS ENXUTA, 2 artes ilustrativas,
 38 artes do RAR no carrossel, copy e recursos do Studio, CTA, fontes maiores
 na área de bônus e no rodapé.
 
@@ -35,3 +35,5 @@ VALIDAÇÃO:
 - Se a Vercel acusar erro de build, capture o LOG exato para correção.
 
 NÃO alteramos funções do editor 3D, admin, API, pagamentos ou schema do banco.
+
+REFINAMENTO DO HEADER (29/10): sem bloco de catálogo em breve, sem o parágrafo secundário da hero e com navegação visualmente mais enxuta.

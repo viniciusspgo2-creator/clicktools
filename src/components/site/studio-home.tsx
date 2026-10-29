@@ -138,7 +138,6 @@ export function StudioHome() {
             <span className="cg-kicker"><Layers3 size={15} /> STUDIO MOCKUP 3D</span>
             <h1 className="cg-display cg-hero-title">Crie Mockups de<br /><em>Canecas em Segundos.</em></h1>
             <p className="cg-hero-lead">Editor 3D profissional para criar mockups realistas de canecas personalizadas. Aplique sua arte e exporte em até 4K.</p>
-            <p className="cg-hero-description">Transforme suas estampas em apresentações que dão vontade de ter. Seu <strong>Studio Mockup 3D</strong>, com luz, acabamento e composição nas suas mãos.</p>
             <div className="cg-hero-highlights" aria-label="Recursos em destaque">
               <span><ShieldCheck size={17} /> Realismo profissional</span>
               <span><Coffee size={17} /> Canecas, xícaras e chopp</span>
@@ -150,10 +149,6 @@ export function StudioHome() {
             <div className="cg-hero-actions">
               <Link href={studioHref} className="cg-button cg-button-primary"><WandSparkles size={19} /> Entrar no Studio <ArrowRight size={19} /></Link>
               <a href="#recursos-avancados" className="cg-button cg-button-outline"><BookOpen size={19} /> Conhecer os recursos <ArrowRight size={17} /></a>
-            </div>
-            <div className="cg-catalog-coming" role="note">
-              <span className="cg-catalog-coming-icon"><Layers3 size={23} /></span>
-              <div><div className="cg-catalog-heading"><strong>Catálogo Online</strong><span>EM BREVE</span></div><p>Crie seus mockups e adicione ao catálogo para vender seus produtos personalizados.</p></div>
             </div>
             <StudioAudioIntroduction />
             <div className="cg-hero-proof"><span><ShieldCheck size={15} /> Código pessoal</span><span><InfinityIcon size={15} /> Biblioteca vitalícia</span><span><Coffee size={15} /> Studio incluso para assinantes</span></div>
