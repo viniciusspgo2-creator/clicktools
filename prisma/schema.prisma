@@ -80,3 +80,27 @@ model SiteConfig {
   value     String // JSON serializado
   updatedAt DateTime @updatedAt
 }
+
+/** Independent catalog for the static Mockup de Cenários editor.
+ * Binary assets are durable in Postgres, including on serverless hosting.
+ * List queries explicitly omit imageBytes. No filesystem uploads in production.
+ */
+model MockupSceneItem {
+  id         String   @id @default(cuid())
+  kind       String
+  name       String
+  category   String
+  tags       String   @default("[]")
+  status     String   @default("draft")
+  surface    String?
+  imageBytes Bytes
+  thumbnailBytes Bytes?
+  mimeType   String
+  width      Int
+  height     Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([kind, status, category, createdAt])
+  @@index([kind, status, createdAt])
+}

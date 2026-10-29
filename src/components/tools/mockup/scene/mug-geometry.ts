@@ -3,6 +3,9 @@
  * O Lathe gira um perfil de raio CONSTANTE; usar Lathe não implica conicidade.
  */
 import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import type { HandleStyle } from "../lib/handle-styles";
+export type { HandleStyle } from "../lib/handle-styles";
 import { MUG, V_EXT, V_INT, texV, type PrintArea } from "../lib/config";
 
 type P = [number, number];
@@ -204,7 +207,6 @@ const HANDLE_POINTS = [
   [0, 2.3, -4.45],
   [0, 2.3, -3.89],
 ];
-export type HandleStyle = "classic" | "rounded";
 
 // Laço D alongado: ombros quase horizontais e curva externa contínua.
 // As duas raízes ficam enterradas na parede, como no modelo original.
@@ -220,9 +222,15 @@ const ROUNDED_HANDLE_POINTS = [
   [0, 1.9, -4.58],
   [0, 1.9, -3.89],
 ];
+const REFERENCE_HANDLE_POINTS: Partial<Record<HandleStyle, number[][]>> = {
+  spoon: [[0,7.7,-3.89],[0,7.7,-4.55],[0,7.3,-5.75],[0,6.4,-6.7],[0,5.1,-6.9],[0,3.8,-6.15],[0,2.65,-4.7],[0,2.5,-3.89]],
+  "heart-asymmetric": [[0,8,-3.89],[0,7.85,-4.55],[0,6.7,-5.25],[0,6.9,-6.15],[0,7.05,-7.3],[0,6.4,-7.95],[0,5.25,-7.8],[0,4.1,-6.85],[0,3,-5.2],[0,2.35,-3.89]],
+  heart: [[0,7.45,-3.89],[0,8.1,-4.4],[0,8.15,-5.15],[0,7.5,-5.95],[0,6.95,-6.25],[0,7.2,-7.15],[0,6.85,-7.95],[0,5.9,-8.12],[0,4.75,-7.45],[0,3.65,-6.15],[0,2.8,-5],[0,3.3,-4.45],[0,4.5,-3.89]],
+  "oval-gold": [[0,8,-3.89],[0,8,-4.65],[0,7.6,-5.65],[0,6.4,-6.45],[0,4.9,-6.65],[0,3.4,-6.3],[0,2.2,-5.35],[0,1.95,-4.55],[0,1.95,-3.89]],
+};
 const getHandleCurve = (style: HandleStyle) =>
   new THREE.CatmullRomCurve3(
-    (style === "rounded" ? ROUNDED_HANDLE_POINTS : HANDLE_POINTS)
+    (REFERENCE_HANDLE_POINTS[style] ?? (style === "rounded" ? ROUNDED_HANDLE_POINTS : HANDLE_POINTS))
       .map((p) => new THREE.Vector3(p[0], p[1], p[2])),
     false,
     "centripetal",
@@ -230,12 +238,14 @@ const getHandleCurve = (style: HandleStyle) =>
 export const HANDLE_A_X = 0.66;
 export const HANDLE_B_N = 0.52;
 export function handleExtentR(): number {
-  return 7.2;
+  return 8.8;
 }
 
 export function buildHandleGeometry(style: HandleStyle = "classic"): THREE.BufferGeometry {
   const curve = getHandleCurve(style);
-  const rounded = style === "rounded";
+  const rounded = style !== "classic";
+  const sectionX = style === "heart" || style === "heart-asymmetric" ? 0.42 : style === "oval-gold" ? 0.49 : rounded ? 0.58 : HANDLE_A_X;
+  const sectionN = style === "heart" || style === "heart-asymmetric" ? 0.42 : style === "spoon" ? 0.39 : HANDLE_B_N;
   const tubular = 144,
     radial = 40,
     ring = radial + 1;
@@ -260,9 +270,9 @@ export function buildHandleGeometry(style: HandleStyle = "classic"): THREE.Buffe
       const ca = Math.cos(a),
         sa = Math.sin(a);
       const ox =
-        Math.sign(ca) * Math.pow(Math.abs(ca), rounded ? 1 : 0.85) * (rounded ? 0.58 : HANDLE_A_X) * weld;
+        Math.sign(ca) * Math.pow(Math.abs(ca), rounded ? 1 : 0.85) * sectionX * weld;
       const on =
-        Math.sign(sa) * Math.pow(Math.abs(sa), rounded ? 1 : 0.9) * HANDLE_B_N * weld;
+        Math.sign(sa) * Math.pow(Math.abs(sa), rounded ? 1 : 0.9) * sectionN * weld;
       positions.push(
         center.x + ox,
         center.y + perp.y * on,
@@ -310,7 +320,34 @@ export function buildHandleGeometry(style: HandleStyle = "classic"): THREE.Buffe
   n.needsUpdate = true;
   geo.computeBoundingBox();
   geo.computeBoundingSphere();
+  if (style === "spoon") {
+    const spoon = buildSpoonGeometry();
+    const merged = mergeGeometries([geo, spoon]);
+    geo.dispose(); spoon.dispose();
+    merged.computeBoundingBox(); merged.computeBoundingSphere();
+    return merged;
+  }
   return geo;
+}
+
+/** A closed, concave spoon bowl and rounded stem; part of the handle assembly. */
+function buildSpoonGeometry(): THREE.BufferGeometry {
+  const stem = new THREE.CapsuleGeometry(0.19, 7.05, 8, 20);
+  stem.scale(0.5, 1, 1.35); stem.translate(0, 4.9, -4.5);
+  const bowl = new THREE.SphereGeometry(1, 40, 28);
+  const p = bowl.getAttribute("position");
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    // Both sides bend inwards; their separation gives a solid ceramic bowl.
+    p.setXYZ(i, x * 0.13 + (1-y*y) * 0.36 - 0.17, 9.1+y*1.33, -4.5+z*0.85);
+  }
+  bowl.computeVertexNormals();
+  const result = mergeGeometries([stem.toNonIndexed(), bowl.toNonIndexed()]);
+  stem.dispose(); bowl.dispose();
+  // The swept handle is indexed; weld spoon vertices to provide a matching index.
+  const count = result.getAttribute("position").count;
+  result.setIndex(Array.from({length: count}, (_, i) => i));
+  return result;
 }
 
 /** Decalque inferior segue o prato côncavo; não flutua dentro da caneca. */

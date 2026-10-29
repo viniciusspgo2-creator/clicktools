@@ -1591,6 +1591,17 @@ function ImageTab() {
   const height =
     (es.ratioId === "custom" ? es.customH : (ratio?.h ?? 1080)) * es.scale;
 
+  const [preview, setPreview] = useState<Awaited<ReturnType<typeof exportImage>> | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Settings changes always require a fresh preview; download reuses its exact blob.
+  useEffect(() => { setPreview(null); }, [es, wm]);
+  useEffect(() => {
+    if (!preview) { setPreviewUrl(null); return; }
+    const url = URL.createObjectURL(preview.blob);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [preview]);
+
   const estimate = useMemo(() => {
     const px = width * height;
     const f =
@@ -1618,12 +1629,7 @@ function ImageTab() {
         dpi: es.dpi,
         supersample: 4,
       });
-      downloadBlob(res.blob, res.filename);
-      setOpen(false);
-      toast({
-        title: "Imagem exportada!",
-        description: `${res.width} × ${res.height} · render ${res.supersample.toFixed(1)}× · ${(res.blob.size / 1024 / 1024).toFixed(1)} MB — ${es.dpi === 300 ? "300 DPI para impressão" : "pronta para compartilhar"}.`,
-      });
+      if (useMockupStore.getState().exportSettings === es && useMockupStore.getState().watermark === wm) setPreview(res);
     } catch (e) {
       toast({
         title: "Falha na exportação",
@@ -1846,6 +1852,19 @@ function ImageTab() {
         </p>
       )}
 
+      {preview && previewUrl && <div className="space-y-3 rounded-xl border border-primary/25 bg-primary/5 p-3">
+        <p className="text-sm font-semibold">Confira a imagem antes de baixar</p>
+        <div className="flex min-h-40 items-center justify-center overflow-hidden rounded-lg" style={{ background: 'repeating-conic-gradient(#dfdfda 0% 25%, #f5f5f1 0% 50%) 50% / 20px 20px' }}>
+          <img src={previewUrl} alt="Pré-visualização exata da imagem que será exportada" className="max-h-80 max-w-full object-contain" />
+        </div>
+        <p className="text-xs text-neutral-400">{preview.width} × {preview.height} px · {(preview.blob.size / 1024 / 1024).toFixed(2)} MB. O download terá exatamente esta imagem, com o fundo e o enquadramento exibidos.</p>
+        <PrimaryButton className="w-full" onClick={() => {
+          downloadBlob(preview.blob, preview.filename);
+          toast({ title: "Imagem exportada!", description: `${preview.width} × ${preview.height} px · arquivo conferido na prévia.` });
+          setOpen(false);
+        }}><Download className="h-4 w-4" />Confirmar e baixar imagem</PrimaryButton>
+      </div>}
+
       <PrimaryButton
         onClick={doExport}
         disabled={busy || tooBig}
@@ -1856,7 +1875,7 @@ function ImageTab() {
         ) : (
           <Sparkles className="h-4 w-4" />
         )}
-        {busy ? "Preparando sua imagem…" : "Exportar imagem"}
+        {busy ? "Preparando a prévia…" : preview ? "Atualizar pré-visualização" : "Pré-visualizar exportação"}
       </PrimaryButton>
     </div>
   );

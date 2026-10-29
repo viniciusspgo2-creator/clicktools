@@ -540,7 +540,9 @@ function MugObject({
             {model.def.hasHandle && (
               <mesh geometry={model.handle} castShadow receiveShadow name="mug-handle" userData={{ objectId: id }}
                 onUpdate={mesh => mesh.layers.enable(MUG_CONTACT_LAYER)}>
-                <CeramicMaterial color={handle} mug={mug} />
+                {mug.handleStyle === 'oval-gold'
+                  ? <meshPhysicalMaterial color={handle} metalness={0.92} roughness={0.17} clearcoat={1} clearcoatRoughness={0.08} envMapIntensity={mug.reflection} />
+                  : <CeramicMaterial color={handle} mug={mug} />}
               </mesh>
             )}
 

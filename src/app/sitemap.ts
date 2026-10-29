@@ -15,6 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const statics: MetadataRoute.Sitemap = [
     { url: `${base}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${base}/blog`, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${base}/mockup-cenarios`, changeFrequency: "monthly", priority: 0.9 },
     {
       url: `${base}/mockup-caneca-3d`,
       changeFrequency: "monthly",

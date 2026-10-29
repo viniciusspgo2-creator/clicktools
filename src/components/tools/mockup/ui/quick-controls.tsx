@@ -8,6 +8,8 @@ import { studioRefs } from "../scene/studio-refs";
 import { MUG, lensToFov } from "../lib/config";
 import { fitBoundsToView, framingBounds } from "../scene/framing";
 import { Section, SliderRow } from "./controls";
+import { CERAMIC_PARTS, ceramicColorPatch, type CeramicPart } from "../lib/ceramic-colors";
+import { FreeColorPicker } from "./free-color-picker";
 
 const VIEWS = [
   { id: "front", label: "Frente", icon: ScanFace, dir: [0, 0.06, 1] },
@@ -133,27 +135,29 @@ const COLORS = [
   ["Azul", "#225bc4"], ["Verde", "#167e58"], ["Rosa", "#ee8cb1"], ["Amarela", "#f4c52f"],
 ] as const;
 export function CeramicPalette({ active }: { active: string }) {
-  const [part, setPart] = useState<"all" | "handle">("all");
+  const [part, setPart] = useState<CeramicPart>("all");
   const st = useMockupStore();
   const mug = active === "hero" ? st.mug : st.companions.find(c => c.id === active);
   if (!mug) return null;
-  const color = part === "all" ? mug.bodyColor : mug.handleColor;
+  const resolved = { ...st.mug, ...mug };
+  const fallback = resolved.variant === "white" ? "#ffffff" : resolved.accentColor;
+  const color = part === "handle" ? resolved.handleColor ?? fallback : part === "interior" ? resolved.interiorColor ?? fallback : resolved.bodyColor ?? "#ffffff";
+  const currentPart = CERAMIC_PARTS.find(item => item.id === part)!;
+  const chooseColor = (hex: string) => st.patchObject(active, ceramicColorPatch(part, hex));
   return (
     <Section title="Cores da caneca" icon={Coffee} defaultOpen>
       <div className="cg-palette-tabs" role="group" aria-label="Parte da caneca para colorir">
-        <button type="button" aria-pressed={part === "all"} onClick={() => setPart("all")}>Caneca inteira</button>
-        <button type="button" aria-pressed={part === "handle"} onClick={() => setPart("handle")}>Só a alça</button>
+        {CERAMIC_PARTS.map(item => <button type="button" key={item.id} aria-pressed={part === item.id} onClick={() => setPart(item.id)}>{item.label}</button>)}
       </div>
-      <div className="cg-color-swatches" role="group" aria-label={part === "all" ? "Cor da caneca inteira" : "Cor da alça"}>
+      <div className="cg-color-swatches" role="group" aria-label={currentPart.colorLabel}>
         {COLORS.map(([label, hex]) => <button key={hex} type="button" title={label}
-          aria-label={`${part === "all" ? "Caneca" : "Alça"} ${label.toLowerCase()}`}
+          aria-label={`${currentPart.name} ${label.toLowerCase()}`}
           aria-pressed={color?.toLowerCase() === hex} disabled={!!mug.locked}
           style={{ "--swatch": hex } as React.CSSProperties}
-          onClick={() => st.patchObject(active, part === "all"
-            ? { variant: hex === "#ffffff" ? "white" : "accent", bodyColor: hex, handleColor: hex, interiorColor: hex, baseColor: hex, accentColor: hex }
-            : { handleColor: hex })} />)}
+          onClick={() => chooseColor(hex)} />)}
       </div>
-      <p className="cg-quick-hint">Cores personalizadas, interior e acabamento nos ajustes avançados.</p>
+      <FreeColorPicker key={`${active}:${part}`} label={currentPart.colorLabel} value={color ?? "#ffffff"} onChange={chooseColor} disabled={!!mug.locked} />
+      <p className="cg-quick-hint">Ajuste corpo, alça ou interior separadamente. A cor da cerâmica não recolore a arte enviada.</p>
     </Section>
   );
 }

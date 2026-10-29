@@ -22,6 +22,7 @@ import { suggestArtLayout } from "../lib/art-analysis";
 import { NEUTRAL_ADJUSTMENTS } from "../lib/art-adjustments";
 import { DEFAULT_CERAMIC_FINISH, migrateCeramicFinish } from "../lib/ceramic-finishes";
 import type { HandleStyle } from "../scene/mug-geometry";
+import { normalizeHandleStyle } from "../lib/handle-styles";
 
 export type MugModel =
   | "classic"
@@ -1177,7 +1178,7 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         ? s.companions.map((c) => ({
             ...migrateCeramicFinish(c),
             model: c.model ? migrateMugModel(c.model) : undefined,
-            handleStyle: c.handleStyle === "rounded" ? "rounded" as const : "classic" as const,
+            handleStyle: normalizeHandleStyle(c.handleStyle),
             posX: clamp(Number.isFinite(c.posX) ? c.posX : 10.8, -150, 150),
             posZ: clamp(Number.isFinite(c.posZ) ? c.posZ : 0.6, -150, 150),
             scale: clamp(Number.isFinite(c.scale) ? c.scale : 0.95, 0.2, 3),
@@ -1185,7 +1186,7 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         : st.companions;
       const mug = migrateCeramicFinish({ ...st.mug, ...s.mug,
         model: migrateMugModel(s.mug?.model ?? st.mug.model),
-        handleStyle: s.mug ? (s.mug.handleStyle === "rounded" ? "rounded" as const : "classic" as const) : st.mug.handleStyle,
+        handleStyle: s.mug ? normalizeHandleStyle(s.mug.handleStyle) : st.mug.handleStyle,
       });
       if (s.mug?.model && mug.model !== s.mug.model && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("cg-mockup-migrated", { detail: "Um modelo antigo foi convertido para a caneca clássica." }));

@@ -30,7 +30,7 @@ const ERRORS: Record<string, string> = {
   network:
     "Não foi possível verificar seu acesso. Confira sua conexão e tente novamente.",
 };
-export function PremiumGate({ children }: { children: React.ReactNode }) {
+export function PremiumGate({ children, title = "Studio Mockup 3D", backHref = "/" }: { children: React.ReactNode; title?: string; backHref?: string }) {
   const router = useRouter();
   const [status, setStatus] = useState<"checking" | "locked" | "open">(
     "checking",
@@ -146,7 +146,7 @@ export function PremiumGate({ children }: { children: React.ReactNode }) {
           </span>
           <span className="flex gap-4">
             <Link href="/bonus">Bônus gratuitos</Link>
-            <button onClick={logout}>Sair do Studio</button>
+            <button onClick={logout}>Sair</button>
           </span>
         </div>
         {children}
@@ -155,16 +155,16 @@ export function PremiumGate({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-[80vh] place-items-center bg-[#0c0d0e] px-5 py-12 text-white">
       <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#161719] p-7 sm:p-10">
-        <Link href="/" className="text-sm text-neutral-400">
-          ← Conhecer o Studio
+        <Link href={backHref} className="text-sm text-neutral-400">
+          ← Conhecer {title}
         </Link>
         <Crown className="mb-4 mt-8 h-9 w-9 text-amber-400" />
         <p className="text-xs font-bold uppercase tracking-widest text-amber-400">
           Exclusivo para assinantes
         </p>
-        <h1 className="mt-2 text-3xl font-bold">Studio Mockup 3D</h1>
+        <h1 className="mt-2 text-3xl font-bold">{title}</h1>
         <p className="mt-4 leading-relaxed text-neutral-300">
-          O Studio está incluso para assinantes da{" "}
+          {title === "Studio Mockup 3D" ? "O Studio está" : "O Mockup de Cenários está"} incluso para assinantes da{" "}
           <a
             href={LIBRARY_URL}
             target="_blank"
@@ -200,7 +200,7 @@ export function PremiumGate({ children }: { children: React.ReactNode }) {
             ) : (
               <KeyRound className="h-4 w-4" />
             )}
-            Entrar no Studio
+            {title === "Studio Mockup 3D" ? "Entrar no Studio" : "Entrar no editor"}
           </button>
         </form>
         {error && (

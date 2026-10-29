@@ -10,6 +10,7 @@ const nav = [
   { href: "/#inicio", label: "Início" },
   { href: "/#biblioteca", label: "Biblioteca de Artes" },
   { href: "/#studio", label: "Studio 3D" },
+  { href: "/mockup-cenarios", label: "Mockup de Cenários" },
   { href: "/blog", label: "Blog" },
   { href: "/bonus", label: "Bônus grátis" },
   { href: "/#acessos", label: "Seu acesso" },
