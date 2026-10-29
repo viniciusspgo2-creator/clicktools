@@ -71,6 +71,14 @@ export function buildModel(model: MugModel = "classic", handleStyle: HandleStyle
         // Adequa a alça ao raio correspondente do modelo, sem deformar o corpo.
         r = profileRadius(model, Math.max(0, Math.min(1, t))) / profileRadius("classic", Math.max(0, Math.min(1, t)));
       }
+      if (model === "square" && isHandle) {
+        const angle = Math.atan2(z, x);
+        const boundaryScale = 0.88 / Math.pow(Math.pow(Math.abs(Math.cos(angle)), 6) + Math.pow(Math.abs(Math.sin(angle)), 6), 1 / 6);
+        // Blend only near the wall: the roots follow the square body without
+        // shrinking the heart/oval silhouette or pushing the spoon into it.
+        const atRoot = 1 - THREE.MathUtils.smoothstep(Math.hypot(x, z), 4.25, 5.6);
+        r = 1 + (boundaryScale - 1) * atRoot;
+      }
       if (model === "square" && !isHandle) {
         const a = Math.atan2(z, x);
         r =

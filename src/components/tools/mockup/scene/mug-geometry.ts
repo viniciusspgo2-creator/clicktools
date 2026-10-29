@@ -223,9 +223,9 @@ const ROUNDED_HANDLE_POINTS = [
   [0, 1.9, -3.89],
 ];
 const REFERENCE_HANDLE_POINTS: Partial<Record<HandleStyle, number[][]>> = {
-  spoon: [[0,7.7,-3.89],[0,7.7,-4.55],[0,7.3,-5.75],[0,6.4,-6.7],[0,5.1,-6.9],[0,3.8,-6.15],[0,2.65,-4.7],[0,2.5,-3.89]],
-  "heart-asymmetric": [[0,8,-3.89],[0,7.85,-4.55],[0,6.7,-5.25],[0,6.9,-6.15],[0,7.05,-7.3],[0,6.4,-7.95],[0,5.25,-7.8],[0,4.1,-6.85],[0,3,-5.2],[0,2.35,-3.89]],
-  heart: [[0,7.45,-3.89],[0,8.1,-4.4],[0,8.15,-5.15],[0,7.5,-5.95],[0,6.95,-6.25],[0,7.2,-7.15],[0,6.85,-7.95],[0,5.9,-8.12],[0,4.75,-7.45],[0,3.65,-6.15],[0,2.8,-5],[0,3.3,-4.45],[0,4.5,-3.89]],
+  spoon: [[0,7.7,-3.89],[0,7.7,-4.55],[0,7.3,-5.75],[0,6.4,-6.7],[0,5.1,-6.9],[0,3.8,-6.15],[0,2.5,-4.65],[0,2.5,-3.89]],
+  "heart-asymmetric": [[0,8,-3.89],[0,8,-4.3],[0,7.85,-4.55],[0,6.7,-5.25],[0,6.9,-6.15],[0,7.05,-7.3],[0,6.4,-7.95],[0,5.25,-7.8],[0,4.1,-6.85],[0,3,-5.2],[0,2.35,-4.55],[0,2.35,-3.89]],
+  heart: [[0,7.45,-3.89],[0,7.45,-4.35],[0,8.1,-4.8],[0,8.15,-5.3],[0,7.5,-5.95],[0,6.95,-6.25],[0,7.2,-7.15],[0,6.85,-7.95],[0,5.9,-8.12],[0,4.75,-7.45],[0,3.65,-6.15],[0,2.8,-5.2],[0,3.15,-4.75],[0,3.65,-4.35],[0,3.65,-3.89]],
   "oval-gold": [[0,8,-3.89],[0,8,-4.65],[0,7.6,-5.65],[0,6.4,-6.45],[0,4.9,-6.65],[0,3.4,-6.3],[0,2.2,-5.35],[0,1.95,-4.55],[0,1.95,-3.89]],
 };
 const getHandleCurve = (style: HandleStyle) =>
@@ -246,6 +246,7 @@ export function buildHandleGeometry(style: HandleStyle = "classic"): THREE.Buffe
   const rounded = style !== "classic";
   const sectionX = style === "heart" || style === "heart-asymmetric" ? 0.42 : style === "oval-gold" ? 0.49 : rounded ? 0.58 : HANDLE_A_X;
   const sectionN = style === "heart" || style === "heart-asymmetric" ? 0.42 : style === "spoon" ? 0.39 : HANDLE_B_N;
+  const weldStrength = style === "heart" || style === "heart-asymmetric" ? 0.45 : 0.72;
   const tubular = 144,
     radial = 40,
     ring = radial + 1;
@@ -261,7 +262,7 @@ export function buildHandleGeometry(style: HandleStyle = "classic"): THREE.Buffe
     // Fillet da barbotina: alargamento suave em ambas as soldas, sem toros.
     const weld =
       1 +
-      0.72 *
+      weldStrength *
         (Math.exp(-Math.pow(t / 0.12, 2)) +
           Math.exp(-Math.pow((1 - t) / 0.12, 2)));
     for (let j = 0; j <= radial; j++) {
@@ -287,6 +288,19 @@ export function buildHandleGeometry(style: HandleStyle = "classic"): THREE.Buffe
         b = a + ring;
       indices.push(a, b, a + 1, b, b + 1, a + 1);
     }
+  // Close the reference handles. Each root has a radial tangent and the entire
+  // end ring sits in the ceramic wall, so no open mouth can appear at the join.
+  if (style !== "classic" && style !== "rounded") {
+    for (const end of [0, 1]) {
+      const center = curve.getPointAt(end), index = positions.length / 3;
+      positions.push(center.x, center.y, center.z);
+      uvs.push(0.5, end);
+      const base = end * tubular * ring;
+      for (let j = 0; j < radial; j++)
+        if (end === 0) indices.push(index, base + j, base + j + 1);
+        else indices.push(index, base + j + 1, base + j);
+    }
+  }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
@@ -323,6 +337,7 @@ export function buildHandleGeometry(style: HandleStyle = "classic"): THREE.Buffe
   if (style === "spoon") {
     const spoon = buildSpoonGeometry();
     const merged = mergeGeometries([geo, spoon]);
+    merged.userData.spoonVertexStart = geo.getAttribute("position").count;
     geo.dispose(); spoon.dispose();
     merged.computeBoundingBox(); merged.computeBoundingSphere();
     return merged;
@@ -332,14 +347,18 @@ export function buildHandleGeometry(style: HandleStyle = "classic"): THREE.Buffe
 
 /** A closed, concave spoon bowl and rounded stem; part of the handle assembly. */
 function buildSpoonGeometry(): THREE.BufferGeometry {
+  // The full bowl must clear the outer wall, including its widest lower part.
+  // The previous -4.5 axis put the bowl's inside edge at radius 3.65 (inside
+  // the 4.1-radius mug). This leaves a physical gap instead of hiding the clash.
+  const axisZ = -5.1;
   const stem = new THREE.CapsuleGeometry(0.19, 7.05, 8, 20);
-  stem.scale(0.5, 1, 1.35); stem.translate(0, 4.9, -4.5);
+  stem.scale(0.5, 1, 1.35); stem.translate(0, 4.9, axisZ);
   const bowl = new THREE.SphereGeometry(1, 40, 28);
   const p = bowl.getAttribute("position");
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
     // Both sides bend inwards; their separation gives a solid ceramic bowl.
-    p.setXYZ(i, x * 0.13 + (1-y*y) * 0.36 - 0.17, 9.1+y*1.33, -4.5+z*0.85);
+    p.setXYZ(i, x * 0.13 + (1-y*y) * 0.36 - 0.17, 9.1+y*1.33, axisZ+z*0.85);
   }
   bowl.computeVertexNormals();
   const result = mergeGeometries([stem.toNonIndexed(), bowl.toNonIndexed()]);

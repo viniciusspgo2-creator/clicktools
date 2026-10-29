@@ -49,10 +49,16 @@ export function QuickCameraBar() {
     const distance = 7.8 * mug.scale / Math.sin(Math.min(halfFov, hHalf));
     const direction = new THREE.Vector3(...view.dir).applyQuaternion(q).normalize();
     let pos = target.clone().addScaledVector(direction, distance);
-    if (count > 1 && studioRefs.scene) {
-      const viewFit = fitBoundsToView(framingBounds(studioRefs.scene, true),
-        new THREE.Vector3(...view.dir), lensToFov(st.camera.lens), size.x / Math.max(1, size.y));
-      target.copy(viewFit.target); pos = viewFit.pos;
+    if (studioRefs.scene) {
+      // Include the actual handle, spoon and body rather than assuming a
+      // fixed radius around the body centre for a single piece.
+      const bounds = framingBounds(studioRefs.scene, count > 1);
+      if (!bounds.isEmpty()) {
+        const viewFit = fitBoundsToView(bounds,
+          count > 1 ? new THREE.Vector3(...view.dir) : direction,
+          lensToFov(st.camera.lens), size.x / Math.max(1, size.y));
+        target.copy(viewFit.target); pos = viewFit.pos;
+      }
     }
     st.patch("camera", { autoRotate: false });
     st.setZoom(100);

@@ -34,7 +34,7 @@ export function Section({
         aria-controls={contentId}
       >
         <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-        <span className="flex-1 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-300">
+        <span className="flex-1 font-display text-[13px] font-bold uppercase tracking-[0.14em] text-neutral-300">
           {title}
         </span>
         <ChevronDown
@@ -136,7 +136,7 @@ export function ColorRow({
   const id = useId();
   return (
     <div className="flex items-center justify-between gap-2">
-      <label htmlFor={id} className="text-[11px] font-medium text-neutral-400">{label}</label>
+      <label htmlFor={id} className="text-[13px] font-medium text-neutral-400">{label}</label>
       <div className="flex items-center gap-1.5">
         <input
           id={id}
@@ -146,7 +146,7 @@ export function ColorRow({
             const v = e.target.value;
             if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v);
           }}
-          className="w-20 rounded-md border border-white/10 bg-black/40 px-1.5 py-0.5 text-[11px] uppercase text-neutral-200 outline-none focus:border-primary/60"
+          className="w-20 rounded-md border border-white/10 bg-black/40 px-1.5 py-0.5 text-[13px] uppercase text-neutral-200 outline-none focus:border-primary/60"
         />
         <label
           className="relative h-7 w-9 cursor-pointer overflow-hidden rounded-md border border-white/15"
@@ -182,7 +182,7 @@ export function Segmented<T extends string>({
   return (
     <div>
       {label && (
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+        <p className="mb-1.5 text-[13px] font-medium text-neutral-400">
           {label}
         </p>
       )}
@@ -192,7 +192,7 @@ export function Segmented<T extends string>({
             key={o.value}
             onClick={() => onChange(o.value)}
             className={cn(
-              "flex-1 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-all",
+              "flex-1 rounded-md px-2 py-1.5 text-[13px] font-semibold transition-all",
               value === o.value
                 ? "bg-primary text-[#1d130d] shadow-sm"
                 : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200",
@@ -229,7 +229,7 @@ export function ToggleRow({
       onClick={() => onChange(!checked)}
       className="flex w-full items-center justify-between gap-2 py-0.5"
     >
-      <span className="text-[11px] font-medium text-neutral-400">{label}</span>
+      <span className="text-[13px] font-medium text-neutral-400">{label}</span>
       <span
         className={cn(
           "relative h-5 w-9 shrink-0 rounded-full transition-colors",
@@ -276,7 +276,7 @@ export function MiniButton({
       onPointerLeave={onPointerLeave}
       title={title}
       className={cn(
-        "rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-all active:scale-95",
+        "rounded-lg border px-2.5 py-1.5 text-[13px] font-semibold transition-all active:scale-95",
         active
           ? "border-primary/60 bg-primary/15 text-primary"
           : "border-white/10 bg-white/[0.03] text-neutral-300 hover:border-white/25 hover:text-white",

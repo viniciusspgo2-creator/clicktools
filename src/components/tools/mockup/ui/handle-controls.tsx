@@ -14,7 +14,10 @@ export function HandleControls({ active }: { active: string }) {
     <div className="cg-handle-choices" role="group" aria-label="Escolher modelo de alça">
       {HANDLE_STYLES.map(({ id, label, description, path, color }) => <button type="button" key={id}
         disabled={!!piece.locked} aria-pressed={style === id}
-        onClick={() => st.patchObject(active, { handleStyle: id, ...(id !== 'classic' && id !== 'rounded' ? { handleColor: color } : {}) })}>
+        onClick={() => {
+          st.patchObject(active, { handleStyle: id, ...(id !== 'classic' && id !== 'rounded' ? { handleColor: color } : {}) });
+          if (style !== id) st.frameAll();
+        }}>
         <svg viewBox="0 0 80 72" aria-hidden="true" fill="none">
           <path d="M21 8v56" stroke="currentColor" strokeWidth="3" opacity=".25" />
           <path d={path}

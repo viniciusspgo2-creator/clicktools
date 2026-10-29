@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getSeoConfig } from "@/lib/site-config";
+import { DEFAULT_SEO, getSeoConfig } from "@/lib/site-config";
 import { BONUS_TOOLS } from "@/lib/studio-links";
 import { ALL_ARTICLES } from "@/data/blog";
 import { MOCKUP_SCENES_ENABLED } from "@/lib/features";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const seo = await getSeoConfig();
-  const base = (seo.siteUrl || "https://clickgruda.vercel.app").replace(
+  const base = (seo.siteUrl || DEFAULT_SEO.siteUrl).replace(
     /\/+$/,
     "",
   );

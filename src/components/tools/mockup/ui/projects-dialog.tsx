@@ -417,7 +417,7 @@ export function ProjectsDialog() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <span className="flex h-full w-full items-center justify-center text-[9px] font-bold text-neutral-600">
+                  <span className="flex h-full w-full items-center justify-center text-xs font-bold text-neutral-600">
                     SEM PRÉVIA
                   </span>
                 )}
@@ -455,10 +455,10 @@ export function ProjectsDialog() {
                     <p className="truncate text-xs font-semibold text-neutral-100">
                       {p.name}
                     </p>
-                    <p className="text-[10px] text-neutral-500">
+                    <p className="text-xs text-neutral-500">
                       {formatRelative(p.updatedAt)}
                       {currentId === p.id && (
-                        <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold text-primary">
+                        <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-xs font-bold text-primary">
                           aberto
                         </span>
                       )}

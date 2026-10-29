@@ -37,10 +37,10 @@ export const HANDLE_STYLES = [
   },
   {
     id: "oval-gold",
-    label: "Oval dourada",
-    description: "Perfil oval · metalizado",
+    label: "Oval",
+    description: "Perfil oval · cerâmica",
     path: "M22 11C71 7 75 65 22 60",
-    color: "#d8ac48",
+    color: "#ffffff",
   },
 ] as const;
 

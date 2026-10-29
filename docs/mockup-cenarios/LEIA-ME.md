@@ -66,7 +66,7 @@ As dependências de produção existentes foram suficientes; nenhuma integraçã
 
 ## Alças do Studio 3D
 
-Adicionadas a partir das quatro referências: **com colher**, **coração assimétrico**, **coração** e **oval dourada**. Original e arredondada permanecem disponíveis. Cores iniciais seguem as referências; a oval usa material metálico. Cada peça mantém sua escolha em projetos, duplicações e restauração, com migração segura dos IDs antigos. A colher integra a geometria da alça e participa do cálculo de apoio; não é um elemento de interface.
+Adicionadas a partir das quatro referências: **com colher**, **coração assimétrico**, **coração** e **oval**. Original e arredondada permanecem disponíveis. A oval começa branca e todas usam o mesmo acabamento de cerâmica, respeitando a cor escolhida. O ID salvo `oval-gold` permanece por compatibilidade com projetos existentes. Cada peça mantém sua escolha em projetos, duplicações e restauração. A colher integra a geometria da alça e participa do cálculo de apoio; sua haste e concha têm folga em relação à parede dos seis modelos de caneca. As junções das alças de referência são fechadas e ficam dentro da parede cerâmica. A câmera reenquadra a composição ao trocar a alça.
 
 As fotos de referência determinam o perfil visual, mas não fornecem medidas ou digitalização 3D. Uma correspondência dimensional industrial exigiria medidas ou um arquivo de modelo do fornecedor.
 

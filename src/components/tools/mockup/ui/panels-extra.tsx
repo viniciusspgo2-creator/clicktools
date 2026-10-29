@@ -66,7 +66,7 @@ export function MultiMugPanel() {
 
   return (
     <Section title="Multicaneca" icon={Users}>
-      <p className="text-[10px] leading-relaxed text-neutral-500">
+      <p className="text-xs leading-relaxed text-neutral-500">
         Monte cenas com até 4 canecas. Os presets centralizam e enquadram o
         conjunto. Use Mover cenário para ajustar a composição livremente.
       </p>
@@ -81,7 +81,7 @@ export function MultiMugPanel() {
               key={o.kind}
               onClick={() => arrangeScene(o.kind)}
               className={cn(
-                "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
+                "rounded-lg border px-1 py-2 text-xs font-bold transition-all",
                 active
                   ? "border-primary/60 bg-primary/15 text-primary"
                   : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
@@ -146,10 +146,10 @@ function CompanionCard({
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
       <div className="mb-2 flex items-center gap-2">
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 font-display text-[10px] font-bold text-primary">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 font-display text-xs font-bold text-primary">
           {index}
         </span>
-        <span className="flex-1 text-[11px] font-semibold text-neutral-200">
+        <span className="flex-1 text-[13px] font-semibold text-neutral-200">
           Caneca {index}
         </span>
         <button
@@ -271,7 +271,7 @@ export function FXPanel() {
         onChange={(v) => patch("fx", { enabled: v })}
       />
       {!fx.enabled && (
-        <p className="text-[10px] leading-relaxed text-neutral-500">
+        <p className="text-xs leading-relaxed text-neutral-500">
           Estilos de cor prontos, brilho suave, escurecer bordas e textura de
           filme — vale para o preview, as imagens e os vídeos exportados.
         </p>
@@ -280,7 +280,7 @@ export function FXPanel() {
         <>
           <div>
             <p
-              className="mb-1.5 text-[11px] font-medium text-neutral-400"
+              className="mb-1.5 text-[13px] font-medium text-neutral-400"
               title="Estilos de cor prontos — clique e ajuste fino abaixo"
             >
               Estilo de cor
@@ -291,7 +291,7 @@ export function FXPanel() {
                   key={l.id}
                   onClick={() => patch("fx", { lut: l.id, ...l.patch })}
                   className={cn(
-                    "rounded-lg border px-1 py-1.5 text-[10px] font-bold transition-all",
+                    "rounded-lg border px-1 py-1.5 text-xs font-bold transition-all",
                     fx.lut === l.id
                       ? "border-primary/60 bg-primary/15 text-primary"
                       : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",

@@ -34,8 +34,8 @@ export const DEFAULT_SEO: SeoConfig = {
     "sublimação de canecas",
     "Click e Gruda",
   ],
-  siteUrl: "https://clicktools.vercel.app",
-  ogImage: "/og/og-default.png",
+  siteUrl: "https://clickmockup.vercel.app",
+  ogImage: "/og/studio-share.jpg",
   twitterCreator: "",
   gaId: "",
 };
@@ -48,6 +48,14 @@ export async function getSeoConfig(): Promise<SeoConfig> {
     if (row) {
       const parsed = JSON.parse(row.value) as Partial<SeoConfig>;
       const result = { ...DEFAULT_SEO, ...parsed };
+      // Retire the previous deployment addresses and sharing card while
+      // preserving any custom domain or image configured by the owner.
+      if (/^https?:\/\/(clicktools|clickgruda)\.vercel\.app\/?$/.test(result.siteUrl)) {
+        result.siteUrl = DEFAULT_SEO.siteUrl;
+      }
+      if (result.ogImage === "/og/og-default.png" || /^https?:\/\/(clicktools|clickgruda|clickmockup)\.vercel\.app\/og\/og-default\.png$/.test(result.ogImage)) {
+        result.ogImage = DEFAULT_SEO.ogImage;
+      }
       // Atualiza as antigas ofertas padrão sem manter acessos avulsos na vitrine.
       if (/R\$\s*34,90\s*(?:por|\/)\s*ano|acesso avulso por R\$\s*12,90/i.test(result.description)) {
         result.description = DEFAULT_SEO.description;

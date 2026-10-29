@@ -1,11 +1,11 @@
 import type { MetadataRoute } from 'next';
-import { getSeoConfig } from '@/lib/site-config';
+import { DEFAULT_SEO, getSeoConfig } from '@/lib/site-config';
 
 export const dynamic = 'force-dynamic';
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const seo = await getSeoConfig();
-  const base = (seo.siteUrl || 'https://clickgruda.vercel.app').replace(/\/+$/, '');
+  const base = (seo.siteUrl || DEFAULT_SEO.siteUrl).replace(/\/+$/, '');
 
   return {
     rules: [

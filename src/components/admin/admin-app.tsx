@@ -150,7 +150,7 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
           <div>
             <label
               htmlFor="s-name"
-              className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+              className="mb-1 block text-xs font-bold uppercase tracking-wider text-neutral-500"
             >
               Nome do site
             </label>
@@ -164,7 +164,7 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
           <div>
             <label
               htmlFor="s-url"
-              className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+              className="mb-1 block text-xs font-bold uppercase tracking-wider text-neutral-500"
             >
               URL do site (canônica)
             </label>
@@ -179,7 +179,7 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
           <div className="sm:col-span-2">
             <label
               htmlFor="s-title"
-              className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+              className="mb-1 block text-xs font-bold uppercase tracking-wider text-neutral-500"
             >
               Título padrão (home)
             </label>
@@ -193,7 +193,7 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
           <div className="sm:col-span-2">
             <label
               htmlFor="s-tpl"
-              className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+              className="mb-1 block text-xs font-bold uppercase tracking-wider text-neutral-500"
             >
               Template de título das páginas (%s = título)
             </label>
@@ -207,7 +207,7 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
           <div className="sm:col-span-2">
             <label
               htmlFor="s-desc"
-              className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+              className="mb-1 block text-xs font-bold uppercase tracking-wider text-neutral-500"
             >
               Descrição do site (aparece no Google)
             </label>
@@ -219,14 +219,14 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
               maxLength={300}
               className={inputCls}
             />
-            <p className="mt-1 text-right text-[10px] text-neutral-600">
+            <p className="mt-1 text-right text-xs text-neutral-600">
               {form.description.length}/300 — ideal: até 160
             </p>
           </div>
           <div className="sm:col-span-2">
             <label
               htmlFor="s-kw"
-              className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+              className="mb-1 block text-xs font-bold uppercase tracking-wider text-neutral-500"
             >
               Palavras-chave (separadas por vírgula)
             </label>
@@ -241,7 +241,7 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
           <div>
             <label
               htmlFor="s-og"
-              className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+              className="mb-1 block text-xs font-bold uppercase tracking-wider text-neutral-500"
             >
               Imagem de compartilhamento (OG)
             </label>
@@ -256,7 +256,7 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
             <div>
               <label
                 htmlFor="s-tw"
-                className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+                className="mb-1 block text-xs font-bold uppercase tracking-wider text-neutral-500"
               >
                 Twitter/X @
               </label>
@@ -271,7 +271,7 @@ function ConfigTab({ onLogout }: { onLogout: () => void }) {
             <div>
               <label
                 htmlFor="s-ga"
-                className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-neutral-500"
+                className="mb-1 block text-xs font-bold uppercase tracking-wider text-neutral-500"
               >
                 Google Analytics ID
               </label>

@@ -120,7 +120,7 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
           <span className="text-xs font-semibold text-neutral-200">
             Enviar arte
           </span>
-          <span className="text-center text-[10px] leading-relaxed text-neutral-500">
+          <span className="text-center text-xs leading-relaxed text-neutral-500">
             PNG, JPG, WebP, SVG ou AVIF · clique, arraste aqui ou cole com
             Ctrl+V
           </span>
@@ -129,10 +129,10 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[11px] font-semibold text-neutral-100">
+              <p className="truncate text-[13px] font-semibold text-neutral-100">
                 {art.name}
               </p>
-              <p className="text-[10px] text-neutral-500">
+              <p className="text-xs text-neutral-500">
                 {art.width} × {art.height} px
               </p>
             </div>
@@ -148,16 +148,16 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
           </div>
           <div className="mt-2 flex items-center gap-1.5">
             {dpi === null ? null : dpi >= 300 ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-bold text-emerald-400">
                 <Check className="h-3 w-3" /> {Math.round(dpi)} DPI · excelente
                 para sublimação
               </span>
             ) : dpi >= 150 ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-400">
                 {Math.round(dpi)} DPI · qualidade boa
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-400">
+              <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-bold text-red-400">
                 <TriangleAlert className="h-3 w-3" /> {Math.round(dpi)} DPI ·
                 abaixo de 150, pode sair borrado
               </span>
@@ -187,7 +187,7 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
       {/* tamanho da área de impressão na caneca */}
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
         <p
-          className="mb-1.5 text-[11px] font-medium text-neutral-400"
+          className="mb-1.5 text-[13px] font-medium text-neutral-400"
           title="Onde a arte é impressa na caneca — escolha o tamanho do papel que você usa"
         >
           Tamanho na caneca
@@ -200,7 +200,7 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
               title={p.desc}
               onClick={() => patch("art", { areaMode: p.id as AreaMode })}
               className={cn(
-                "rounded-lg border px-1.5 py-1.5 text-[10px] font-bold transition-all",
+                "rounded-lg border px-1.5 py-1.5 text-xs font-bold transition-all",
                 (art.areaMode ?? "padrao") === p.id
                   ? "border-primary/60 bg-primary/15 text-primary"
                   : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
@@ -215,7 +215,7 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
           <div className="mt-2 space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <p className="mb-1 text-[10px] text-neutral-500">
+                <p className="mb-1 text-xs text-neutral-500">
                   Largura (cm)
                 </p>
                 <input
@@ -236,7 +236,7 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
                 />
               </div>
               <div>
-                <p className="mb-1 text-[10px] text-neutral-500">Altura (cm)</p>
+                <p className="mb-1 text-xs text-neutral-500">Altura (cm)</p>
                 <input
                   type="number"
                   min={3}
@@ -253,7 +253,7 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
               </div>
             </div>
             <div>
-              <p className="mb-1 flex justify-between text-[10px] text-neutral-500">
+              <p className="mb-1 flex justify-between text-xs text-neutral-500">
                 <span>Posição vertical da área</span>
                 <span className="text-neutral-300">
                   {(art.areaY ?? 0) > 0 ? "+" : ""}
@@ -279,7 +279,7 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
           </div>
         )}
 
-        <p className="mt-2 text-[10px] leading-relaxed text-neutral-500">
+        <p className="mt-2 text-xs leading-relaxed text-neutral-500">
           Área ativa:{" "}
           <strong className="text-neutral-300">
             {area.arcCm.toFixed(1).replace(".", ",")} ×{" "}
@@ -295,7 +295,7 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
       {/* texto escrito direto na caneca (sai também na folha de sublimação) */}
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
         <p
-          className="mb-1.5 text-[11px] font-medium text-neutral-400"
+          className="mb-1.5 text-[13px] font-medium text-neutral-400"
           title="Escreva uma frase ou nome — vai para a caneca e para a folha de sublimação"
         >
           Texto na caneca (opcional)
@@ -359,13 +359,13 @@ export function ArtPanel({ onUpload }: { onUpload: () => void }) {
                 rotation: 0,
               })
             }
-            className="flex w-full items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-left text-[11px] font-bold text-primary transition-colors hover:bg-primary/15"
+            className="flex w-full items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-left text-[13px] font-bold text-primary transition-colors hover:bg-primary/15"
             title="Faz a arte cobrir toda a área de impressão selecionada, mantendo a proporção e sem deixar faixas vazias."
           >
             <span>Cobrir 100% da área de impressão</span>
             <Maximize className="h-3.5 w-3.5 shrink-0" />
           </button>
-          <p className="-mt-1 text-[10px] leading-relaxed text-neutral-500">
+          <p className="-mt-1 text-xs leading-relaxed text-neutral-500">
             A arte cobre a área escolhida sem distorção. Para ir do topo à base
             da caneca, selecione “Altura cheia” em “Tamanho na caneca” e aplique
             esta opção.
@@ -695,7 +695,7 @@ export function MugPanel() {
       {/* perspectivas prontas */}
       <div>
         <p
-          className="mb-1.5 text-[11px] font-medium text-neutral-400"
+          className="mb-1.5 text-[13px] font-medium text-neutral-400"
           title="Inclinações prontas da caneca na cena"
         >
           Perspectiva da caneca
@@ -712,7 +712,7 @@ export function MugPanel() {
                 title={p.title}
                 onClick={() => patch("mug", { tiltX: p.tiltX, tiltZ: p.tiltZ })}
                 className={cn(
-                  "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
+                  "rounded-lg border px-1 py-2 text-xs font-bold transition-all",
                   active
                     ? "border-primary/60 bg-primary/15 text-primary"
                     : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
@@ -761,7 +761,7 @@ export function MugPanel() {
         format={(v) => `${(v / 10).toFixed(1)} cm`}
       />
       {isMagic && (
-        <p className="text-[10px] leading-relaxed text-neutral-500">
+        <p className="text-xs leading-relaxed text-neutral-500">
           A revelação também sai na exportação — crie imagens &quot;antes e
           depois&quot; exportando com a caneca fria e depois quente, ou vídeo em
           Movimento &quot;Revelação&quot;.
@@ -823,7 +823,7 @@ function ScenesGallery() {
   return (
     <div>
       <p
-        className="mb-1.5 text-[11px] font-medium text-neutral-400"
+        className="mb-1.5 text-[13px] font-medium text-neutral-400"
         title="Cenários desenhados pelo próprio estúdio — sem direitos autorais"
       >
         Cenários prontos
@@ -865,7 +865,7 @@ function ScenesGallery() {
               height={144}
               className="block aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             />
-            <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[10px] font-semibold text-neutral-300">
+            <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-xs font-semibold text-neutral-300">
               <span className="truncate">{s.label}</span>
               {bgType === "image" && current === s.id && (
                 <Check className="h-3 w-3 shrink-0 text-primary" />
@@ -945,7 +945,7 @@ export function ScenePanel() {
           <p className="text-xs font-semibold text-neutral-200">
             Escolha um cenário
           </p>
-          <p className="mt-0.5 text-[10px] text-neutral-500">
+          <p className="mt-0.5 text-xs text-neutral-500">
             Prévia ilustrada · você pode trocar quando quiser
           </p>
         </div>
@@ -953,7 +953,7 @@ export function ScenePanel() {
           type="button"
           onClick={() => bgInputRef.current?.click()}
           disabled={busyBg}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-2 text-[10px] font-bold text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-2 text-xs font-bold text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
         >
           {busyBg ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -965,7 +965,7 @@ export function ScenePanel() {
       </div>
       <ScenesGallery />
 
-      <p className="pt-1 text-[11px] font-medium text-neutral-400">
+      <p className="pt-1 text-[13px] font-medium text-neutral-400">
         Fundo da cena
       </p>
       <div className="grid grid-cols-3 gap-1">
@@ -976,7 +976,7 @@ export function ScenePanel() {
             title={o.title}
             onClick={() => patch("bg", { type: o.value })}
             className={cn(
-              "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
+              "rounded-lg border px-1 py-2 text-xs font-bold transition-all",
               bg.type === o.value
                 ? "border-primary/60 bg-primary/15 text-primary"
                 : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
@@ -999,11 +999,11 @@ export function ScenePanel() {
         )}
       >
         <TransparentSwatch />
-        <span className="flex-1 text-[11px] font-bold">Fundo transparente</span>
+        <span className="flex-1 text-[13px] font-bold">Fundo transparente</span>
         {bg.type === "transparent" && <Check className="h-3.5 w-3.5" />}
       </button>
       {bg.type === "transparent" && (
-        <p className="rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-2 text-[10px] leading-relaxed text-neutral-300">
+        <p className="rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-2 text-xs leading-relaxed text-neutral-300">
           O fundo some de verdade (veja o xadrez atrás da caneca). Na
           exportação, marque
           <strong className="text-primary">
@@ -1047,7 +1047,7 @@ export function ScenePanel() {
 
       {bg.type === "image" && (
         <>
-          <p className="text-[10px] text-neutral-500">
+          <p className="text-xs text-neutral-500">
             Fundo ativo:{" "}
             {SCENES.find((s) => s.id === bg.imageId)?.label ?? "imagem enviada"}
             . JPG, PNG ou WebP · até 25 MB.
@@ -1143,7 +1143,7 @@ export function ScenePanel() {
             checked={bg.matchLight}
             onChange={(v) => patch("bg", { matchLight: v })}
           />
-          <p className="text-[10px] leading-relaxed text-neutral-500">
+          <p className="text-xs leading-relaxed text-neutral-500">
             Tinge levemente a iluminação com a cor média da foto — a caneca fica
             “dentro” do cenário.
           </p>
@@ -1155,7 +1155,7 @@ export function ScenePanel() {
             <Move className="mr-1 inline h-3 w-3" /> Ajustar fundo no 3D
           </MiniButton>
           {bgAdjustMode && (
-            <p className="text-[10px] leading-relaxed text-primary">
+            <p className="text-xs leading-relaxed text-primary">
               Modo ativo: arraste direto na cena para posicionar (guia de centro
               com encaixe magnético). Duplo clique recentra.
             </p>
@@ -1163,14 +1163,14 @@ export function ScenePanel() {
         </>
       )}
       {bg.type === "transparent" && (
-        <p className="text-[10px] leading-relaxed text-neutral-500">
+        <p className="text-xs leading-relaxed text-neutral-500">
           Fundo invisível para exportar PNG/WebP com alfa — a sombra continua
           sobre a transparência.
         </p>
       )}
 
       <p
-        className="pt-1 text-[11px] font-medium text-neutral-400"
+        className="pt-1 text-[13px] font-medium text-neutral-400"
         title="Como a base da cena aparece embaixo da caneca"
       >
         Base / chão
@@ -1183,7 +1183,7 @@ export function ScenePanel() {
             title={o.title}
             onClick={() => patch("bg", { floor: o.value })}
             className={cn(
-              "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
+              "rounded-lg border px-1 py-2 text-xs font-bold transition-all",
               (bg.floor ?? "continuo") === o.value
                 ? "border-primary/60 bg-primary/15 text-primary"
                 : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
@@ -1194,19 +1194,19 @@ export function ScenePanel() {
         ))}
       </div>
       {(bg.floor ?? "continuo") === "base-redonda" && (
-        <p className="text-[10px] leading-relaxed text-neutral-500">
+        <p className="text-xs leading-relaxed text-neutral-500">
           Prato redondo de cerâmica clara sob a caneca — look de loja de
           produtos artesanais.
         </p>
       )}
       {(bg.floor ?? "continuo") === "base-quadrada" && (
-        <p className="text-[10px] leading-relaxed text-neutral-500">
+        <p className="text-xs leading-relaxed text-neutral-500">
           Placa quadrada com cantos arredondados — o clássico dos mockups
           premium.
         </p>
       )}
       {(bg.floor ?? "continuo") === "pedestal" && (
-        <p className="text-[10px] leading-relaxed text-neutral-500">
+        <p className="text-xs leading-relaxed text-neutral-500">
           Pódium escuro elevado — destaque de vitrine.
         </p>
       )}
@@ -1218,7 +1218,7 @@ export function ScenePanel() {
         />
       )}
       {(bg.floor ?? "continuo") === "flutuante" && (
-        <p className="text-[10px] leading-relaxed text-neutral-500">
+        <p className="text-xs leading-relaxed text-neutral-500">
           Sem chão: a sombra vira um borrão suave no ar — quanto mais alta a
           caneca, mais difusa. As exportações saem paradas.
         </p>
@@ -1258,7 +1258,7 @@ export function LightPanel() {
             key={p.id}
             onClick={() => patch("light", { preset: p.id })}
             className={cn(
-              "rounded-lg border px-2 py-2 text-[10px] font-bold transition-all",
+              "rounded-lg border px-2 py-2 text-xs font-bold transition-all",
               light.preset === p.id
                 ? "border-primary/60 bg-primary/15 text-primary"
                 : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
@@ -1386,7 +1386,7 @@ export function CameraPanel() {
                 ) as [number, number, number],
               })
             }
-            className="!px-1 !text-[10px]"
+            className="!px-1 !text-xs"
             title={`Ver a caneca de: ${p.label}`}
           >
             {p.label}
@@ -1473,7 +1473,7 @@ export function CameraPanel() {
         checked={showGuides}
         onChange={setShowGuides}
       />
-      <p className="-mt-2 text-[10px] leading-relaxed text-neutral-500">
+      <p className="-mt-2 text-xs leading-relaxed text-neutral-500">
         Grade de terços para compor a foto como profissional.
       </p>
       <MiniButton
@@ -1523,7 +1523,7 @@ export function ExportDialog() {
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                "flex-1 rounded-lg px-1.5 py-2 text-[11px] font-bold transition-all",
+                "flex-1 rounded-lg px-1.5 py-2 text-[13px] font-bold transition-all",
                 tab === t.id
                   ? "bg-primary text-[#1d130d] shadow-sm"
                   : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200",
@@ -1700,7 +1700,7 @@ function ImageTab() {
         defaultOpen={destination === "custom"}
       >
         <div>
-          <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+          <p className="mb-1.5 text-[13px] font-medium text-neutral-400">
             Proporção
           </p>
           <div className="grid grid-cols-3 gap-1.5">
@@ -1717,14 +1717,14 @@ function ImageTab() {
                 key={r.id}
                 onClick={() => setExport({ ratioId: r.id, dpi: undefined })}
                 className={cn(
-                  "rounded-lg border px-2 py-2 text-[10px] font-bold transition-all",
+                  "rounded-lg border px-2 py-2 text-xs font-bold transition-all",
                   es.ratioId === r.id
                     ? "border-primary/60 bg-primary/15 text-primary"
                     : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
                 )}
               >
                 {r.label}
-                <span className="block text-[9px] font-normal opacity-70">
+                <span className="block text-xs font-normal opacity-70">
                   {r.w}×{r.h}
                 </span>
               </button>
@@ -1735,7 +1735,7 @@ function ImageTab() {
         {es.ratioId === "custom" && (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <p className="mb-1 text-[11px] text-neutral-400">Largura (px)</p>
+              <p className="mb-1 text-[13px] text-neutral-400">Largura (px)</p>
               <input
                 type="number"
                 value={es.customW}
@@ -1754,7 +1754,7 @@ function ImageTab() {
               />
             </div>
             <div>
-              <p className="mb-1 text-[11px] text-neutral-400">Altura (px)</p>
+              <p className="mb-1 text-[13px] text-neutral-400">Altura (px)</p>
               <input
                 type="number"
                 value={es.customH}
@@ -1806,7 +1806,7 @@ function ImageTab() {
           }
         />
 
-        <p className="text-[11px] leading-relaxed text-neutral-400">
+        <p className="text-[13px] leading-relaxed text-neutral-400">
           PNG é sem perda de qualidade. A resolução define o detalhe; DPI define
           o tamanho de impressão. O render usa até 4× de suavização (até 2× com
           efeitos), conforme a memória e a GPU. O arquivo mantém os pixels
@@ -1829,7 +1829,7 @@ function ImageTab() {
         <WatermarkBox wm={wm} patch={patch} />
       </Section>
 
-      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[11px]">
+      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[13px]">
         <span className="text-neutral-400">
           Saída:{" "}
           <strong className="text-neutral-100">
@@ -1840,13 +1840,13 @@ function ImageTab() {
       </div>
 
       {!art.imageId && (
-        <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
+        <p className="flex items-center gap-1.5 text-[13px] text-amber-400">
           <TriangleAlert className="h-3.5 w-3.5" /> A caneca está sem arte —
           envie uma imagem ou use o exemplo.
         </p>
       )}
       {tooBig && (
-        <p className="flex items-center gap-1.5 text-[11px] text-red-400">
+        <p className="flex items-center gap-1.5 text-[13px] text-red-400">
           <TriangleAlert className="h-3.5 w-3.5" /> Reduza a escala: máximo de{" "}
           {MAX_EXPORT_PX} px por lado.
         </p>
@@ -1910,7 +1910,7 @@ function WatermarkBox({
             className="w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-neutral-100 outline-none focus:border-primary/60"
           />
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-neutral-500">Posição</span>
+            <span className="text-xs text-neutral-500">Posição</span>
             <div className="flex flex-1 gap-1">
               {(
                 [
@@ -1924,7 +1924,7 @@ function WatermarkBox({
                   key={p}
                   onClick={() => patch("watermark", { position: p })}
                   className={cn(
-                    "flex-1 rounded-md border py-1 text-[10px] font-bold transition-all",
+                    "flex-1 rounded-md border py-1 text-xs font-bold transition-all",
                     wm.position === p
                       ? "border-primary/60 bg-primary/15 text-primary"
                       : "border-white/10 text-neutral-400 hover:text-neutral-200",
@@ -2027,7 +2027,7 @@ function VideoTab() {
         onChange={(v) => patch("video", { anim: v })}
       />
       {video.anim === "revelacao" && !isMagic && (
-        <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
+        <p className="flex items-center gap-1.5 text-[13px] text-amber-400">
           <TriangleAlert className="h-3.5 w-3.5" /> A revelação térmica exige a
           caneca mágica (aba Caneca).
         </p>
@@ -2038,7 +2038,7 @@ function VideoTab() {
         onChange={(v) => patch("video", { transparent: v })}
       />
       {video.transparent && (
-        <p className="text-[11px] leading-relaxed text-neutral-400">
+        <p className="text-[13px] leading-relaxed text-neutral-400">
           Exporta em WebM com canal alfa, sem o fundo da cena. Mantém a peça e
           as sombras transparentes para sobrepor em outras composições. Efeitos
           de tela inteira ficam desativados nesta exportação. Use um editor que
@@ -2046,7 +2046,7 @@ function VideoTab() {
         </p>
       )}
       {bg.type === "transparent" && !video.transparent && (
-        <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
+        <p className="flex items-center gap-1.5 text-[13px] text-amber-400">
           <TriangleAlert className="h-3.5 w-3.5" /> Ative ALFA para preservar o
           fundo transparente. No vídeo normal, ele sai preto.
         </p>
@@ -2123,7 +2123,7 @@ function VideoTab() {
       />
 
       <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+        <p className="mb-1.5 text-[13px] font-medium text-neutral-400">
           Resolução
         </p>
         <div className="grid grid-cols-2 gap-1.5">
@@ -2132,14 +2132,14 @@ function VideoTab() {
               key={id}
               onClick={() => patch("video", { res: id as VideoState["res"] })}
               className={cn(
-                "rounded-lg border px-2 py-2 text-[10px] font-bold transition-all",
+                "rounded-lg border px-2 py-2 text-xs font-bold transition-all",
                 video.res === id
                   ? "border-primary/60 bg-primary/15 text-primary"
                   : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
               )}
             >
               {r.label}
-              <span className="block text-[9px] font-normal opacity-70">
+              <span className="block text-xs font-normal opacity-70">
                 {r.w}×{r.h}
               </span>
             </button>
@@ -2211,7 +2211,7 @@ function VideoTab() {
             ? "Gerar WebM com ALFA"
             : "Gerar vídeo"}
       </PrimaryButton>
-      <p className="text-center text-[10px] text-neutral-500">
+      <p className="text-center text-xs text-neutral-500">
         {video.transparent
           ? "WebM com ALFA • processamento no seu dispositivo. Se o navegador não for compatível, avisaremos antes de gerar."
           : "MP4 quando disponível; WebM em outros navegadores. Sem upload, tudo no seu dispositivo."}
@@ -2278,7 +2278,7 @@ function GifTab() {
         onChange={(v) => patch("gif", { anim: v })}
       />
       {gif.anim === "revelacao" && !isMagic && (
-        <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
+        <p className="flex items-center gap-1.5 text-[13px] text-amber-400">
           <TriangleAlert className="h-3.5 w-3.5" /> A revelação térmica exige a
           caneca mágica.
         </p>
@@ -2413,7 +2413,7 @@ function BatchTab() {
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+        <p className="mb-1.5 text-[13px] font-medium text-neutral-400">
           Ângulos (escolha vários)
         </p>
         <div className="grid grid-cols-4 gap-1">
@@ -2425,7 +2425,7 @@ function BatchTab() {
                 key={id}
                 onClick={() => toggleAngle(id)}
                 className={cn(
-                  "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
+                  "rounded-lg border px-1 py-2 text-xs font-bold transition-all",
                   angles.includes(id)
                     ? "border-primary/60 bg-primary/15 text-primary"
                     : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
@@ -2439,21 +2439,21 @@ function BatchTab() {
       </div>
 
       <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+        <p className="mb-1.5 text-[13px] font-medium text-neutral-400">
           Variantes
         </p>
         <div className="flex flex-wrap gap-1">
           {variants.map((v) => (
             <span
               key={v.id}
-              className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-neutral-300"
+              className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-bold text-neutral-300"
             >
               {v.label}
             </span>
           ))}
         </div>
         {mug.variant !== "magic" && (
-          <p className="mt-1 text-[10px] text-neutral-500">
+          <p className="mt-1 text-xs text-neutral-500">
             Dica: com a caneca mágica selecionada o lote sai com as versões fria
             e quente.
           </p>
@@ -2461,7 +2461,7 @@ function BatchTab() {
       </div>
 
       <div>
-        <p className="mb-1.5 text-[11px] font-medium text-neutral-400">
+        <p className="mb-1.5 text-[13px] font-medium text-neutral-400">
           Proporção
         </p>
         <div className="grid grid-cols-4 gap-1">
@@ -2470,7 +2470,7 @@ function BatchTab() {
               key={r.id}
               onClick={() => setRatioId(r.id)}
               className={cn(
-                "rounded-lg border px-1 py-2 text-[10px] font-bold transition-all",
+                "rounded-lg border px-1 py-2 text-xs font-bold transition-all",
                 ratioId === r.id
                   ? "border-primary/60 bg-primary/15 text-primary"
                   : "border-white/10 bg-white/[0.03] text-neutral-400 hover:text-neutral-200",
@@ -2502,7 +2502,7 @@ function BatchTab() {
       <WatermarkBox wm={wm} patch={patch} />
 
       {!art.imageId && (
-        <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
+        <p className="flex items-center gap-1.5 text-[13px] text-amber-400">
           <TriangleAlert className="h-3.5 w-3.5" /> A caneca está sem arte.
         </p>
       )}
@@ -2579,7 +2579,7 @@ function TemplateTab() {
 
   return (
     <div className="space-y-4">
-      <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] leading-relaxed text-neutral-300">
+      <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[13px] leading-relaxed text-neutral-300">
         A folha planificada é a arte no tamanho exato de impressão — envie
         direto para a prensa térmica. Ela segue o{" "}
         <strong className="text-primary">
@@ -2604,7 +2604,7 @@ function TemplateTab() {
         onChange={setGuides}
       />
 
-      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[11px]">
+      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[13px]">
         <span className="text-neutral-400">
           Área:{" "}
           <strong className="text-neutral-100">
@@ -2618,7 +2618,7 @@ function TemplateTab() {
       </div>
 
       {!art.imageId && (
-        <p className="flex items-center gap-1.5 text-[11px] text-amber-400">
+        <p className="flex items-center gap-1.5 text-[13px] text-amber-400">
           <TriangleAlert className="h-3.5 w-3.5" /> Envie uma arte primeiro.
         </p>
       )}
@@ -2644,7 +2644,7 @@ function TemplateTab() {
 function ProgressBar({ progress, label }: { progress: number; label: string }) {
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-[10px] text-neutral-400">
+      <div className="mb-1 flex items-center justify-between text-xs text-neutral-400">
         <span>{label}</span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
