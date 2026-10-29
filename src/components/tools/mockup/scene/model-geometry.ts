@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { MUG } from "../lib/config";
 import type { MugModel } from "../state/store";
 import { buildMugBodyGeometry, buildHandleGeometry, buildBasePrintGeometry, profileRadius, smoothBodyNormals } from "./mug-geometry";
+import type { HandleStyle } from "./mug-geometry";
 export const MODELS: {
   id: MugModel;
   label: string;
@@ -53,10 +54,10 @@ export const MODELS: {
   },
 
 ];
-export function buildModel(model: MugModel = "classic") {
+export function buildModel(model: MugModel = "classic", handleStyle: HandleStyle = "classic") {
   const def = MODELS.find((x) => x.id === model) ?? MODELS[0];
   const body = buildMugBodyGeometry(undefined, def.id);
-  const handle = buildHandleGeometry();
+  const handle = buildHandleGeometry(handleStyle);
   const basePrint = buildBasePrintGeometry(def.id);
   function deform(g: THREE.BufferGeometry, isHandle: boolean) {
     const p = g.getAttribute("position");

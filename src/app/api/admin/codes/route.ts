@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-auth";
+import { parseCodeCreation } from "@/lib/admin-code-input";
 export const runtime = "nodejs";
 const bad = (error: string, status = 400) =>
   NextResponse.json({ ok: false, error }, { status });
@@ -60,27 +61,15 @@ export async function POST(req: Request) {
   if (!requireAdmin(req)) return unauthorized();
   try {
     const body = await req.json();
-    const clientName = trim(body.clientName);
-    if (!clientName) return bad("Informe o nome do cliente.");
-    if (!["library", "standalone"].includes(body.clientType))
-      return bad("Selecione Biblioteca ou Avulso.");
-    const expiresAt = expiry(body, body.clientType, true);
-    const prefix =
-      trim(body.prefix, 8)
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, "") || "CG";
-    const code = `${prefix}-${randomBytes(6).toString("hex").toUpperCase()}`;
-    await db.accessCode.create({
-      data: {
-        code,
-        clientName,
-        clientType: body.clientType,
-        note: trim(body.note),
-        maxUses: 1,
-        expiresAt,
-      },
-    });
-    return NextResponse.json({ ok: true, created: [code] });
+    const parsed = parseCodeCreation(body);
+    const entries = parsed.names.map(clientName => ({
+      code: `${parsed.prefix}-${randomBytes(6).toString("hex").toUpperCase()}`,
+      clientName, clientType: parsed.clientType, note: parsed.note, maxUses: 1,
+      expiresAt: parsed.expiresAt,
+    }));
+    if (entries.length === 1) await db.accessCode.create({ data: entries[0] });
+    else await db.accessCode.createMany({ data: entries }); // one atomic INSERT, no partial batches
+    return NextResponse.json({ ok: true, created: entries.map(entry => entry.code), entries });
   } catch (e) {
     return bad(
       e instanceof Error && !("code" in e)

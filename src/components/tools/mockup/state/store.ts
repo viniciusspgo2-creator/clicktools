@@ -20,6 +20,8 @@ import {
 import { getArtImage } from "../lib/art-registry";
 import { suggestArtLayout } from "../lib/art-analysis";
 import { NEUTRAL_ADJUSTMENTS } from "../lib/art-adjustments";
+import { DEFAULT_CERAMIC_FINISH, migrateCeramicFinish } from "../lib/ceramic-finishes";
+import type { HandleStyle } from "../scene/mug-geometry";
 
 export type MugModel =
   | "classic"
@@ -71,6 +73,7 @@ export interface ArtState {
 
 export interface MugState {
   model: MugModel;
+  handleStyle: HandleStyle;
   baseColor?: string;
   bodyColor: string;
   interiorColor: string;
@@ -153,6 +156,7 @@ export interface BackgroundState {
 export interface CameraState {
   lens: number; // 24..100 mm
   autoRotate: boolean;
+  spinIds?: string[] | null;
   autoRotateSpeed: number; // 0.2..6
   direction?: "right" | "left" | "pingpong";
   secondsPerTurn?: number;
@@ -161,6 +165,7 @@ export interface CameraState {
 /** caneca acompanhante para cenas com várias canecas (máx. 3) */
 export interface CompanionMug {
   model?: MugModel;
+  handleStyle?: HandleStyle;
   baseColor?: string;
   bodyColor?: string;
   interiorColor?: string;
@@ -292,6 +297,7 @@ interface MockupStore {
   commitObjectTransforms: (updates: Record<string, Partial<MugState>>) => void;
   patchObjectArt: (id: string, partial: Partial<ArtState>) => void;
   duplicateSelected: () => void;
+  copyArtToAll: (sourceId: string) => void;
   deleteSelected: () => void;
   transformSelected: (axis: "posX" | "posY" | "posZ", delta: number) => void;
   alignSelected: (kind: "left" | "center" | "right" | "distribute") => void;
@@ -416,15 +422,11 @@ const initialArt: ArtState = {
 
 const initialMug: MugState = {
   model: "classic",
+  handleStyle: "classic",
   bodyColor: "#ffffff",
   interiorColor: "#ffffff",
   handleColor: "#ffffff",
-  clearcoat: 1,
-  clearcoatRoughness: 0.025,
-  specularIntensity: 1,
-  glazeStrength: 1.45,
-  roughness: 0.055,
-  reflection: 1.25,
+  ...DEFAULT_CERAMIC_FINISH,
   faithfulColor: true,
   posX: 0,
   posZ: 0,
@@ -481,6 +483,7 @@ const initialBg: BackgroundState = {
 const initialCamera: CameraState = {
   lens: 85,
   autoRotate: false,
+  spinIds: null,
   autoRotateSpeed: 1.6,
   direction: "right",
   secondsPerTurn: 8,
@@ -818,10 +821,21 @@ export const useMockupStore = create<MockupStore>((set, get) => {
         set({
           companions: st.companions.map((c) =>
             c.id === id
-              ? { ...c, art: { ...(c.art ?? st.art), ...partial } }
+              ? { ...c, showArt: partial.imageId ? true : c.showArt, art: { ...(c.art ?? st.art), ...partial } }
               : c,
           ),
         });
+    },
+    copyArtToAll: (sourceId) => {
+      const st = get();
+      const source = sourceId === "hero" ? st.art : st.companions.find(c => c.id === sourceId)?.art;
+      if (!source?.imageId) return;
+      guardHistory(true);
+      set({
+        art: st.mug.locked ? st.art : { ...source },
+        companions: st.companions.map(c => c.locked ? c : { ...c, art: { ...source }, showArt: true }),
+        compareArt: false, artAppliedNonce: st.artAppliedNonce + 1,
+      });
     },
     duplicateSelected: () => {
       guardHistory(true);
@@ -966,9 +980,10 @@ export const useMockupStore = create<MockupStore>((set, get) => {
       const list = Array.from({ length: n - 1 }, (_, i) =>
         makeCompanion({
           ...hero,
+          ...st.companions[i],
           posX: hero.posX + (i + 1) * step,
           name: `Caneca ${i + 2}`,
-          art: { ...st.art },
+          art: { ...(st.companions[i]?.art ?? st.art) },
           rotationY: kind === "fan" ? (i + 1) * 55 - 55 : 40,
         }),
       );
@@ -990,6 +1005,7 @@ export const useMockupStore = create<MockupStore>((set, get) => {
       set({
         mug: hero,
         companions: list,
+        camera: { ...st.camera, autoRotate: false, spinIds: null },
         selectedIds: ["hero"],
         layerOrder: ["hero", ...list.map((c) => c.id)],
         fitNonce: st.fitNonce + 1,
@@ -1159,14 +1175,18 @@ export const useMockupStore = create<MockupStore>((set, get) => {
       const st = get();
       const companions = s.companions
         ? s.companions.map((c) => ({
-            ...c,
+            ...migrateCeramicFinish(c),
             model: c.model ? migrateMugModel(c.model) : undefined,
+            handleStyle: c.handleStyle === "rounded" ? "rounded" as const : "classic" as const,
             posX: clamp(Number.isFinite(c.posX) ? c.posX : 10.8, -150, 150),
             posZ: clamp(Number.isFinite(c.posZ) ? c.posZ : 0.6, -150, 150),
             scale: clamp(Number.isFinite(c.scale) ? c.scale : 0.95, 0.2, 3),
           }))
         : st.companions;
-      const mug = { ...st.mug, ...s.mug, model: migrateMugModel(s.mug?.model ?? st.mug.model) };
+      const mug = migrateCeramicFinish({ ...st.mug, ...s.mug,
+        model: migrateMugModel(s.mug?.model ?? st.mug.model),
+        handleStyle: s.mug ? (s.mug.handleStyle === "rounded" ? "rounded" as const : "classic" as const) : st.mug.handleStyle,
+      });
       if (s.mug?.model && mug.model !== s.mug.model && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("cg-mockup-migrated", { detail: "Um modelo antigo foi convertido para a caneca clássica." }));
       }

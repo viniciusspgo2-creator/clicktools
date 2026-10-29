@@ -18,7 +18,7 @@ const VIEWS = [
 ] as const;
 
 export function QuickCameraBar() {
-  const rotating = useMockupStore(s => s.camera.autoRotate);
+  const rotating = useMockupStore(s => s.camera.autoRotate && !s.camera.spinIds?.length);
   const panning = useMockupStore(s => s.tool === "pan");
   const moving = useMockupStore(s => s.tool === "move");
   const count = useMockupStore(s => s.companions.filter(c => !c.hidden).length + (s.mug.hidden ? 0 : 1));
@@ -62,8 +62,8 @@ export function QuickCameraBar() {
       <button type="button" className="cg-spin-button" aria-pressed={rotating}
         onClick={() => {
           const st = useMockupStore.getState();
-          st.patch("camera", { autoRotate: !st.camera.autoRotate });
-          if (!st.camera.autoRotate && count > 1) st.frameAll();
+          st.patch("camera", { autoRotate: !rotating, spinIds: null });
+          if (!rotating && count > 1) st.frameAll();
         }}>
         {rotating ? <Pause /> : <Play />}
         {rotating ? "Pausar giro" : count > 1 ? "Girar todas 360°" : "Girar 360°"}

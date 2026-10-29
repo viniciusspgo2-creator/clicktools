@@ -1,15 +1,16 @@
 import * as THREE from "three";
 import type { MugState } from "../state/store";
+import { DEFAULT_CERAMIC_FINISH } from "../lib/ceramic-finishes";
 
 /** A dielectric glaze above the pigment, shared by body, handle and bottom. */
 export const CERAMIC_PBR = {
-  roughness: 0.055,
+  roughness: DEFAULT_CERAMIC_FINISH.roughness,
   metalness: 0,
   clearcoat: 1,
-  clearcoatRoughness: 0.025,
+  clearcoatRoughness: DEFAULT_CERAMIC_FINISH.clearcoatRoughness!,
   reflectivity: 0.5,
   ior: 1.52,
-  specularIntensity: 1,
+  specularIntensity: DEFAULT_CERAMIC_FINISH.specularIntensity!,
 } as const;
 
 const finite = (value: number | undefined, fallback: number, max: number) =>
@@ -26,7 +27,7 @@ export function createCeramicMaterial(
     metalMask?: THREE.Texture;
   } = {},
 ): THREE.MeshPhysicalMaterial {
-  const reflection = finite(mug.reflection, 1.25, 3);
+  const reflection = finite(mug.reflection, DEFAULT_CERAMIC_FINISH.reflection, 3);
   const faithful = mug.faithfulColor && !options.metalMask;
   const material = new THREE.MeshPhysicalMaterial({
     ...CERAMIC_PBR,
@@ -59,7 +60,7 @@ export function createCeramicMaterial(
 
   material.onBeforeCompile = (shader) => {
     shader.uniforms.ceramicGlazeStrength = {
-      value: finite(mug.glazeStrength, 1.45, 3),
+      value: finite(mug.glazeStrength, DEFAULT_CERAMIC_FINISH.glazeStrength!, 3),
     };
     shader.fragmentShader =
       "uniform float ceramicGlazeStrength;\n" + shader.fragmentShader;

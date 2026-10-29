@@ -39,3 +39,17 @@ Os testes do blog usam as funções reais de rota e uma configuração SEO contr
 A política de rede em execução ainda não inclui `binaries.prisma.sh`, `fonts.googleapis.com` e `fonts.gstatic.com`, embora os domínios tenham sido salvos no rascunho do ambiente. Isso impede gerar o Prisma e concluir o build integrado e os testes de autenticação. TLS e verificações de checksum permanecem ativados.
 
 O TypeScript do repositório apresenta os mesmos dois erros associados ao cliente Prisma ainda não gerado, em `src/app/api/admin/codes/route.ts` e `src/app/api/admin/visits/route.ts`; nenhum erro novo das alterações foi observado. Após aplicar a política, gerar o cliente e executar `npm run build`, repetir a verificação de tipos e `tests/studio-access.mjs` com o PostgreSQL local isolado.
+
+## Refinamentos de 28/10/2026
+
+- Seleção explícita por peça, upload de arte individual, giro da selecionada e cópia opcional para todas. Composições preservam as artes existentes.
+- Câmera com plano distante ampliado e adaptável, transições por órbita e enquadramento sem interferência dos gizmos. Sombras de contato abrangem todas as peças e usam uma camada exclusiva para evitar realimentação entre passes.
+- Verniz preservado com preset Sublimação mais suave e softboxes de bordas graduais. Projetos com o antigo preset exato são migrados; ajustes personalizados são preservados.
+- Alças Original e Arredondada em malhas 3D nativas, independentes por peça e incluídas nos projetos/exportações. Verificados encaixes na parede, costura de normais, adaptação aos seis corpos e apoio no chão em várias poses.
+- Admin redesenhado com indicadores reais, gráfico de tráfego, animações com respeito à redução de movimento, filtros, gerenciamento e criação unitária ou em lote de até 100 códigos, cópia e CSV. Endpoints continuam exigindo autenticação; lotes usam inserção atômica.
+
+Validação: 63 testes passaram (48 anteriores + 10 de cenas/alças + 5 de administração). ESLint passou com cinco avisos preexistentes na página inicial. Compilação de produção dos componentes reais em harness Next/Webpack passou. TypeScript integrado segue com os dois erros do cliente Prisma não gerado descritos acima; o build integrado e a conexão real ao banco continuam pendentes da liberação de rede.
+
+No Chromium: 11 verificações do Admin e cinco de controles de alça/giro passaram, incluindo versão móvel, sessão expirada, CSV e confirmação de revogação. A cena WebGL real confirmou duas geometrias distintas de alça, material cerâmico, sombra local por peça e câmeras de contato na camada correta. A comparação visual final com arte e os cliques de câmera ficaram limitados pela captura/estabilidade do renderizador por software; os cálculos de enquadramento e transição passaram nos testes automatizados.
+
+A imagem exata do trio de personagens solicitada como exemplo não foi substituída: o arquivo original não está disponível no filesystem nem como anexo baixável nesta sessão. É necessário receber o JPG/PNG original para concluir essa substituição com fidelidade.

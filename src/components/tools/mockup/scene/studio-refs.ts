@@ -6,6 +6,7 @@ import type { EffectComposer } from "three/examples/jsm/postprocessing/EffectCom
 import type { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import type { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import type { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { isEditorOverlay } from "./object-interaction";
 
 export const studioRefs: {
   gl?: THREE.WebGLRenderer;
@@ -70,7 +71,7 @@ export function visibleMugBounds(scene: THREE.Scene): THREE.Box3 {
     if (!(o as THREE.Mesh).isMesh || o.name === "selection-outline") return;
     let p: THREE.Object3D | null = o;
     while (p) {
-      if (!p.visible) return;
+      if (!p.visible || isEditorOverlay(p)) return;
       p = p.parent;
     }
     box.union(new THREE.Box3().setFromObject(o));

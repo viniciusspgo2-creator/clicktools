@@ -62,6 +62,7 @@ import {
   ScenePanel,
 } from "./panels";
 import { FXPanel, MultiMugPanel } from "./panels-extra";
+import { HandleControls } from "./handle-controls";
 import { Section, ColorRow, SliderRow, ToggleRow } from "./controls";
 import { MODELS } from "../scene/model-geometry";
 import { CAMERA_PRESETS, FLOOR_OPTIONS, LIGHT_PRESETS } from "../lib/config";
@@ -82,6 +83,7 @@ import {
   CeramicPalette,
 } from "./quick-controls";
 import { CeramicFinishControls } from "./ceramic-finish-controls";
+import { PieceEditor, PieceSwitcher } from "./piece-editor";
 import { StudioGuide, type GuideAction } from "./guide-panel";
 import { ArtAssistant } from "./art-assistant";
 import "./workspace.css";
@@ -470,11 +472,12 @@ export function Workspace({
               <X />
             </button>
           </div>
+          <PieceEditor onUpload={onUpload} />
           {tab === "arts" && (
             <>
               <button className="cg-upload" onClick={onUpload}>
                 <Upload />
-                <strong>Adicionar arte</strong>
+                <strong>{art.imageId ? "Trocar arte" : "Adicionar arte"} · {selected?.name || "Caneca selecionada"}</strong>
                 <span>Arraste um arquivo ou cole com Ctrl+V</span>
               </button>
               <div className="cg-asset-preview">
@@ -605,6 +608,7 @@ export function Workspace({
               <p className="cg-hint">
                 Escolha a forma da peça selecionada. A arte acompanha a mudança.
               </p>
+              <HandleControls active={active} />
               <Section title="Cores prontas" icon={Palette} defaultOpen>
                 <div className="cg-preset-grid">
                   {[
@@ -908,6 +912,7 @@ export function Workspace({
             </ToolButton>
           </div>
           <div className="cg-viewport">{viewport}</div>
+          <PieceSwitcher onUpload={onUpload} />
           {(st.tool === "move" || st.tool === "art") && <div className="cg-tool-hint" role="status">
             {st.tool === "move" ? <><Move /><span>Arraste a caneca para posicionar.<small>Alt: sem encaixe · Escape: cancelar</small></span></> : <><ImagePlus /><span>Arraste sobre a caneca para mover a estampa.<small>Para mover a peça, use G.</small></span></>}
           </div>}
@@ -975,6 +980,7 @@ export function Workspace({
               /></div>
               <ArtAssistant active={active} art={art} locked={!!selected.locked} onNotice={notify} />
               <CeramicPalette active={active} />
+              {tab !== "models" && <HandleControls active={active} />}
               <Section title="Poses prontas" icon={Move} defaultOpen>
                 <div className="cg-pills">
                   {[

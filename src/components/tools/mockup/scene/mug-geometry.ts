@@ -204,9 +204,26 @@ const HANDLE_POINTS = [
   [0, 2.3, -4.45],
   [0, 2.3, -3.89],
 ];
-const getHandleCurve = () =>
+export type HandleStyle = "classic" | "rounded";
+
+// Laço D alongado: ombros quase horizontais e curva externa contínua.
+// As duas raízes ficam enterradas na parede, como no modelo original.
+const ROUNDED_HANDLE_POINTS = [
+  [0, 7.8, -3.89],
+  [0, 7.8, -4.38],
+  [0, 7.9, -5.25],
+  [0, 7.33, -6.14],
+  [0, 6.1, -6.55],
+  [0, 4.78, -6.6],
+  [0, 3.45, -6.32],
+  [0, 2.28, -5.6],
+  [0, 1.9, -4.58],
+  [0, 1.9, -3.89],
+];
+const getHandleCurve = (style: HandleStyle) =>
   new THREE.CatmullRomCurve3(
-    HANDLE_POINTS.map((p) => new THREE.Vector3(p[0], p[1], p[2])),
+    (style === "rounded" ? ROUNDED_HANDLE_POINTS : HANDLE_POINTS)
+      .map((p) => new THREE.Vector3(p[0], p[1], p[2])),
     false,
     "centripetal",
   );
@@ -216,8 +233,9 @@ export function handleExtentR(): number {
   return 7.2;
 }
 
-export function buildHandleGeometry(): THREE.BufferGeometry {
-  const curve = getHandleCurve();
+export function buildHandleGeometry(style: HandleStyle = "classic"): THREE.BufferGeometry {
+  const curve = getHandleCurve(style);
+  const rounded = style === "rounded";
   const tubular = 144,
     radial = 40,
     ring = radial + 1;
@@ -242,9 +260,9 @@ export function buildHandleGeometry(): THREE.BufferGeometry {
       const ca = Math.cos(a),
         sa = Math.sin(a);
       const ox =
-        Math.sign(ca) * Math.pow(Math.abs(ca), 0.85) * HANDLE_A_X * weld;
+        Math.sign(ca) * Math.pow(Math.abs(ca), rounded ? 1 : 0.85) * (rounded ? 0.58 : HANDLE_A_X) * weld;
       const on =
-        Math.sign(sa) * Math.pow(Math.abs(sa), 0.9) * HANDLE_B_N * weld;
+        Math.sign(sa) * Math.pow(Math.abs(sa), rounded ? 1 : 0.9) * HANDLE_B_N * weld;
       positions.push(
         center.x + ox,
         center.y + perp.y * on,

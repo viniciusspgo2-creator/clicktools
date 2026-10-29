@@ -24,6 +24,7 @@ import { NEUTRAL_ADJUSTMENTS } from "../lib/art-adjustments";
 import { MUG, FLOAT_LIFT, PEDESTAL_H, PLATE_H, detectMobile } from "../lib/config";
 import { studioRefs } from "./studio-refs";
 import { dragPlane, planarDragDelta, pointerOnPlane, uniformScaleFromGizmo } from "./object-interaction";
+import { MUG_CONTACT_LAYER } from "./scene-layout";
 
 // Selection updates may replace a group's userData during a drag. Keep the
 // animation pause outside React props so it survives that render.
@@ -95,6 +96,7 @@ function MugObject({
   const [object, setObject] = useState<THREE.Group | null>(null);
   const spinStart = useRef(0);
   const spinBase = useRef<number | null>(null);
+  const spinStateRotation = useRef(mug.rotationY);
   const sceneCamera = useMockupStore(s => s.camera);
   const entryGroup = useRef<THREE.Group>(null);
   const dragArt = useRef<ArtGesture | null>(null);
@@ -110,7 +112,7 @@ function MugObject({
   }, []);
   const initialized = useRef(false);
   const entranceStart = useRef<number | null>(null);
-  const model = useMemo(() => buildModel(mug.model), [mug.model]);
+  const model = useMemo(() => buildModel(mug.model, mug.handleStyle), [mug.model, mug.handleStyle]);
   useEffect(
     () => () => {
       model.body.dispose();
@@ -221,14 +223,15 @@ function MugObject({
     if (transformingObjects.has(object)) {
       spinBase.current = null;
     } else if (!studioRefs.exporting) {
-      if (sceneCamera.autoRotate) {
+      if (sceneCamera.autoRotate && !mug.locked && (!sceneCamera.spinIds?.length || sceneCamera.spinIds.includes(id))) {
         const phase = spinClock.current / Math.max(3, sceneCamera.secondsPerTurn ?? 8);
         const travel = sceneCamera.direction === "pingpong"
           ? (1 - Math.cos(phase * Math.PI * 2)) * Math.PI
           : phase * Math.PI * 2 * (sceneCamera.direction === "left" ? -1 : 1);
-        if (spinBase.current === null) {
+        if (spinBase.current === null || spinStateRotation.current !== mug.rotationY) {
           spinBase.current = object.rotation.y;
           spinStart.current = travel;
+          spinStateRotation.current = mug.rotationY;
         }
         object.rotation.y = spinBase.current - (travel - spinStart.current);
       } else if (spinBase.current !== null) {
@@ -236,7 +239,9 @@ function MugObject({
         // The next play starts from this angle instead of jumping to the start.
         const paused = THREE.MathUtils.euclideanModulo(-THREE.MathUtils.radToDeg(object.rotation.y), 360);
         spinBase.current = null;
-        useMockupStore.getState().patchObject(id, { rotationY: paused });
+        // A manual turn made while pausing takes precedence over the animation.
+        if (spinStateRotation.current === mug.rotationY)
+          useMockupStore.getState().patchObject(id, { rotationY: paused });
       }
     }
     if (!initialized.current) {
@@ -518,6 +523,7 @@ function MugObject({
               receiveShadow
               name={id === "hero" ? "mug-body" : "mug-body-comp"}
               userData={{ objectId: id }}
+              onUpdate={mesh => mesh.layers.enable(MUG_CONTACT_LAYER)}
             >
               <CeramicMaterial
                 texture={texture}
@@ -532,7 +538,8 @@ function MugObject({
               </mesh>
             )}
             {model.def.hasHandle && (
-              <mesh geometry={model.handle} castShadow receiveShadow name="mug-handle" userData={{ objectId: id }}>
+              <mesh geometry={model.handle} castShadow receiveShadow name="mug-handle" userData={{ objectId: id }}
+                onUpdate={mesh => mesh.layers.enable(MUG_CONTACT_LAYER)}>
                 <CeramicMaterial color={handle} mug={mug} />
               </mesh>
             )}

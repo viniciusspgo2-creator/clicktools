@@ -286,9 +286,9 @@ test("body and handle share one ceramic PBR recipe and the same fidelity shader"
     "toneMapped",
   ])
     assert.equal(body[key], handle[key], key);
-  assert.equal(body.roughness, 0.055);
+  assert.equal(body.roughness, 0.085);
   assert.equal(body.ior, 1.52);
-  assert.equal(body.specularIntensity, 1);
+  assert.equal(body.specularIntensity, 0.85);
   assert.equal(body.aoMap, null);
   assert.equal(handle.aoMap, null);
   const shader = () => ({
@@ -465,8 +465,8 @@ test("glossy finishes affect body and handle equally and keep legacy projects co
   const { CERAMIC_FINISHES, ceramicFinishValues } = require(
     root + "/src/components/tools/mockup/lib/ceramic-finishes.ts",
   );
-  assert.equal(ceramicFinishValues({}).clearcoatRoughness, 0.025);
-  assert.equal(ceramicFinishValues({}).glazeStrength, 1.45);
+  assert.equal(ceramicFinishValues({}).clearcoatRoughness, 0.075);
+  assert.equal(ceramicFinishValues({}).glazeStrength, 1);
   for (const f of CERAMIC_FINISHES) {
     const mug = { ...store.getState().mug, ...f.values, faithfulColor: true };
     const body = createCeramicMaterial(mug, { map: new THREE.Texture() }),
@@ -583,6 +583,6 @@ test("glaze is adjustable in both faithful and physical modes and malformed save
   assert.equal(invalid.clearcoat, 1);
   assert.equal(invalid.clearcoatRoughness, 0);
   assert.equal(invalid.specularIntensity, 1);
-  assert.equal(invalid.envMapIntensity, 1.25);
+  assert.equal(invalid.envMapIntensity, 0.9);
   invalid.dispose();
 });
