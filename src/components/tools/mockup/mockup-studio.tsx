@@ -233,6 +233,7 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
   );
   return (
     <div
+      className="cg-studio-root"
       onDragOver={(e) => {
         e.preventDefault();
         setDrag(true);

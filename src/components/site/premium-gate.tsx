@@ -128,7 +128,7 @@ export function PremiumGate({ children, title = "Studio Mockup 3D", backHref = "
   };
   if (status === "checking")
     return (
-      <div className="grid min-h-screen place-items-center">
+      <div className="cg-access-status grid min-h-screen place-items-center">
         <p className="flex items-center gap-3">
           <Loader2 className="animate-spin" />
           Verificando seu acesso…
@@ -138,7 +138,7 @@ export function PremiumGate({ children, title = "Studio Mockup 3D", backHref = "
   if (status === "open")
     return (
       <>
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-[#171411] px-4 py-2 text-xs text-white">
+        <div className="cg-access-bar flex flex-wrap items-center justify-between gap-2 bg-[#171411] px-4 py-2 text-xs text-white">
           <span>
             <Crown className="mr-2 inline h-3 w-3 text-amber-400" />
             {plan}
@@ -153,7 +153,7 @@ export function PremiumGate({ children, title = "Studio Mockup 3D", backHref = "
       </>
     );
   return (
-    <div className="grid min-h-[80vh] place-items-center bg-[#0c0d0e] px-5 py-12 text-white">
+    <div className="cg-access-login grid min-h-[80vh] place-items-center bg-[#0c0d0e] px-5 py-12 text-white">
       <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#161719] p-7 sm:p-10">
         <Link href={backHref} className="text-sm text-neutral-400">
           ← Conhecer {title}
