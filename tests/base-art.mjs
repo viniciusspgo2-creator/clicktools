@@ -14,3 +14,22 @@ test('base editing stays independent, supports undo and survives hydration',()=>
  s.getState().resetAll();s.getState().hydrate(saved);assert.equal(s.getState().companions[0].art.baseScale,1.5);assert.equal(s.getState().companions[0].art.baseImageId,'base-test');
  s.getState().patchObject(id,{locked:true});s.getState().patchObjectArt(id,{baseScale:2});assert.equal(s.getState().companions[0].art.baseScale,1.5);s.getState().resetAll();
 });
+const {renderBaseArt,baseExportSize}=require('../src/components/tools/mockup/lib/base-art-canvas.ts');
+const registry=require('../src/components/tools/mockup/lib/art-registry.ts');
+test('base export obeys GPU and shared memory budgets',()=>{
+ assert.equal(baseExportSize(8000,512,1,false),512);
+ assert.ok(baseExportSize(8000,8192,8,false)**2*8<=8000000);
+ assert.ok(baseExportSize(8000,8192,1,true)<=Math.sqrt(2000000));
+});
+test('base canvas draws the retained source and applies only lower-art transforms',async()=>{
+ const oldDocument=globalThis.document,oldBitmap=globalThis.createImageBitmap;let draw;
+ globalThis.createImageBitmap=async()=>({width:1000,height:500,close(){}});
+ try{
+  const e=await registry.loadArtBlob(new Blob(['original'],{type:'image/png'}),'fixture.png');
+  globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>({fillRect(){},drawImage(...args){draw=args;}})})};
+  const art={...s.getState().art,baseImageId:e.id};const c=renderBaseArt(art,s.getState().mug,2000);
+  assert.equal(c.width,2000);assert.equal(draw[0],e.source);assert.deepEqual(draw.slice(1),[0,500,2000,1000]);
+  renderBaseArt({...art,baseScale:0.5,baseOffsetX:0.2},s.getState().mug,2000);assert.deepEqual(draw.slice(1),[700,750,1000,500]);
+  assert.equal(e.width,1000);registry.removeArtImage(e.id);
+ }finally{globalThis.document=oldDocument;globalThis.createImageBitmap=oldBitmap;}
+});

@@ -1902,6 +1902,7 @@ function ImageTab() {
         <WatermarkBox wm={wm} patch={patch} />
       </Section>
 
+      <p className="text-xs text-neutral-400">Enquadramento automático: a exportação adapta a câmera à proporção escolhida para incluir as peças. Confira a prévia final antes de baixar.</p>
       <div className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[13px]">
         <span className="text-neutral-400">
           Saída:{" "}

@@ -6,6 +6,7 @@
    ============================================================ */
 
 import * as THREE from "three";
+import { renderBaseArt, baseExportSize } from "../lib/base-art-canvas";
 import { getStudioPlan } from "../lib/entitlements";
 import {
   mugsGroup,
@@ -60,6 +61,7 @@ export interface FrameSession {
   usingFx: boolean;
   mugOverride: Partial<MugState>;
   lastRenderKey: string;
+  baseTextures: { tex: THREE.CanvasTexture; preview: HTMLCanvasElement }[];
   companionTextures: {
     tex: THREE.CanvasTexture;
     preview: HTMLCanvasElement;
@@ -212,6 +214,7 @@ export function beginFrames(
     mugOverride: opts.mugOverride ?? {},
     lastRenderKey: "",
     companionTextures: [],
+    baseTextures: [],
   };
   studioRefs.exporting = true;
   studioRefs.exportTransparent = session.usingTransparent;
@@ -272,6 +275,19 @@ export function beginFrames(
       tex.image = canvas;
       tex.needsUpdate = true;
     });
+    const bases: THREE.Mesh[] = [];
+    group?.traverse(o => { if (o.name === "mug-base-print" && o.visible) bases.push(o as THREE.Mesh); });
+    const baseSide = baseExportSize(Math.max(width, height), gl.capabilities.maxTextureSize || 4096, bases.length, mobile);
+    for (const mesh of bases) {
+      const tex = (mesh.material as THREE.MeshPhysicalMaterial).map as THREE.CanvasTexture | null;
+      if (!tex?.isCanvasTexture) continue;
+      const companion = st.companions.find(c => c.id === mesh.userData.objectId);
+      const art = companion?.art ?? st.art;
+      const canvas = renderBaseArt(art, { ...st.mug, ...companion } as MugState, baseSide);
+      if (!canvas) continue;
+      session.baseTextures.push({ tex, preview: tex.image as HTMLCanvasElement });
+      tex.image = canvas; tex.needsUpdate = true;
+    }
     const hide = (o: THREE.Object3D | undefined) => {
       if (o?.visible) {
         o.visible = false;
@@ -519,6 +535,10 @@ export function endFrames(session: FrameSession) {
     session.tex.image = session.previewCanvas;
     session.tex.needsUpdate = true;
   }
+  for (const item of session.baseTextures) {
+    item.tex.image = item.preview; item.tex.needsUpdate = true;
+  }
+  session.baseTextures = [];
   for (const item of session.companionTextures) {
     item.tex.image = item.preview;
     item.tex.needsUpdate = true;

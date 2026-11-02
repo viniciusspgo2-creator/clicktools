@@ -11,7 +11,7 @@ import {
   type MugState,
   type CompanionMug,
 } from "../state/store";
-import { baseArtTransform } from "../lib/base-art";
+import { renderBaseArt } from "../lib/base-art-canvas";
 import { createCeramicMaterial } from "./ceramic-material";
 import { buildModel, supportHeight } from "./model-geometry";
 import { getArtImage } from "../lib/art-registry";
@@ -157,18 +157,8 @@ function MugObject({
   }, [art, canvas]);
   useEffect(() => () => metalMask?.dispose(), [metalMask]);
   const baseTexture = useMemo(() => {
-    const entry = getArtImage(art.baseImageId ?? null);
-    if (!entry) return null;
-    const c = document.createElement("canvas");
-    c.width = c.height = 1024;
-    const ctx = c.getContext("2d")!;
-    ctx.fillStyle = mug.baseColor ?? mug.bodyColor;
-    ctx.fillRect(0, 0, 1024, 1024);
-    const transform = baseArtTransform(art);
-    const scale = Math.min(1024 / entry.width, 1024 / entry.height) * transform.scale;
-    const w = entry.width * scale,
-      h = entry.height * scale;
-    ctx.drawImage(entry.source, (1024 - w) / 2 + transform.x * 512, (1024 - h) / 2 + transform.y * 512, w, h);
+    const c = renderBaseArt(art, mug);
+    if (!c) return null;
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
@@ -535,7 +525,7 @@ function MugObject({
             </mesh>
             {baseTexture && (
               <mesh geometry={model.basePrint} rotation={[0, ((art.baseRotation ?? 0) * Math.PI) / 180, 0]}
-                receiveShadow name="mug-base-print">
+                receiveShadow name="mug-base-print" userData={{ objectId: id }}>
                 <CeramicMaterial texture={baseTexture} mug={mug} />
               </mesh>
             )}
