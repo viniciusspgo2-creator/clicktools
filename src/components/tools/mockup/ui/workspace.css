@@ -1217,3 +1217,61 @@
 .cg-free-color-value label{color:var(--cg-muted);font-size:12px;font-weight:650}
 .cg-free-color-value input{min-width:0;width:100%;padding:3px 0;border:0;outline-offset:3px;background:none;color:var(--cg-text);font-family:var(--font-geist-mono),monospace;font-size:13px;text-transform:uppercase}
 .cg-free-color-tip{margin:10px 0 0;font-size:12px;line-height:1.6;color:var(--cg-muted)}
+
+/* UX de sublimação: básico visível, configurações especializadas sob demanda. */
+.cg-editor-help{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0;padding:10px;border:1px solid var(--cg-line);border-radius:10px;font-size:12px;color:var(--cg-muted)}
+.cg-editor-help button{display:inline-flex;align-items:center;gap:4px;padding:5px 7px;border-radius:6px;color:var(--cg-accent);font-size:12px;font-weight:700}
+.cg-editor-help svg{width:14px;height:14px}
+.cg-workspace .cg-bocao-entry{width:100%;display:flex;align-items:center;gap:10px;text-align:left;padding:13px 12px;margin:12px 0;background:var(--cg-card);border:1px solid #ff865460;border-radius:12px;color:var(--cg-text)}
+.cg-bocao-entry>svg{color:var(--cg-accent);width:25px;height:25px}
+.cg-bocao-entry span{display:flex;flex-direction:column;gap:4px}
+.cg-bocao-entry strong{font-size:13px}
+.cg-bocao-entry small{font-size:12px;color:var(--cg-muted);line-height:1.35}
+.cg-advanced-toggle{margin-top:auto}
+.cg-rail-bottom{margin-top:0}
+@media(min-width:1001px){
+ .cg-workspace.cg-properties-hidden .cg-body{grid-template-columns:76px 290px minmax(250px,1fr)}
+ .cg-workspace.cg-properties-hidden .cg-properties{display:none}
+ .cg-workspace.cg-stage-focus .cg-body{grid-template-columns:76px minmax(250px,1fr)}
+ .cg-workspace.cg-stage-focus .cg-library,.cg-workspace.cg-stage-focus .cg-properties{display:none}
+}
+@media(min-width:1650px){.cg-workspace.cg-properties-hidden .cg-body{grid-template-columns:82px 310px minmax(240px,1fr)}.cg-workspace.cg-stage-focus .cg-body{grid-template-columns:82px minmax(240px,1fr)}}
+@media(min-width:1001px) and (max-width:1190px){.cg-workspace.cg-properties-hidden .cg-body{grid-template-columns:64px 255px minmax(200px,1fr)}.cg-workspace.cg-stage-focus .cg-body{grid-template-columns:64px minmax(200px,1fr)}}
+.cg-bocao-preview-wrap{padding:12px;border:1px solid var(--cg-line);background:var(--cg-card);border-radius:14px;text-align:center}
+.cg-bocao-caption{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:12px}
+.cg-bocao-caption span{color:var(--cg-accent);font-weight:750}
+.cg-bocao-wheel{width:min(190px,100%);aspect-ratio:1;border-radius:50%;border:6px solid #ff8654;outline:5px solid #ff865426;position:relative;overflow:hidden;margin:6px auto 17px;touch-action:none;cursor:grab;user-select:none;background:white;box-shadow:inset 0 2px 14px #0002,0 8px 23px #0002}
+.cg-bocao-wheel:active{cursor:grabbing}
+.cg-bocao-wheel:focus-visible{outline:4px solid var(--cg-accent);outline-offset:4px}
+.cg-bocao-wheel-art{position:absolute;inset:0;pointer-events:none;will-change:transform}
+.cg-bocao-wheel-art canvas{width:100%;height:100%;display:block}
+.cg-bocao-wheel-indicator{position:absolute;top:0;left:50%;transform:translateX(-50%);width:4px;height:14px;border-radius:4px;background:#fff;box-shadow:0 0 4px #0008;pointer-events:none}
+.cg-bocao-preview-wrap small{color:var(--cg-muted);font-size:12px;line-height:1.5;display:block}
+.cg-bocao-turn-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.cg-bocao-turn-buttons button{display:flex;align-items:center;justify-content:center;gap:2px;border:1px solid var(--cg-line);background:var(--cg-card);border-radius:8px;padding:9px 2px;font-size:12px}
+.cg-bocao-turn-buttons svg,.cg-pills svg{width:13px;height:13px}
+.cg-bocao-fine-controls{border:1px solid var(--cg-line);padding:10px;border-radius:10px}
+.cg-bocao-fine-controls summary{cursor:pointer;font-size:12px;font-weight:650;color:var(--cg-text)}
+.cg-bocao-fine-controls[open]{display:grid;gap:10px}
+@media(max-width:1000px){.cg-advanced-toggle{margin-top:8px}}
+
+.cg-piece-quick-select{display:grid;gap:7px;font-size:12px;color:var(--cg-muted);margin-bottom:9px}
+.cg-piece-quick-select select{width:100%;min-width:0;padding:9px;background:var(--cg-card);border:1px solid var(--cg-line);border-radius:8px;color:var(--cg-text)}
+.cg-piece-editor-toggle{border:1px solid var(--cg-line);border-radius:10px;padding:9px;margin:8px 0}
+.cg-piece-editor-toggle>summary{font-size:12px;color:var(--cg-muted);cursor:pointer;font-weight:650}
+.cg-piece-editor-toggle[open]>summary{margin-bottom:10px;color:var(--cg-accent)}
+
+.cg-stage-toolbar-actions{display:flex;gap:2px;align-items:center}
+@media(max-width:1000px){.cg-stage-toolbar-actions,.cg-stage-toolbar-actions+.cg-divider{display:none}}
+
+/* Bocão: contextual help remains legible in light and dark themes. */
+.cg-bocao-guide{display:flex;align-items:flex-start;gap:8px;margin:8px 0;padding:10px;border-radius:10px;background:color-mix(in srgb,var(--cg-accent) 8%,var(--cg-panel));border:1px solid color-mix(in srgb,var(--cg-accent) 24%,var(--cg-line));font-size:12px;line-height:1.5;color:var(--cg-text)}
+.cg-bocao-guide svg{width:16px;height:16px;flex:none;color:var(--cg-accent);margin-top:1px}
+.cg-bocao-wheel{max-width:100%;aspect-ratio:1;outline-offset:3px}
+.cg-bocao-turn-buttons button{min-height:37px;touch-action:manipulation}
+.cg-bocao-turn-buttons button:focus-visible,.cg-bocao-entry:focus-visible{outline:2px solid var(--cg-accent);outline-offset:3px}
+@media(max-width:700px){.cg-bocao-wheel{width:min(210px,100%)}.cg-bocao-turn-buttons button{min-height:44px}}
+
+/* Indicador fixo: eixo frontal da estampa lateral na pose padrão. */
+.cg-bocao-front-label{display:block;text-align:center;font-size:11px;letter-spacing:.02em;font-weight:700;color:var(--cg-accent);margin:0 auto 8px}
+.cg-bocao-front-label::after{content:"↓";display:block;font-size:16px;line-height:1.15}

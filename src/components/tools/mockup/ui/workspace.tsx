@@ -43,6 +43,11 @@ import {
   Camera,
   Lightbulb,
   RotateCcw,
+  CircleArrowUp,
+  PanelRightClose,
+  PanelRightOpen,
+  Expand,
+  Shrink,
   SlidersHorizontal,
   Palette,
   Sparkles,
@@ -68,6 +73,8 @@ import { MODELS } from "../scene/model-geometry";
 import { CAMERA_PRESETS, FLOOR_OPTIONS, LIGHT_PRESETS } from "../lib/config";
 import { getArtImage, loadArtFile, makeSampleArt } from "../lib/art-registry";
 import { NEUTRAL_ADJUSTMENTS } from "../lib/art-adjustments";
+import { BaseArtPanel } from "./base-art-panel";
+import { OutputFormatControl } from "./output-format-control";
 import { PrintLayersPanel } from "./print-layers-panel";
 import { HDRIPanel } from "./hdri-panel";
 import { PremiumBackgrounds } from "./premium-backgrounds";
@@ -90,6 +97,7 @@ import "./workspace.css";
 
 type Tab =
   | "arts"
+  | "base"
   | "backgrounds"
   | "models"
   | "layers"
@@ -99,14 +107,15 @@ type Tab =
   | "compose"
   | "effects";
 const NAV = [
-  { id: "arts", label: "Arte", icon: ImagePlus },
-  { id: "models", label: "Caneca", icon: Coffee },
-  { id: "backgrounds", label: "Cena", icon: Images },
+  { id: "models", label: "Produto", icon: Coffee },
+  { id: "arts", label: "Estampa", icon: ImagePlus },
+  { id: "base", label: "Bocão", icon: CircleArrowUp },
+  { id: "backgrounds", label: "Cenário", icon: Images },
   { id: "light", label: "Luz e sombra", icon: Sun },
-  { id: "camera", label: "Câmera", icon: Camera },
-  { id: "compose", label: "Compor", icon: Layers },
-  { id: "effects", label: "Efeitos", icon: Palette },
-  { id: "layers", label: "Camadas", icon: SlidersHorizontal },
+  { id: "camera", label: "Câmera", icon: Camera, advanced: true },
+  { id: "compose", label: "Composição", icon: Layers, advanced: true },
+  { id: "effects", label: "Efeitos", icon: Palette, advanced: true },
+  { id: "layers", label: "Camadas", icon: SlidersHorizontal, advanced: true },
 ] as const;
 function ToolButton({
   label,
@@ -148,6 +157,9 @@ export function Workspace({
 }) {
   const st = useMockupStore();
   const [tab, setTab] = useState<Tab>("arts");
+  const [advanced, setAdvanced] = useState(false);
+  const [showProperties, setShowProperties] = useState(false);
+  const [stageFocus, setStageFocus] = useState(false);
   const [light, setLight] = useState(true);
   const [resetOpen, setResetOpen] = useState(false);
   const [keepArt, setKeepArt] = useState(false);
@@ -219,12 +231,12 @@ export function Workspace({
     if (action === "upload") { onUpload(); return; }
     if (action === "export") { st.setExportOpen(true); return; }
     if (action === "move") { st.setTool("move"); setDrawer(null); return; }
-    if (action === "light" || action === "compose") { setTab(action); setDrawer("library"); return; }
-    setDrawer("properties");
+    if (action === "light" || action === "compose") { if (action === "compose") setAdvanced(true); setStageFocus(false); setTab(action); setDrawer("library"); return; }
+    setShowProperties(true); setStageFocus(false); setDrawer("properties");
     requestAnimationFrame(() => document.getElementById(action === "finish" ? "cg-finish-section" : "cg-art-section")?.scrollIntoView({ block: "start", behavior: "smooth" }));
   }
   return (
-    <div className={`cg-workspace ${light ? "cg-light" : "cg-dark"}`}>
+    <div className={`cg-workspace ${light ? "cg-light" : "cg-dark"} ${!showProperties ? "cg-properties-hidden" : ""} ${stageFocus ? "cg-stage-focus" : ""}`}>
       <header className="cg-topbar">
         <a
           className="cg-icon"
@@ -424,12 +436,13 @@ export function Workspace({
       </header>
       <div className="cg-body">
         <nav className="cg-rail" aria-label="Biblioteca do estúdio">
-          {NAV.map((n) => (
+          {NAV.filter(n => advanced || !("advanced" in n)).map((n) => (
             <button
               key={n.id}
               className={tab === n.id ? "is-active" : ""}
               onClick={() => {
                 setTab(n.id);
+                setStageFocus(false);
                 setDrawer("library");
               }}
               aria-label={n.label}
@@ -438,6 +451,9 @@ export function Workspace({
               <span>{n.label}</span>
             </button>
           ))}
+          <button type="button" className={`cg-advanced-toggle ${advanced ? "is-active" : ""}`} aria-expanded={advanced} title={advanced ? "Ocultar ferramentas avançadas" : "Mostrar ferramentas avançadas"} onClick={() => { setAdvanced(v => !v); if (advanced && NAV.find(n => n.id === tab && "advanced" in n)) setTab("arts"); setStageFocus(false); }}>
+            <SlidersHorizontal /><span>{advanced ? "Menos" : "Mais"}</span>
+          </button>
           <div className="cg-rail-bottom">
             <ToolButton
               label="Compartilhar imagem"
@@ -472,7 +488,14 @@ export function Workspace({
               <X />
             </button>
           </div>
-          <PieceEditor onUpload={onUpload} />
+          {st.companions.length > 0 && <label className="cg-piece-quick-select">Editar peça
+            <select aria-label="Caneca selecionada" value={active} onChange={e => { st.patch("camera", {autoRotate:false}); st.select(e.target.value); }}>
+              <option value="hero">{st.mug.name || "Caneca 01"}</option>
+              {st.companions.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>}
+          <details className="cg-piece-editor-toggle"><summary>Girar ou gerenciar canecas</summary><PieceEditor onUpload={onUpload} /></details>
+          <div className="cg-editor-help"><span>{advanced ? "Ferramentas completas" : "Ferramentas essenciais"}</span><button type="button" onClick={() => {setShowProperties(true);setStageFocus(false);setDrawer("properties");}}>Ajustes finos <PanelRightOpen /></button></div>
           {tab === "arts" && (
             <>
               <button className="cg-upload" onClick={onUpload}>
@@ -504,6 +527,10 @@ export function Workspace({
                 }}
               >
                 Experimentar arte de exemplo
+              </button>
+              <QuickArtControls active={active} art={art} locked={!!selected?.locked} />
+              <button type="button" className="cg-bocao-entry" onClick={() => { setTab("base"); setDrawer("library"); }}>
+                <CircleArrowUp /><span><strong>Arte da base · Bocão</strong><small>Enviar, centralizar e girar a boca livremente</small></span>
               </button>
               <p className="cg-hint">
                 A arte será aplicada à caneca selecionada. Use o modo “Mover
@@ -540,6 +567,7 @@ export function Workspace({
               </Section>
             </>
           )}
+          {tab === "base" && <BaseArtPanel />}
           {tab === "backgrounds" && (
             <>
               <Section
@@ -609,6 +637,8 @@ export function Workspace({
                 Escolha a forma da peça selecionada. A arte acompanha a mudança.
               </p>
               <HandleControls active={active} />
+              <CeramicPalette active={active} />
+              <button type="button" className="cg-secondary" onClick={() => {setShowProperties(true);setDrawer("properties");setStageFocus(false);requestAnimationFrame(()=>document.getElementById("cg-finish-section")?.scrollIntoView({block:"start",behavior:"smooth"}));}}>Abrir acabamento e verniz profissional</button>
               <Section title="Cores prontas" icon={Palette} defaultOpen>
                 <div className="cg-preset-grid">
                   {[
@@ -881,6 +911,12 @@ export function Workspace({
         </aside>
         <main className="cg-canvas" aria-label="Canvas 3D">
           <div className="cg-canvas-toolbar">
+            <div className="cg-stage-toolbar-actions">
+            <ToolButton label={stageFocus ? "Mostrar painéis" : "Ampliar palco 3D"} onClick={() => {setStageFocus(v=>!v);setDrawer(null);}}>{stageFocus ? <Shrink /> : <Expand />}</ToolButton>
+            <ToolButton label={showProperties ? "Ocultar ajustes finos" : "Mostrar ajustes finos"} onClick={() => {setStageFocus(false);setShowProperties(v=>!v);setDrawer(showProperties ? null : "properties");}}>{showProperties ? <PanelRightClose /> : <PanelRightOpen />}</ToolButton>
+            <ToolButton label="Ajustar Bocão (arte da base)" onClick={() => {setStageFocus(false);setTab("base");setDrawer("library");}} active={tab === "base"}><CircleArrowUp /></ToolButton>
+            </div>
+            <span className="cg-divider" />
             {(
               [
                 { id: "select", label: "Selecionar · V", icon: MousePointer2 },
@@ -973,13 +1009,8 @@ export function Workspace({
           {selected ? (
             <>
               {selected.locked && <div className="cg-locked-message"><Lock /><span>Esta peça está travada.</span><button type="button" onClick={() => st.patchObject(active, { locked: false })}>Destravar</button></div>}
-              <div id="cg-art-section"><QuickArtControls
-                active={active}
-                art={art}
-                locked={!!selected.locked}
-              /></div>
+              <div id="cg-art-section"><p className="cg-hint">Ajustes profissionais da peça. Para o básico, use as abas Produto, Estampa e Bocão.</p></div>
               <ArtAssistant active={active} art={art} locked={!!selected.locked} onNotice={notify} />
-              <CeramicPalette active={active} />
               {tab !== "models" && <HandleControls active={active} />}
               <Section title="Poses prontas" icon={Move} defaultOpen>
                 <div className="cg-pills">
@@ -1250,6 +1281,7 @@ export function Workspace({
                 (
                   {
                     arts: "estampa upload encaixe impressão",
+                    base: "bocão boca arte inferior fundo girar alinhar base",
                     models: "caneca cor cerâmica alça interior",
                     backgrounds: "fundo cenário superfície",
                     light: "sombra iluminação hdri",
@@ -1263,6 +1295,8 @@ export function Workspace({
               <button
                 key={n.id}
                 onClick={() => {
+                  if ("advanced" in n) setAdvanced(true);
+                  setStageFocus(false);
                   setTab(n.id);
                   setDrawer("library");
                   setSearchOpen(false);
@@ -1331,6 +1365,7 @@ export function Workspace({
         </div>
       )}
       <footer className="cg-statusbar">
+        <OutputFormatControl />
         <button
           onClick={() =>
             st.patch("camera", { autoRotate: !st.camera.autoRotate })

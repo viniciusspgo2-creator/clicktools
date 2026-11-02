@@ -89,35 +89,6 @@ export function PrintLayersPanel() {
           </button>
         </>
       )}
-      <label className="cg-file-label">
-        Adicionar arte na base
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/svg+xml"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) upload(f, "baseImageId");
-            e.target.value = "";
-          }}
-        />
-      </label>
-      {art.baseImageId && (
-        <>
-          <SliderRow
-            label="Rotação da arte da base"
-            value={art.baseRotation ?? 0}
-            min={-180}
-            max={180}
-            onChange={(baseRotation) => patch({ baseRotation })}
-          />
-          <button
-            className="cg-secondary"
-            onClick={() => patch({ baseImageId: null })}
-          >
-            Remover arte da base
-          </button>
-        </>
-      )}
       <ToggleRow
         label="Acabamento metalizado da arte"
         checked={art.metallic ?? false}
