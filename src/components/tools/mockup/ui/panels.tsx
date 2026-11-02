@@ -6,6 +6,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FinalPreviewViewer } from "./final-preview-viewer";
 import {
   ImagePlus,
   Settings2,
@@ -1930,6 +1931,7 @@ function ImageTab() {
           <img src={previewUrl} alt="Pré-visualização exata da imagem que será exportada" className="max-h-80 max-w-full object-contain" />
         </div>
         <p className="text-xs text-neutral-400">{preview.width} × {preview.height} px · {(preview.blob.size / 1024 / 1024).toFixed(2)} MB. O download terá exatamente esta imagem, com o fundo e o enquadramento exibidos.</p>
+        <FinalPreviewViewer result={preview} />
         <PrimaryButton className="w-full" onClick={() => {
           downloadBlob(preview.blob, preview.filename);
           toast({ title: "Imagem exportada!", description: `${preview.width} × ${preview.height} px · arquivo conferido na prévia.` });
