@@ -1,5 +1,7 @@
 /** Click&Gruda workspace. Project/auth/hosting boundaries are unchanged. */
 "use client";
+import { STUDIO_ANNOUNCEMENTS_ENABLED } from "@/lib/features";
+import { StudioAnnouncements } from "./ui/studio-announcements";
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useMockupStore } from "./state/store";
@@ -267,6 +269,7 @@ export function MockupStudio({ plan = "premium" }: { plan?: StudioPlan }) {
           e.target.value = "";
         }}
       />
+      {STUDIO_ANNOUNCEMENTS_ENABLED && <StudioAnnouncements suspended={shortcuts || guideOpen} />}
       <Workspace
         viewport={viewport}
         onUpload={() => input.current?.click()}
