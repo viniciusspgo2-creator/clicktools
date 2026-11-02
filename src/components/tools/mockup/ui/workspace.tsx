@@ -68,6 +68,8 @@ import { MODELS } from "../scene/model-geometry";
 import { CAMERA_PRESETS, FLOOR_OPTIONS, LIGHT_PRESETS } from "../lib/config";
 import { getArtImage, loadArtFile, makeSampleArt } from "../lib/art-registry";
 import { NEUTRAL_ADJUSTMENTS } from "../lib/art-adjustments";
+import { BaseArtPanel } from "./base-art-panel";
+import { OutputFormatControl } from "./output-format-control";
 import { PrintLayersPanel } from "./print-layers-panel";
 import { HDRIPanel } from "./hdri-panel";
 import { PremiumBackgrounds } from "./premium-backgrounds";
@@ -1211,6 +1213,7 @@ export function Workspace({
                   </button>
                 </div>
               </Section>
+              <BaseArtPanel />
               <Section title="Mais opções da arte" icon={ImagePlus}>
                 <PrintLayersPanel />
                 <ArtPanel onUpload={onUpload} />
@@ -1331,6 +1334,7 @@ export function Workspace({
         </div>
       )}
       <footer className="cg-statusbar">
+        <OutputFormatControl />
         <button
           onClick={() =>
             st.patch("camera", { autoRotate: !st.camera.autoRotate })

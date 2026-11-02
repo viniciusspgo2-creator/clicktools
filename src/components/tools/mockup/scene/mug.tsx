@@ -11,6 +11,7 @@ import {
   type MugState,
   type CompanionMug,
 } from "../state/store";
+import { baseArtTransform } from "../lib/base-art";
 import { createCeramicMaterial } from "./ceramic-material";
 import { buildModel, supportHeight } from "./model-geometry";
 import { getArtImage } from "../lib/art-registry";
@@ -163,15 +164,16 @@ function MugObject({
     const ctx = c.getContext("2d")!;
     ctx.fillStyle = mug.baseColor ?? mug.bodyColor;
     ctx.fillRect(0, 0, 1024, 1024);
-    const scale = Math.min(1024 / entry.width, 1024 / entry.height);
+    const transform = baseArtTransform(art);
+    const scale = Math.min(1024 / entry.width, 1024 / entry.height) * transform.scale;
     const w = entry.width * scale,
       h = entry.height * scale;
-    ctx.drawImage(entry.source, (1024 - w) / 2, (1024 - h) / 2, w, h);
+    ctx.drawImage(entry.source, (1024 - w) / 2 + transform.x * 512, (1024 - h) / 2 + transform.y * 512, w, h);
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     return t;
-  }, [art.baseImageId, mug.baseColor, mug.bodyColor]);
+  }, [art.baseImageId, art.baseScale, art.baseOffsetX, art.baseOffsetY, mug.baseColor, mug.bodyColor]);
   useEffect(() => () => baseTexture?.dispose(), [baseTexture]);
   const effective = useMemo(
     () => ({

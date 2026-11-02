@@ -40,6 +40,9 @@ export interface ArtState {
   decalOpacity?: number;
   baseImageId?: string | null;
   baseRotation?: number;
+  baseScale?: number;
+  baseOffsetX?: number;
+  baseOffsetY?: number;
   metallic?: boolean;
   bleed: number;
   brightness: number;
