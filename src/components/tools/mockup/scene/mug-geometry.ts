@@ -385,7 +385,11 @@ export function buildBasePrintGeometry(
         a = (j / segments) * Math.PI * 2;
       const x = Math.cos(a) * radius * t,
         z = Math.sin(a) * radius * t;
-      positions.push(x, MUG.footH - 0.04 * t * t - 0.003, z);
+      // The base decal needs a measurable depth separation from the porcelain.
+      // At the former 0.003 cm offset, the depth buffer interleaved the two
+      // surfaces at medium/far zoom and produced white speckling (z-fighting).
+      // 0.018 cm is under 0.2 mm; the print remains inside the foot recess.
+      positions.push(x, MUG.footH - 0.04 * t * t - 0.018, z);
       uvs.push(0.5 + x / radius / 2, 0.5 + z / radius / 2);
     }
   for (let i = 0; i < rings; i++)

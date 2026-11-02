@@ -389,17 +389,23 @@ function GlowBoard() {
 
 /** textura radial suave (usada na sombra difusa do modo flutuante) */
 function makeBlobTexture(): THREE.CanvasTexture {
-  const S = 256;
+  const S = 512;
   const c = document.createElement("canvas");
   c.width = c.height = S;
   const ctx = c.getContext("2d")!;
-  const g = ctx.createRadialGradient(S / 2, S / 2, 4, S / 2, S / 2, S / 2);
-  g.addColorStop(0, "rgba(24,16,10,0.85)");
-  g.addColorStop(0.5, "rgba(24,16,10,0.38)");
-  g.addColorStop(1, "rgba(24,16,10,0)");
+  const g = ctx.createRadialGradient(S / 2, S / 2, 2, S / 2, S / 2, S / 2);
+  // White alpha mask, tinted by the selected shadow color; a small dense
+  // footprint plus soft penumbra reads naturally on photographed tabletops.
+  g.addColorStop(0, "rgba(255,255,255,0.90)");
+  g.addColorStop(0.23, "rgba(255,255,255,0.72)");
+  g.addColorStop(0.58, "rgba(255,255,255,0.25)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, S, S);
-  return new THREE.CanvasTexture(c);
+  const t = new THREE.CanvasTexture(c);
+  t.generateMipmaps = true;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  return t;
 }
 
 /** sombra suave no ar (modo flutuante) — mais difusa e fraca quanto mais alta */
@@ -407,6 +413,7 @@ export function FloatShadows() {
   const floor = useMockupStore((s) => s.bg.floor);
   const contactEnabled = useMockupStore((s) => s.bg.contactShadow);
   const shadowOpacity = useMockupStore((s) => s.light.shadowOpacity);
+  const shadowColor = useMockupStore((s) => s.light.shadowColor);
   const companions = useMockupStore((s) => s.companions);
   const mug = useMockupStore((s) => s.mug);
   const mugPosY = mug.posY;
@@ -435,7 +442,7 @@ export function FloatShadows() {
       {mugs.map((m) => {
         const soft = 1 + Math.max(0, m.lift) * 0.16;
         const opacity = floating ? Math.max(0.1, (shadowOpacity ?? 0.44) / (1 + m.lift * 0.4))
-          : (shadowOpacity ?? 0.44) * 0.34 / (1 + Math.max(0, m.lift) * 0.4);
+          : Math.min(0.82, (shadowOpacity ?? 0.44) * 0.83) / (1 + Math.max(0, m.lift) * 0.35);
         return (
           <mesh
             key={m.id}
@@ -448,9 +455,13 @@ export function FloatShadows() {
             <planeGeometry args={[1, 1]} />
             <meshBasicMaterial
               map={tex}
+              color={shadowColor ?? "#242424"}
               transparent
               opacity={opacity}
               depthWrite={false}
+              polygonOffset
+              polygonOffsetFactor={-1}
+              polygonOffsetUnits={-1}
             />
           </mesh>
         );
@@ -461,6 +472,7 @@ export function FloatShadows() {
 
 /** plano gigante que só recebe sombra — some contra o fundo em qualquer ângulo */
 function ShadowCatcher() {
+  const strength = useMockupStore(s => s.light.shadowOpacity ?? 0.44);
   return (
     <mesh
       name="ground"
@@ -469,7 +481,7 @@ function ShadowCatcher() {
       receiveShadow
     >
       <planeGeometry args={[800, 800]} />
-      <shadowMaterial transparent opacity={0.09} />
+      <shadowMaterial transparent opacity={Math.min(0.48, 0.10 + strength * 0.36)} />
     </mesh>
   );
 }
@@ -651,7 +663,7 @@ export function StudioContactShadows() {
     <group name="studio-contact-shadows">
       <ContactPass
         position={[x, topY + 0.001, z]}
-        opacity={(shadowOpacity ?? 0.44) * 0.8}
+        opacity={Math.min(1, (shadowOpacity ?? 0.44) * 1.05)}
         scale={contactScale}
         near={-0.05}
         blur={0.7 + softness * 0.6}
@@ -662,7 +674,7 @@ export function StudioContactShadows() {
       />
       <ContactPass
         position={[x, topY, z]}
-        opacity={(shadowOpacity ?? 0.44) * 0.6}
+        opacity={Math.min(1, (shadowOpacity ?? 0.44) * 0.75)}
         scale={contactScale}
         near={-0.05}
         blur={2.2 + softness * 2.4}

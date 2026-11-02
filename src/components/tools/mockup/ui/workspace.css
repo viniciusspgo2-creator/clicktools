@@ -1275,3 +1275,16 @@
 /* Indicador fixo: eixo frontal da estampa lateral na pose padrão. */
 .cg-bocao-front-label{display:block;text-align:center;font-size:11px;letter-spacing:.02em;font-weight:700;color:var(--cg-accent);margin:0 auto 8px}
 .cg-bocao-front-label::after{content:"↓";display:block;font-size:16px;line-height:1.15}
+
+/* Pose controls: placed with the product, not hidden among material properties. */
+.cg-pose-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.cg-pose-presets button,.cg-pose-tools button{border:1px solid var(--cg-line);border-radius:10px;background:var(--cg-card);color:var(--cg-text);padding:10px 7px;text-align:center;font-size:12px;font-weight:650;min-height:41px}
+.cg-pose-presets button[aria-pressed="true"],.cg-pose-tools button[aria-pressed="true"]{background:#ff865415;border-color:#ff86547b;color:var(--cg-accent)}
+.cg-pose-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.cg-pose-tools button{display:flex;gap:7px;align-items:center;justify-content:center}
+.cg-pose-tools svg{width:16px;height:16px}
+.cg-pose-tip{margin:5px 0 8px;color:var(--cg-muted);font-size:12px;line-height:1.5}
+.cg-pose-advanced{border:1px solid var(--cg-line);border-radius:10px;padding:10px;background:var(--cg-card)}
+.cg-pose-advanced>summary{cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px}
+.cg-pose-advanced>summary svg{width:16px;height:16px;color:var(--cg-accent)}
+.cg-pose-advanced .cg-numeric-grid{margin-bottom:0}

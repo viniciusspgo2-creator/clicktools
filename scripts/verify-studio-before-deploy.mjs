@@ -9,6 +9,7 @@ const programs = process.platform === 'win32' ? { npm: 'npm.cmd' } : { npm: 'npm
 const node = process.execPath;
 const cases = [
   'tests/bocao-ux-standalone.mjs',
+  'tests/studio-interaction-rendering.mjs',
   'tests/art-quality.mjs',
   'tests/handle-regressions.mjs',
   'tests/mockup-movement.mjs',
@@ -38,7 +39,7 @@ for (const item of cases) run(item, node, [item]);
 // prisma generate creates a local client but does NOT connect to PostgreSQL or push schema.
 run('Gerar cliente Prisma local (sem db push)', programs.npm, ['exec', '--no', '--', 'prisma', 'generate']);
 run('TypeScript completo', programs.npm, ['exec', '--no', '--', 'tsc', '--noEmit']);
-run('Lint', programs.npm, ['exec', '--no', '--', 'eslint', 'src/components/tools/mockup', 'tests/bocao-ux-standalone.mjs']);
+run('Lint', programs.npm, ['exec', '--no', '--', 'eslint', 'src/components/tools/mockup', 'tests/bocao-ux-standalone.mjs', 'tests/studio-interaction-rendering.mjs']);
 // Calling next directly deliberately avoids package.json's existing prisma db push in 'build'.
 run('Next build sem db push', programs.npm, ['exec', '--no', '--', 'next', 'build']);
 if (process.env.STUDIO_TEST_TOOLS) {

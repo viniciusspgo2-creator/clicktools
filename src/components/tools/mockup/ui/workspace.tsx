@@ -91,6 +91,8 @@ import {
 } from "./quick-controls";
 import { CeramicFinishControls } from "./ceramic-finish-controls";
 import { PieceEditor, PieceSwitcher } from "./piece-editor";
+import { PoseControls } from "./pose-controls";
+import { ShadowPresets } from "./shadow-presets";
 import { StudioGuide, type GuideAction } from "./guide-panel";
 import { ArtAssistant } from "./art-assistant";
 import "./workspace.css";
@@ -629,10 +631,12 @@ export function Workspace({
               </Section>
               <PremiumBackgrounds notify={notify} />
               <ScenePanel />
+              <ShadowPresets />
             </>
           )}
           {tab === "models" && (
             <>
+              <PoseControls />
               <p className="cg-hint">
                 Escolha a forma da peça selecionada. A arte acompanha a mudança.
               </p>
@@ -921,7 +925,7 @@ export function Workspace({
               [
                 { id: "select", label: "Selecionar · V", icon: MousePointer2 },
                 { id: "move", label: "Mover · G", icon: Move },
-                { id: "rotate", label: "Girar em 3 eixos · E", icon: Rotate3D },
+                { id: "rotate", label: "Girar e inclinar à mão livre · E", icon: Rotate3D },
                 { id: "scale", label: "Escalar · S", icon: Scaling },
                 { id: "art", label: "Mover arte · A", icon: ImagePlus },
                 { id: "pan", label: "Navegar · H", icon: Hand },
@@ -930,7 +934,7 @@ export function Workspace({
               <ToolButton
                 key={t.id}
                 label={t.label}
-                onClick={() => st.setTool(t.id)}
+                onClick={() => { if (t.id === "rotate" || t.id === "move") st.patch("camera", {autoRotate:false}); st.setTool(t.id); }}
                 active={st.tool === t.id}
               >
                 <t.icon />
@@ -949,8 +953,10 @@ export function Workspace({
           </div>
           <div className="cg-viewport">{viewport}</div>
           <PieceSwitcher onUpload={onUpload} />
-          {(st.tool === "move" || st.tool === "art") && <div className="cg-tool-hint" role="status">
-            {st.tool === "move" ? <><Move /><span>Arraste a caneca para posicionar.<small>Alt: sem encaixe · Escape: cancelar</small></span></> : <><ImagePlus /><span>Arraste sobre a caneca para mover a estampa.<small>Para mover a peça, use G.</small></span></>}
+          {(st.tool === "move" || st.tool === "rotate" || st.tool === "art") && <div className="cg-tool-hint" role="status">
+            {st.tool === "move" ? <><Move /><span>Arraste a caneca para posicionar.<small>Use a seta vertical para altura · Alt: sem encaixe · Esc: cancelar</small></span></> :
+              st.tool === "rotate" ? <><Rotate3D /><span>Girar e inclinar livremente: arraste sobre a caneca.<small>Alt + arrastar: eixo lateral · Shift: precisão · Esc: cancelar</small></span></> :
+              <><ImagePlus /><span>Arraste sobre a caneca para mover a estampa.<small>Para mover a peça, use G.</small></span></>}
           </div>}
           <div className="cg-canvas-label">
             <span className="cg-live-dot" />

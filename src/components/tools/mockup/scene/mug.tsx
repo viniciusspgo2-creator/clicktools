@@ -26,6 +26,7 @@ import { MUG, FLOAT_LIFT, PEDESTAL_H, PLATE_H, detectMobile } from "../lib/confi
 import { studioRefs } from "./studio-refs";
 import { dragPlane, planarDragDelta, pointerOnPlane, uniformScaleFromGizmo } from "./object-interaction";
 import { MUG_CONTACT_LAYER } from "./scene-layout";
+import { freehandRotation } from "../lib/freehand-rotation";
 
 // Selection updates may replace a group's userData during a drag. Keep the
 // animation pause outside React props so it survives that render.
@@ -42,13 +43,15 @@ type ObjectPose = {
   posY: number;
 };
 type TransformGesture = {
-  kind: "move" | "gizmo";
+  kind: "move" | "gizmo" | "rotate-free";
   tool: "move" | "rotate" | "scale";
   pointerId?: number;
   items: ObjectPose[];
   primary: ObjectPose;
   plane?: THREE.Plane;
   anchor?: THREE.Vector3;
+  startClientX?: number;
+  startClientY?: number;
   controls: typeof studioRefs.controls;
   controlsEnabled: boolean;
   cursor: string;
@@ -59,14 +62,24 @@ type ArtGesture = {
 };
 
 
-function CeramicMaterial({ texture, mug, metalMask, color }: {
+function CeramicMaterial({ texture, mug, metalMask, color, basePrint = false }: {
   texture?: THREE.Texture;
   mug: MugState;
   metalMask?: THREE.Texture;
   color?: THREE.ColorRepresentation;
+  basePrint?: boolean;
 }) {
-  const material = useMemo(() => createCeramicMaterial(mug, { map: texture, metalMask, color }),
-    [texture, metalMask, color, mug.roughness, mug.clearcoat, mug.reflection, mug.faithfulColor,
+  const material = useMemo(() => {
+    const result = createCeramicMaterial(mug, { map: texture, metalMask, color });
+    if (basePrint) {
+      // Depth-only offset for the removable bottom print; preserve the
+      // ceramic shader, gloss, color and lighting on every surface.
+      result.polygonOffset = true;
+      result.polygonOffsetFactor = -1;
+      result.polygonOffsetUnits = -3;
+    }
+    return result;
+  }, [texture, metalMask, color, basePrint, mug.roughness, mug.clearcoat, mug.reflection, mug.faithfulColor,
       mug.clearcoatRoughness, mug.specularIntensity, mug.glazeStrength]);
   useEffect(() => () => material.dispose(), [material]);
   return <primitive object={material} attach="material" />;
@@ -161,9 +174,13 @@ function MugObject({
     if (!c) return null;
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 4;
+    // Filter a high-contrast circular print when viewed farther away or obliquely.
+    t.generateMipmaps = true;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
     return t;
-  }, [art.baseImageId, art.baseScale, art.baseOffsetX, art.baseOffsetY, mug.baseColor, mug.bodyColor]);
+  }, [art.baseImageId, art.baseScale, art.baseOffsetX, art.baseOffsetY, mug.baseColor, mug.bodyColor, gl]);
   useEffect(() => () => baseTexture?.dispose(), [baseTexture]);
   const effective = useMemo(
     () => ({
@@ -387,6 +404,14 @@ function MugObject({
         active.plane = plane;
         active.anchor = anchor;
         gl.domElement.setPointerCapture(pointerId);
+      } else if (tool === "rotate") {
+        // Clicking the gizmo keeps its precise 3-axis controls. Dragging the
+        // porcelain itself offers a simpler, unrestricted freehand gesture.
+        const active = beginTransform("rotate-free", pointerId);
+        if (!active) return;
+        active.startClientX = clientX;
+        active.startClientY = clientY;
+        gl.domElement.setPointerCapture(pointerId);
       } else if (tool === "art") {
         pointerOwners.set(gl.domElement, { id, pointerId });
         dragArt.current = { x: clientX, y: clientY, art, pointerId,
@@ -412,6 +437,19 @@ function MugObject({
           item.node.position.z = item.position.z + delta.z;
         }
       }
+      if (active?.kind === "rotate-free" && active.pointerId === e.pointerId &&
+          active.startClientX !== undefined && active.startClientY !== undefined) {
+        e.preventDefault();
+        const dx = e.clientX - active.startClientX;
+        const dy = e.clientY - active.startClientY;
+        for (const item of active.items) {
+          // Alt = roll (Z), normal gesture = yaw (Y) and pitch (X).
+          // Fine mode and unlimited revolutions share the same pure transform.
+          const r = freehandRotation(item.rotation, dx, dy,
+            { fine: e.shiftKey, roll: e.altKey });
+          item.node.rotation.set(r.x, r.y, r.z, "XYZ");
+        }
+      }
       const artDrag = dragArt.current;
       if (!artDrag || artDrag.pointerId !== e.pointerId) return;
       useMockupStore.getState().patchObjectArt(id, {
@@ -420,7 +458,8 @@ function MugObject({
       });
     };
     const end = (e: PointerEvent) => {
-      if (gesture.current?.kind === "move" && gesture.current.pointerId === e.pointerId) finishTransform(true);
+      if ((gesture.current?.kind === "move" || gesture.current?.kind === "rotate-free") &&
+          gesture.current.pointerId === e.pointerId) finishTransform(true);
       if (dragArt.current?.pointerId === e.pointerId) finishArt();
     };
     const cancelPointer = (e: PointerEvent) => {
@@ -526,7 +565,7 @@ function MugObject({
             {baseTexture && (
               <mesh geometry={model.basePrint} rotation={[0, ((art.baseRotation ?? 0) * Math.PI) / 180, 0]}
                 receiveShadow name="mug-base-print" userData={{ objectId: id }}>
-                <CeramicMaterial texture={baseTexture} mug={mug} />
+                <CeramicMaterial texture={baseTexture} mug={mug} basePrint />
               </mesh>
             )}
             {model.def.hasHandle && (
