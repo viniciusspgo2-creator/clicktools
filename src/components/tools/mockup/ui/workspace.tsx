@@ -1242,6 +1242,7 @@ export function Workspace({
                   </button>
                 </div>
               </Section>
+              <BaseArtPanel />
               <Section title="Mais opções da arte" icon={ImagePlus}>
                 <PrintLayersPanel />
                 <ArtPanel onUpload={onUpload} />
