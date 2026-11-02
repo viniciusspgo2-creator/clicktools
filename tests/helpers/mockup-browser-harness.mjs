@@ -13,7 +13,7 @@ const require = createRequire(path.join(root, "package.json"));
 export const toolRequire = process.env.STUDIO_TEST_TOOLS
   ? createRequire(path.resolve(process.env.STUDIO_TEST_TOOLS, "package.json")) : require;
 
-export async function startStudioHarness() {
+export async function startStudioHarness({ noticesOnly = false } = {}) {
   const output = process.env.STUDIO_TEST_OUTPUT || await fs.mkdtemp(path.join(os.tmpdir(), "clicktools-preview-"));
   await fs.mkdir(output, { recursive: true });
   const { build } = toolRequire("esbuild");
@@ -28,13 +28,15 @@ export async function startStudioHarness() {
     import * as images from ${JSON.stringify(path.join(root, "src/components/tools/mockup/exporters/image-exporter.ts"))};
     import * as projects from ${JSON.stringify(path.join(root, "src/components/tools/mockup/ui/projects-dialog.tsx"))};
     import * as portable from ${JSON.stringify(path.join(root, "src/components/tools/mockup/lib/portable-project.ts"))};
+    import {StudioAnnouncements} from ${JSON.stringify(path.join(root, "src/components/tools/mockup/ui/studio-announcements.tsx"))};
+    import {AnnouncementsPanel} from ${JSON.stringify(path.join(root, "src/components/admin/announcements-panel.tsx"))};
     let exporting=refs.exporting, captures=0;
     Object.defineProperty(refs,'exporting',{get:()=>exporting,set:v=>{if(v&&!exporting)captures++;exporting=v;},configurable:true});
     const urls=new Map(), created=URL.createObjectURL.bind(URL), revoked=URL.revokeObjectURL.bind(URL);
     URL.createObjectURL=b=>{const u=created(b);urls.set(u,b);return u;};
     URL.revokeObjectURL=u=>{urls.delete(u);revoked(u);};
     window.studioTest={store,refs,art,images,projects,portable,urls,get captures(){return captures;}};
-    createRoot(document.getElementById('root')).render(<MockupStudio/>);
+    createRoot(document.getElementById('root')).render(${noticesOnly ? "<><StudioAnnouncements/><AnnouncementsPanel refreshKey={0} onUnauthorized={()=>{window.noticeUnauthorized=true;}}/></>" : "<MockupStudio/>"});
   `;
   await build({ stdin: { contents: entry, resolveDir: root, loader: "tsx" }, absWorkingDir: root,
     tsconfig: path.join(root, "tsconfig.json"), nodePaths: [path.join(root, "node_modules")], bundle: true,

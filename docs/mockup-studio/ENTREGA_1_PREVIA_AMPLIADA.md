@@ -1,3 +1,5 @@
+> Atualização: após autorização do proprietário, este lote foi publicado na `main` no commit `5805217`. O texto abaixo preserva o relatório original. Para os lotes posteriores, consulte `ENTREGAS_PRIORITARIAS.md`.
+
 # Fase Zero e Entrega 1 — prévia final ampliada
 
 ## Escopo e estado
